@@ -90,8 +90,6 @@ export default function VerbStudio({ onBack, onGainXp }: Props) {
         
         <div className="pill-row">
           <div className="pill active">● <b>{currentVerb}</b> — {verb.meaning}</div>
-          <div className="pill">Tenses <b>{TENSE_ORDER.length}</b></div>
-          <div className="pill">XP per correct <b>20</b></div>
         </div>
       </div>
 

@@ -2,14 +2,18 @@
 :root {
   --bg: #f8fafc;
   --card-bg: #ffffff;
-  --accent: #14532d;       /* Deep Brazilian Forest Green */
+  --accent: #14532d;
   --accent-hover: #166534;
-  --accent-light: #f0fdf4; /* Soft Mint tint */
-  --text-main: #0f172a;    /* Deep Slate */
-  --text-dim: #64748b;     /* Muted Slate */
+  --accent-light: #f0fdf4;
+  --text-main: #0f172a;
+  --text-dim: #64748b;
   --border: #e2e8f0;
   --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
   --glass: rgba(255, 255, 255, 0.7);
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
@@ -19,44 +23,70 @@ body {
   margin: 0;
   padding: 0;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 
 .container {
   max-width: 1100px;
   margin: 0 auto;
-  padding: 60px 20px;
+  padding: 24px 16px;
   display: flex;
   flex-direction: column;
   align-items: center;
   min-height: 100vh;
+  width: 100%;
 }
 
-/* --- 2. DASHBOARD HEADER --- */
+/* --- 2. TOP BACK BUTTON --- */
+.top-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: white;
+  color: var(--accent);
+  border: 2px solid var(--accent);
+  padding: 8px 18px;
+  border-radius: 50px;
+  font-weight: 800;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: 0.2s;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  align-self: flex-start;
+  margin-bottom: 20px;
+}
+
+.top-back-btn:hover {
+  background: var(--accent);
+  color: white;
+}
+
+/* --- 3. DASHBOARD HEADER --- */
 .dashboard-header {
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  margin-bottom: 70px;
+  margin-bottom: 40px;
   width: 100%;
 }
 
 .flag-circle {
-  width: 100px;
-  height: 100px;
+  width: 80px;
+  height: 80px;
   background: white;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   box-shadow: 0 10px 25px rgba(0,0,0,0.08);
-  margin-bottom: 30px;
+  margin-bottom: 20px;
   border: 4px solid var(--accent-light);
   overflow: hidden;
 }
 
 .main-title {
-  font-size: 4rem;
+  font-size: clamp(2.2rem, 8vw, 4rem);
   font-weight: 900;
   color: var(--accent);
   margin: 0;
@@ -66,97 +96,125 @@ body {
 
 .main-subtitle {
   color: var(--text-dim);
-  font-size: 1.25rem;
+  font-size: clamp(0.95rem, 3vw, 1.25rem);
   font-weight: 500;
-  margin-top: 15px;
+  margin-top: 12px;
 }
 
-/* --- 3. DASHBOARD GRID NAVIGATION --- */
+/* --- 4. DASHBOARD GRID NAVIGATION --- */
 .grid-nav {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
-  gap: 24px;
+  grid-template-columns: 1fr;
+  gap: 16px;
   width: 100%;
+}
+
+@media (min-width: 700px) {
+  .grid-nav {
+    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  }
 }
 
 .nav-card {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 16px;
   background: var(--card-bg);
-  padding: 35px;
-  border-radius: 24px;
+  padding: 24px;
+  border-radius: 20px;
   border: 1px solid var(--border);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
   box-shadow: var(--shadow);
   position: relative;
+  width: 100%;
 }
 
 .nav-card:hover {
   border-color: var(--accent);
-  transform: translateY(-8px);
+  transform: translateY(-4px);
   box-shadow: 0 20px 40px rgba(20, 83, 45, 0.1);
 }
 
 .card-icon {
-  font-size: 2.2rem;
+  font-size: 1.8rem;
   background: var(--accent-light);
-  width: 70px;
-  height: 70px;
+  width: 56px;
+  height: 56px;
+  min-width: 56px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 18px;
+  border-radius: 14px;
   flex-shrink: 0;
 }
 
-.card-content { text-align: left; flex-grow: 1; }
-.card-content h3 { margin: 0; font-size: 1.5rem; color: var(--accent); font-weight: 800; }
-.card-content p { margin: 8px 0 0 0; color: var(--text-dim); font-size: 1rem; line-height: 1.4; }
+.card-content { text-align: left; flex-grow: 1; min-width: 0; }
+.card-content h3 { margin: 0; font-size: clamp(1rem, 3vw, 1.4rem); color: var(--accent); font-weight: 800; }
+.card-content p { margin: 6px 0 0 0; color: var(--text-dim); font-size: clamp(0.8rem, 2.5vw, 0.95rem); line-height: 1.4; }
 
-.card-arrow { font-size: 1.5rem; color: #cbd5e1; transition: 0.3s; }
+.card-arrow { font-size: 1.2rem; color: #cbd5e1; transition: 0.3s; flex-shrink: 0; }
 .nav-card:hover .card-arrow { color: var(--accent); transform: translateX(5px); }
 
-/* Locked Sections */
 .nav-card.locked { opacity: 0.6; cursor: not-allowed; background: #f1f5f9; }
 .lock-tag {
   position: absolute;
-  top: 15px;
-  right: 15px;
+  top: 12px;
+  right: 12px;
   background: #cbd5e1;
   color: #475569;
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   font-weight: 900;
-  padding: 4px 10px;
+  padding: 3px 8px;
   border-radius: 6px;
   text-transform: uppercase;
 }
 
-/* --- 4. VERB STUDIO --- */
-.header-glass {
-  background: white;
-  padding: 24px 32px;
-  border-radius: 24px;
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow);
-  margin-bottom: 40px;
+/* --- 5. VERB STUDIO --- */
+.verb-studio {
   width: 100%;
 }
 
-.top-row { display: flex; justify-content: space-between; align-items: center; gap: 20px; margin-bottom: 20px; }
-.controls-group { display: flex; align-items: center; gap: 12px; flex-grow: 1; }
-.search-wrapper { position: relative; flex-grow: 1; display: flex; align-items: center; }
-.search-icon { position: absolute; left: 16px; color: var(--text-dim); pointer-events: none; z-index: 5; }
+.header-glass {
+  background: white;
+  padding: 16px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  margin-bottom: 24px;
+  width: 100%;
+}
+
+.top-row {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+@media (min-width: 600px) {
+  .top-row {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .header-glass {
+    padding: 24px 32px;
+  }
+}
+
+.controls-group { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; width: 100%; }
+.search-wrapper { position: relative; flex-grow: 1; display: flex; align-items: center; min-width: 0; }
+.search-icon { position: absolute; left: 12px; color: var(--text-dim); pointer-events: none; z-index: 5; }
 
 .verb-search-input {
   width: 100%;
   background: #f1f5f9;
   border: 2px solid transparent;
-  padding: 12px 16px 12px 48px;
+  padding: 10px 12px 10px 40px;
   border-radius: 12px;
   font-family: inherit;
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 600;
   transition: 0.2s;
 }
@@ -165,28 +223,58 @@ body {
 .verb-select {
   background: #f1f5f9;
   border: 2px solid transparent;
-  padding: 12px 16px;
+  padding: 10px 12px;
   border-radius: 12px;
   font-weight: 700;
   color: var(--accent);
   cursor: pointer;
-  min-width: 160px;
   font-family: inherit;
+  font-size: 0.9rem;
+  max-width: 160px;
 }
 
 .verb-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
-  gap: 24px;
+  grid-template-columns: 1fr;
+  gap: 16px;
   width: 100%;
+}
+
+@media (min-width: 900px) {
+  .verb-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 .tense-card {
   background: white;
   border: 1px solid var(--border);
-  border-radius: 24px;
-  padding: 30px;
+  border-radius: 20px;
+  padding: 20px;
   box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.card-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--accent);
+}
+
+.study-badge {
+  font-size: 0.7rem;
+  font-weight: 800;
+  background: var(--accent-light);
+  color: var(--accent);
+  padding: 3px 10px;
+  border-radius: 20px;
 }
 
 .row {
@@ -194,25 +282,94 @@ body {
   justify-content: space-between;
   align-items: center;
   background: #fcfdfd;
-  padding: 14px 20px;
-  border-radius: 14px;
-  margin-bottom: 8px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  margin-bottom: 6px;
+  gap: 8px;
 }
 
-/* --- 5. VOCAB STUDIO --- */
+.person {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  font-weight: 600;
+  flex-shrink: 0;
+  min-width: 100px;
+}
+
+.answer {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--accent);
+  text-align: right;
+}
+
+.quiz-input {
+  background: #f1f5f9;
+  border: 2px solid transparent;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  width: 120px;
+  transition: 0.2s;
+}
+.quiz-input:focus { outline: none; border-color: var(--accent); background: white; }
+.quiz-input.good { border-color: #4caf7d; background: #f0fdf4; color: #14532d; }
+.quiz-input.bad { border-color: #ef4444; background: #fef2f2; }
+
+.sentence-box {
+  margin-top: 14px;
+  background: var(--accent-light);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.pt-sent {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+
+.en-sent {
+  font-size: 0.82rem;
+  color: var(--text-dim);
+}
+
+/* --- 6. VOCAB STUDIO --- */
+.vocab-studio {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
 .vocab-cat-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
   width: 100%;
   max-width: 900px;
+}
+
+@media (min-width: 600px) {
+  .vocab-cat-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 900px) {
+  .vocab-cat-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
 }
 
 .cat-card {
   background: var(--glass);
   backdrop-filter: blur(10px);
-  padding: 35px 20px;
-  border-radius: 28px;
+  padding: 24px 12px;
+  border-radius: 20px;
   border: 1px solid rgba(255, 255, 255, 0.4);
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -220,27 +377,48 @@ body {
 }
 
 .cat-card:hover {
-  transform: translateY(-10px);
+  transform: translateY(-6px);
   background: white;
   border-color: var(--accent);
   box-shadow: 0 20px 40px rgba(20, 83, 45, 0.1);
 }
 
-.flashcard-session { width: 100%; max-width: 500px; align-items: center; display: flex; flex-direction: column; }
+.cat-icon { font-size: 2rem; margin-bottom: 8px; }
+.cat-card h3 { margin: 0 0 4px; font-size: 0.9rem; color: var(--accent); }
+.cat-card p { margin: 0; font-size: 0.75rem; color: var(--text-dim); }
+
+.flashcard-session {
+  width: 100%;
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
 
 .session-nav {
   background: var(--glass);
   backdrop-filter: blur(8px);
-  padding: 12px 24px;
+  padding: 10px 16px;
   border-radius: 50px;
   border: 1px solid var(--border);
   display: flex;
   align-items: center;
-  gap: 15px;
-  margin-bottom: 30px;
+  gap: 10px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
-.flashcard { width: 100%; height: 320px; perspective: 1000px; cursor: pointer; }
+.flashcard {
+  width: 100%;
+  height: 280px;
+  perspective: 1000px;
+  cursor: pointer;
+}
+
+@media (min-width: 500px) {
+  .flashcard { height: 320px; }
+}
 
 .card-inner {
   position: relative;
@@ -257,38 +435,53 @@ body {
   backface-visibility: hidden;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
-  border-radius: 40px;
+  border-radius: 32px;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.5);
+  padding: 20px;
 }
 
 .card-front { background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%); color: var(--accent); }
 .card-back { background: var(--accent); color: #f0fdf4; transform: rotateY(180deg); }
-.card-front h2, .card-back h2 { font-size: 3.2rem; font-weight: 900; margin: 0; }
+.card-front h2, .card-back h2 { font-size: clamp(2rem, 8vw, 3.2rem); font-weight: 900; margin: 0; text-align: center; }
 
-/* --- 6. COMMON UI ELEMENTS --- */
-.pill-row { display: flex; gap: 10px; flex-wrap: wrap; }
+/* --- 7. COMMON UI ELEMENTS --- */
+.pill-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .pill {
-  background: #f1f5f9; padding: 6px 16px; border-radius: 20px;
-  font-size: 0.85rem; color: var(--text-dim); border: 1px solid var(--border); font-weight: 600;
+  background: #f1f5f9; padding: 5px 12px; border-radius: 20px;
+  font-size: 0.8rem; color: var(--text-dim); border: 1px solid var(--border); font-weight: 600;
 }
 .pill.active { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
 
-.mode-selector { display: flex; align-items: center; gap: 12px; cursor: pointer; }
-.toggle-switch { width: 48px; height: 24px; background: #cbd5e1; border-radius: 20px; position: relative; transition: 0.3s; }
+.mode-selector { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.mode-label { font-size: 0.85rem; font-weight: 600; color: var(--text-dim); }
+.toggle-switch { width: 44px; height: 22px; background: #cbd5e1; border-radius: 20px; position: relative; transition: 0.3s; flex-shrink: 0; }
 .toggle-switch.active { background: var(--accent); }
-.switch-handle { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; background: white; border-radius: 50%; transition: 0.3s; }
-.toggle-switch.active .switch-handle { left: 27px; }
+.switch-handle { position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; background: white; border-radius: 50%; transition: 0.3s; }
+.toggle-switch.active .switch-handle { left: 25px; }
 
-.back-btn-container { margin-top: 60px; padding-bottom: 40px; display: flex; justify-content: center; width: 100%; gap: 15px; }
-.back-btn {
-  display: inline-flex; align-items: center; gap: 10px; background-color: transparent;
-  color: var(--accent); border: 2px solid var(--accent); padding: 14px 32px;
-  border-radius: 14px; font-weight: 800; font-size: 1rem; cursor: pointer; transition: 0.3s;
+.back-btn-container {
+  margin-top: 40px;
+  padding-bottom: 30px;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  gap: 12px;
+  flex-wrap: wrap;
 }
-.back-btn:hover { background-color: var(--accent); color: white; transform: translateX(-5px); }
 
-.change-cat-btn { background: none; border: none; color: var(--accent); font-weight: 800; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 1px; cursor: pointer; padding: 8px 12px; border-radius: 8px; transition: 0.2s; }
+.back-btn {
+  display: inline-flex; align-items: center; gap: 8px; background-color: transparent;
+  color: var(--accent); border: 2px solid var(--accent); padding: 12px 24px;
+  border-radius: 12px; font-weight: 800; font-size: 0.95rem; cursor: pointer; transition: 0.3s;
+}
+.back-btn:hover { background-color: var(--accent); color: white; }
+
+.change-cat-btn {
+  background: none; border: none; color: var(--accent); font-weight: 800;
+  text-transform: uppercase; font-size: 0.7rem; letter-spacing: 1px;
+  cursor: pointer; padding: 6px 10px; border-radius: 8px; transition: 0.2s;
+}
 .change-cat-btn:hover { background: var(--accent-light); }
 
 @keyframes fadeIn {
@@ -296,18 +489,18 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* --- 7. GRAMMAR STUDIO --- */
+/* --- 8. GRAMMAR STUDIO --- */
 .grammar-studio {
   width: 100%;
   max-width: 800px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 0;
 }
 
 .grammar-rules-grid {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   margin-bottom: 40px;
 }
 
@@ -316,12 +509,13 @@ body {
   align-items: center;
   justify-content: space-between;
   background: white;
-  border-radius: 16px;
-  padding: 18px 24px;
+  border-radius: 14px;
+  padding: 14px 16px;
   cursor: pointer;
   border: 1.5px solid #eee;
   transition: box-shadow 0.2s, transform 0.2s;
   text-align: left;
+  gap: 10px;
 }
 
 .grammar-rule-card:hover {
@@ -332,59 +526,60 @@ body {
 .grammar-rule-left {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   text-align: left;
+  min-width: 0;
+  flex: 1;
 }
 
 .grammar-rule-left h3 {
-  margin: 0 0 4px 0;
-  font-size: 1rem;
+  margin: 0 0 3px 0;
+  font-size: 0.95rem;
   color: var(--text-main);
   text-align: left;
 }
 
 .grammar-rule-left p {
   margin: 0;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   color: #888;
-  max-width: 500px;
   text-align: left;
+  line-height: 1.4;
 }
 
 .grammar-level-badge {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 800;
   color: white;
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  white-space: nowrap;
   flex-shrink: 0;
 }
 
-/* Grammar Detail Page */
 .grammar-detail {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
 }
 
 .grammar-detail-header {
   text-align: center;
-  padding: 32px 20px 20px;
+  padding: 20px 10px 10px;
 }
 
 .grammar-detail-header h2 {
-  font-size: 2rem;
+  font-size: clamp(1.4rem, 5vw, 2rem);
   margin: 12px 0 8px;
   color: var(--text-main);
 }
 
 .grammar-summary {
-  font-size: 1rem;
+  font-size: 0.95rem;
   color: #666;
   max-width: 560px;
   margin: 0 auto;
@@ -395,18 +590,18 @@ body {
   background: #f0f7f4;
   border-left: 4px solid var(--accent);
   border-radius: 12px;
-  padding: 20px 24px;
+  padding: 16px 18px;
 }
 
 .grammar-explanation-box h4 {
-  margin: 0 0 10px;
-  font-size: 0.95rem;
+  margin: 0 0 8px;
+  font-size: 0.9rem;
   color: var(--accent);
 }
 
 .grammar-explanation-box p {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   line-height: 1.7;
   color: #444;
 }
@@ -414,12 +609,12 @@ body {
 .grammar-examples-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .grammar-examples-list h4 {
   margin: 0 0 8px;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   color: var(--text-main);
 }
 
@@ -427,18 +622,18 @@ body {
   background: white;
   border: 1.5px solid #eee;
   border-radius: 12px;
-  padding: 14px 18px;
+  padding: 12px 14px;
   text-align: left;
 }
 
 .grammar-pt {
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 700;
   color: var(--text-main);
   margin-bottom: 4px;
 }
 
 .grammar-en {
-  font-size: 0.88rem;
+  font-size: 0.83rem;
   color: #888;
 }
