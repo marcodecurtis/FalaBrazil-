@@ -896,3 +896,271 @@ body {
   background: var(--accent);
   color: white;
 }
+
+/* --- PRONUNCIATION STUDIO --- */
+.pronunciation-studio {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0;
+}
+
+.pronunciation-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 24px;
+  justify-content: center;
+}
+
+.pronunciation-filter-btn {
+  background: white;
+  border: 1.5px solid #eee;
+  border-radius: 50px;
+  padding: 6px 14px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.2s;
+  font-family: inherit;
+  color: var(--text-dim);
+}
+
+.pronunciation-filter-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.pronunciation-filter-btn.active {
+  color: white;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.pronunciation-rules-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  margin-bottom: 40px;
+}
+
+@media (min-width: 600px) {
+  .pronunciation-rules-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 900px) {
+  .pronunciation-rules-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.pronunciation-rule-card {
+  background: white;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1.5px solid #eee;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.pronunciation-rule-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 30px rgba(0,0,0,0.1);
+}
+
+.pronunciation-card-top {
+  height: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 18px;
+}
+
+.pronunciation-card-emoji {
+  font-size: 2rem;
+}
+
+.pronunciation-card-cat {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: rgba(255,255,255,0.9);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.pronunciation-card-body {
+  padding: 14px 16px;
+}
+
+.pronunciation-card-body h3 {
+  margin: 0 0 6px;
+  font-size: 0.95rem;
+  color: var(--text-main);
+}
+
+.pronunciation-card-body p {
+  margin: 0 0 12px;
+  font-size: 0.78rem;
+  color: #888;
+  line-height: 1.4;
+}
+
+.pronunciation-card-footer {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: #aaa;
+}
+
+.pronunciation-read-btn {
+  color: var(--accent);
+  font-weight: 800;
+}
+
+/* Detail page */
+.pronunciation-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.pronunciation-detail-header {
+  padding-bottom: 20px;
+  margin-bottom: 4px;
+}
+
+.pronunciation-meta-row {
+  margin-bottom: 12px;
+}
+
+.pronunciation-cat-badge {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: white;
+  padding: 5px 14px;
+  border-radius: 20px;
+}
+
+.pronunciation-detail-header h2 {
+  font-size: clamp(1.4rem, 5vw, 2rem);
+  margin: 10px 0 8px;
+  color: var(--text-main);
+}
+
+.pronunciation-summary {
+  font-size: 0.95rem;
+  color: #666;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.pronunciation-explanation-box {
+  background: #f0f7f4;
+  border-left: 4px solid var(--accent);
+  border-radius: 12px;
+  padding: 16px 18px;
+}
+
+.pronunciation-explanation-box h4 {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+  color: var(--accent);
+}
+
+.pronunciation-explanation-box p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.7;
+  color: #444;
+}
+
+.pronunciation-tip-box {
+  background: #fff8e1;
+  border-left: 4px solid #f4a261;
+  border-radius: 12px;
+  padding: 16px 18px;
+}
+
+.pronunciation-tip-box h4 {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+  color: #e07b39;
+}
+
+.pronunciation-tip-box p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: #555;
+  font-weight: 600;
+}
+
+.pronunciation-examples-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pronunciation-examples-list h4 {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+  color: var(--text-main);
+}
+
+.pronunciation-example-row {
+  background: white;
+  border: 1.5px solid #eee;
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: 0.15s;
+  gap: 10px;
+}
+
+.pronunciation-example-row:hover {
+  border-color: var(--accent);
+  background: var(--accent-light);
+}
+
+.pronunciation-example-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pronunciation-word {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.pronunciation-phonetic {
+  font-size: 0.85rem;
+  color: var(--accent);
+  font-style: italic;
+  font-weight: 600;
+}
+
+.pronunciation-meaning {
+  font-size: 0.8rem;
+  color: #888;
+}
+
+.speak-btn-round {
+  font-size: 1.2rem;
+  background: var(--accent-light);
+  border: 1.5px solid var(--accent);
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
+}

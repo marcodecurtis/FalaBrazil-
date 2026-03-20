@@ -4,8 +4,9 @@ import VerbStudio from './VerbStudio';
 import VocabStudio from './VocabStudio';
 import GrammarStudio from './GrammarStudio';
 import ReadingStudio from './ReadingStudio';
+import PronunciationStudio from './PronunciationStudio';
 
-type View = 'home' | 'verbs' | 'vocab' | 'grammar' | 'reading';
+type View = 'home' | 'verbs' | 'vocab' | 'grammar' | 'reading' | 'pronunciation';
 
 function App() {
   const [view, setView] = useState<View>('home');
@@ -74,28 +75,42 @@ function App() {
               </div>
               <div className="card-arrow">→</div>
             </div>
+
+            <div className="nav-card" onClick={() => setView('pronunciation')}>
+              <div className="card-icon">🔊</div>
+              <div className="card-content">
+                <h3>Pronúncia</h3>
+                <p>20 regras de pronúncia com exemplos para ouvir.</p>
+              </div>
+              <div className="card-arrow">→</div>
+            </div>
           </div>
         </div>
       )}
 
-      {/* 2. VERB STUDIO VIEW */}
+      {/* 2. VERB STUDIO */}
       {view === 'verbs' && (
         <VerbStudio onBack={() => setView('home')} onGainXp={() => {}} />
       )}
 
-      {/* 3. VOCAB STUDIO VIEW */}
+      {/* 3. VOCAB STUDIO */}
       {view === 'vocab' && (
         <VocabStudio onBack={() => setView('home')} onGainXp={() => {}} />
       )}
 
-      {/* 4. GRAMMAR STUDIO VIEW */}
+      {/* 4. GRAMMAR STUDIO */}
       {view === 'grammar' && (
         <GrammarStudio onBack={() => setView('home')} />
       )}
 
-      {/* 5. READING STUDIO VIEW */}
+      {/* 5. READING STUDIO */}
       {view === 'reading' && (
         <ReadingStudio onBack={() => setView('home')} />
+      )}
+
+      {/* 6. PRONUNCIATION STUDIO */}
+      {view === 'pronunciation' && (
+        <PronunciationStudio onBack={() => setView('home')} />
       )}
 
       {/* FOOTER */}
