@@ -3,7 +3,7 @@ import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBGIsGtqvOIatBHLbhbJjnJe7tJonUYiE8",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: "fala-brazil.firebaseapp.com",
   projectId: "fala-brazil",
   storageBucket: "fala-brazil.firebasestorage.app",
