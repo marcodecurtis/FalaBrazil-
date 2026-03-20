@@ -1164,3 +1164,34 @@ body {
   flex-shrink: 0;
   padding: 0;
 }
+/* --- EXPRESSIONS STUDIO --- */
+.expressions-studio { width: 100%; max-width: 800px; margin: 0 auto; padding: 0; }
+.expressions-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 40px; }
+@media (min-width: 700px) { .expressions-grid { grid-template-columns: repeat(3, 1fr); } }
+.expressions-cat-card { background: white; border-radius: 18px; overflow: hidden; border: 1.5px solid #eee; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
+.expressions-cat-card:hover { transform: translateY(-4px); box-shadow: 0 12px 30px rgba(0,0,0,0.1); }
+.expressions-cat-top { height: 80px; display: flex; align-items: center; justify-content: center; }
+.expressions-cat-emoji { font-size: 2.5rem; }
+.expressions-cat-body { padding: 14px 16px; }
+.expressions-cat-body h3 { margin: 0 0 6px; font-size: 0.95rem; color: var(--text-main); font-weight: 800; }
+.expressions-cat-body p { margin: 0 0 12px; font-size: 0.75rem; color: #888; line-height: 1.4; }
+.expressions-cat-footer { display: flex; justify-content: space-between; font-size: 0.75rem; color: #aaa; }
+.expressions-read-btn { color: var(--accent); font-weight: 800; }
+.expressions-detail-header { padding-bottom: 20px; margin-bottom: 20px; }
+.expressions-cat-badge { font-size: 0.78rem; font-weight: 800; color: white; padding: 5px 14px; border-radius: 20px; display: inline-block; margin-bottom: 12px; }
+.expressions-detail-header h2 { font-size: clamp(1.4rem, 5vw, 2rem); margin: 0 0 8px; color: var(--text-main); }
+.expressions-description { font-size: 0.9rem; color: #666; margin: 0; }
+.expressions-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 40px; }
+.expression-card { background: white; border-radius: 14px; border: 1.5px solid #eee; overflow: hidden; transition: 0.2s; }
+.expression-card.expanded { box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+.expression-main { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; cursor: pointer; gap: 10px; }
+.expression-main:hover { background: #fafafa; }
+.expression-content { flex: 1; min-width: 0; }
+.expression-pt { font-size: 1rem; font-weight: 800; color: var(--text-main); margin-bottom: 3px; }
+.expression-en { font-size: 0.82rem; color: #888; font-style: italic; }
+.expression-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.expression-expand-btn { font-size: 0.7rem; color: #aaa; cursor: pointer; }
+.expression-example { background: var(--accent-light); border-top: 1px solid #e8f5e9; padding: 14px 16px; }
+.expression-example-label { font-size: 0.75rem; font-weight: 800; color: var(--accent); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+.expression-example-pt { font-size: 0.95rem; font-weight: 700; color: var(--text-main); margin-bottom: 4px; }
+.expression-example-en { font-size: 0.83rem; color: #666; font-style: italic; }
