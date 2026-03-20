@@ -3,8 +3,9 @@ import './App.css';
 import VerbStudio from './VerbStudio';
 import VocabStudio from './VocabStudio';
 import GrammarStudio from './GrammarStudio';
+import ReadingStudio from './ReadingStudio';
 
-type View = 'home' | 'verbs' | 'vocab' | 'grammar';
+type View = 'home' | 'verbs' | 'vocab' | 'grammar' | 'reading';
 
 function App() {
   const [view, setView] = useState<View>('home');
@@ -12,7 +13,7 @@ function App() {
   return (
     <div className="container">
 
-      {/* FIXED BACK BUTTON — shows on all views except home */}
+      {/* FIXED BACK BUTTON */}
       {view !== 'home' && (
         <button className="top-back-btn" onClick={() => setView('home')}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -64,6 +65,15 @@ function App() {
               </div>
               <div className="card-arrow">→</div>
             </div>
+
+            <div className="nav-card" onClick={() => setView('reading')}>
+              <div className="card-icon">📰</div>
+              <div className="card-content">
+                <h3>Leitura</h3>
+                <p>Lê artigos reais em português com tradução integrada.</p>
+              </div>
+              <div className="card-arrow">→</div>
+            </div>
           </div>
         </div>
       )}
@@ -81,6 +91,11 @@ function App() {
       {/* 4. GRAMMAR STUDIO VIEW */}
       {view === 'grammar' && (
         <GrammarStudio onBack={() => setView('home')} />
+      )}
+
+      {/* 5. READING STUDIO VIEW */}
+      {view === 'reading' && (
+        <ReadingStudio onBack={() => setView('home')} />
       )}
 
       {/* FOOTER */}
