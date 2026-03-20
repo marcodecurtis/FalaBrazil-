@@ -1,6 +1,8 @@
 const API_KEY  = import.meta.env.VITE_ELEVENLABS_API_KEY  as string;
 const VOICE_ID = import.meta.env.VITE_ELEVENLABS_VOICE_ID as string;
 
+const PLAYBACK_RATE = 1.0;
+
 // Cache so the same word never triggers a second API call
 const audioCache = new Map<string, string>();
 
@@ -18,7 +20,9 @@ export const speak = async (text: string): Promise<void> => {
   if (audioCache.has(text)) {
     const audio = new Audio(audioCache.get(text)!);
     currentAudio = audio;
-    audio.play();
+    audio.play().then(() => {
+      audio.playbackRate = PLAYBACK_RATE;
+    });
     return;
   }
 
@@ -43,11 +47,7 @@ export const speak = async (text: string): Promise<void> => {
         },
         body: JSON.stringify({
           text,
-          model_id: 'eleven_flash_v2_5',   // lowest latency model
-          voice_settings: {
-            stability:        0.5,
-            similarity_boost: 0.75,
-          },
+          model_id: 'eleven_multilingual_v2',
         }),
       }
     );
@@ -64,7 +64,9 @@ export const speak = async (text: string): Promise<void> => {
 
     const audio = new Audio(objectUrl);
     currentAudio = audio;
-    audio.play();
+    audio.play().then(() => {
+      audio.playbackRate = PLAYBACK_RATE;
+    });
 
   } catch (err) {
     console.error('ElevenLabs speak failed:', err);
@@ -74,4 +76,14 @@ export const speak = async (text: string): Promise<void> => {
     utterance.rate  = 0.85;
     window.speechSynthesis.speak(utterance);
   }
+};
+
+export const stopSpeaking = (): void => {
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio.currentTime = 0;
+    currentAudio = null;
+  }
+  // Also stop browser TTS fallback if active
+  window.speechSynthesis.cancel();
 };

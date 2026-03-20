@@ -1,39 +1,126 @@
 import { useState, useEffect } from 'react';
 import './App.css';
+import { onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from './firebase';
 import VerbStudio from './VerbStudio';
 import VocabStudio from './VocabStudio';
 import GrammarStudio from './GrammarStudio';
 import ReadingStudio from './ReadingStudio';
 import PronunciationStudio from './PronunciationStudio';
 import OnboardingScreen from './OnboardingScreen';
+import WelcomeScreen from './WelcomeScreen';
+import AuthScreen from './AuthScreen';
+import { stopSpeaking } from './speak';
 
 type Level = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
-type View = 'onboarding' | 'home' | 'verbs' | 'vocab' | 'grammar' | 'reading' | 'pronunciation';
+type View = 'loading' | 'welcome' | 'auth' | 'onboarding' | 'home' | 'verbs' | 'vocab' | 'grammar' | 'reading' | 'pronunciation';
 
-function App() {
-  const [view, setView] = useState<View>('onboarding');
+interface UserData {
+  name: string;
+  email: string;
+  level: Level | null;
+  xp: number;
+  streak: number;
+}
+
+export default function App() {
+  const [view, setView]           = useState<View>('loading');
   const [userLevel, setUserLevel] = useState<Level | null>(null);
+  const [userData, setUserData]   = useState<UserData | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  // On first load: check if user already has a saved level
   useEffect(() => {
-    const saved = localStorage.getItem('userLevel') as Level | null;
-    if (saved) {
-      setUserLevel(saved);
-      setView('home');
-    }
+    // Listen for Firebase auth state changes
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        // User is logged in — fetch their Firestore data
+        setIsLoggedIn(true);
+        try {
+          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+          if (userDoc.exists()) {
+            const data = userDoc.data() as UserData;
+            setUserData(data);
+            if (data.level) {
+              setUserLevel(data.level);
+              localStorage.setItem('userLevel', data.level);
+              setView('home');
+            } else {
+              setView('onboarding');
+            }
+          } else {
+            setView('onboarding');
+          }
+        } catch {
+          setView('onboarding');
+        }
+      } else {
+        // Not logged in — check localStorage for returning guest
+        setIsLoggedIn(false);
+        const hasSeenWelcome = localStorage.getItem('hasSeenWelcome');
+        const savedLevel     = localStorage.getItem('userLevel') as Level | null;
+
+        if (hasSeenWelcome && savedLevel) {
+          setUserLevel(savedLevel);
+          setView('home');
+        } else if (hasSeenWelcome) {
+          setView('onboarding');
+        } else {
+          setView('welcome');
+        }
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
+
+  const navigateTo = (newView: View) => {
+    stopSpeaking();
+    setView(newView);
+  };
+
+  const handleWelcomeFinish = () => {
+    localStorage.setItem('hasSeenWelcome', 'true');
+    setView('auth');
+  };
+
+  const handleAuthSuccess = () => {
+    // Firebase onAuthStateChanged will handle the redirect automatically
+  };
+
+  const handleContinueWithoutAccount = () => {
+    const savedLevel = localStorage.getItem('userLevel') as Level | null;
+    if (savedLevel) {
+      setUserLevel(savedLevel);
+      setView('home');
+    } else {
+      setView('onboarding');
+    }
+  };
 
   const handleOnboardingComplete = (level: Level) => {
     setUserLevel(level);
     setView('home');
   };
 
+  // ── LOADING ───────────────────────────────────────
+  if (view === 'loading') {
+    return (
+      <div className="container" style={{ justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+        <div style={{ textAlign: 'center' }}>
+          <img src="https://flagcdn.com/w80/br.png" alt="Brazil" style={{ width: '48px', borderRadius: '6px', marginBottom: '16px' }} />
+          <div style={{ fontSize: '0.85rem', color: 'var(--text-dim)', fontWeight: 600 }}>A carregar...</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container">
 
-      {/* ── BACK BUTTON (all views except home & onboarding) ── */}
-      {view !== 'home' && view !== 'onboarding' && (
-        <button className="top-back-btn" onClick={() => setView('home')}>
+      {/* ── BACK BUTTON ── */}
+      {view !== 'home' && view !== 'onboarding' && view !== 'welcome' && view !== 'auth' && (
+        <button className="top-back-btn" onClick={() => navigateTo('home')}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <path d="M15 18l-6-6 6-6"/>
           </svg>
@@ -41,147 +128,96 @@ function App() {
         </button>
       )}
 
-      {/* ── ONBOARDING ── */}
-      {view === 'onboarding' && (
-        <OnboardingScreen onComplete={handleOnboardingComplete} />
-      )}
+      {view === 'welcome'      && <WelcomeScreen onFinish={handleWelcomeFinish} />}
+      {view === 'auth'         && <AuthScreen onContinueWithoutAccount={handleContinueWithoutAccount} onAuthSuccess={handleAuthSuccess} />}
+      {view === 'onboarding'   && <OnboardingScreen onComplete={handleOnboardingComplete} />}
 
-      {/* ── HOME DASHBOARD ── */}
+      {/* ── HOME ── */}
       {view === 'home' && (
         <div className="dashboard">
           <header className="dashboard-header">
             <div className="flag-circle">
-              <img
-                src="https://flagcdn.com/w160/br.png"
-                alt="Brazil"
-                style={{ width: '60px', height: '42px', borderRadius: '4px', objectFit: 'cover' }}
-              />
+              <img src="https://flagcdn.com/w160/br.png" alt="Brazil" style={{ width: '60px', height: '42px', borderRadius: '4px', objectFit: 'cover' }} />
             </div>
             <h1 className="main-title">Fala Brazil!</h1>
-            <p className="main-subtitle">Aprende português do jeito certo</p>
+            {userData?.name
+              ? <p className="main-subtitle">Olá, {userData.name.split(' ')[0]}! Pronto para aprender? 👋</p>
+              : <p className="main-subtitle">Aprende português do jeito certo</p>
+            }
 
-            {/* Level badge — shown once user has a level */}
-            {userLevel && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px' }}>
-                <span style={{
-                  background: 'var(--accent)',
-                  color: 'white',
-                  fontWeight: 800,
-                  fontSize: '0.78rem',
-                  padding: '4px 14px',
-                  borderRadius: '20px',
-                  letterSpacing: '0.5px',
-                }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
+              {userLevel && (
+                <span style={{ background: 'var(--accent)', color: 'white', fontWeight: 800, fontSize: '0.78rem', padding: '4px 14px', borderRadius: '20px', letterSpacing: '0.5px' }}>
                   Nível {userLevel}
                 </span>
+              )}
+              {isLoggedIn ? (
                 <button
-                  onClick={() => setView('onboarding')}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--text-dim)',
-                    fontSize: '0.75rem',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    padding: '4px 8px',
-                    borderRadius: '8px',
-                    fontFamily: 'inherit',
+                  onClick={async () => {
+                    await auth.signOut();
+                    localStorage.removeItem('userLevel');
+                    localStorage.removeItem('hasSeenWelcome');
+                    setUserData(null);
+                    setUserLevel(null);
+                    setView('welcome');
                   }}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-dim)', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', padding: '4px 8px', borderRadius: '8px', fontFamily: 'inherit' }}
                 >
-                  Alterar nível
+                  Sair
                 </button>
-              </div>
-            )}
+              ) : (
+                <button
+                  onClick={() => navigateTo('auth')}
+                  style={{ background: 'none', border: '1.5px solid var(--accent)', color: 'var(--accent)', fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer', padding: '4px 12px', borderRadius: '20px', fontFamily: 'inherit' }}
+                >
+                  Criar conta
+                </button>
+              )}
+            </div>
           </header>
 
           <div className="grid-nav">
-            <div className="nav-card" onClick={() => setView('verbs')}>
+            <div className="nav-card" onClick={() => navigateTo('verbs')}>
               <div className="card-icon">📚</div>
-              <div className="card-content">
-                <h3>Praticar Verbos</h3>
-                <p>Treine as 6 conjugações mais importantes de 100 verbos.</p>
-              </div>
+              <div className="card-content"><h3>Praticar Verbos</h3><p>Treine as 6 conjugações mais importantes de 100 verbos.</p></div>
               <div className="card-arrow">→</div>
             </div>
-
-            <div className="nav-card" onClick={() => setView('vocab')}>
+            <div className="nav-card" onClick={() => navigateTo('vocab')}>
               <div className="card-icon">🗂️</div>
-              <div className="card-content">
-                <h3>Aprender Palavras</h3>
-                <p>Flashcards inteligentes divididos por 10 categorias.</p>
-              </div>
+              <div className="card-content"><h3>Aprender Palavras</h3><p>Flashcards inteligentes divididos por 10 categorias.</p></div>
               <div className="card-arrow">→</div>
             </div>
-
-            <div className="nav-card" onClick={() => setView('grammar')}>
+            <div className="nav-card" onClick={() => navigateTo('grammar')}>
               <div className="card-icon">✍️</div>
-              <div className="card-content">
-                <h3>Gramática</h3>
-                <p>20 regras essenciais com exemplos do A1 ao B2.</p>
-              </div>
+              <div className="card-content"><h3>Gramática</h3><p>20 regras essenciais com exemplos do A1 ao B2.</p></div>
               <div className="card-arrow">→</div>
             </div>
-
-            <div className="nav-card" onClick={() => setView('reading')}>
+            <div className="nav-card" onClick={() => navigateTo('reading')}>
               <div className="card-icon">📰</div>
-              <div className="card-content">
-                <h3>Leitura</h3>
-                <p>Lê artigos reais em português com tradução integrada.</p>
-              </div>
+              <div className="card-content"><h3>Leitura</h3><p>Lê artigos reais em português com tradução integrada.</p></div>
               <div className="card-arrow">→</div>
             </div>
-
-            <div className="nav-card" onClick={() => setView('pronunciation')}>
+            <div className="nav-card" onClick={() => navigateTo('pronunciation')}>
               <div className="card-icon">🔊</div>
-              <div className="card-content">
-                <h3>Pronúncia</h3>
-                <p>20 regras de pronúncia com exemplos para ouvir.</p>
-              </div>
+              <div className="card-content"><h3>Pronúncia</h3><p>20 regras de pronúncia com exemplos para ouvir.</p></div>
               <div className="card-arrow">→</div>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── VERB STUDIO ── */}
-      {view === 'verbs' && (
-        <VerbStudio onBack={() => setView('home')} onGainXp={() => {}} />
-      )}
+      {view === 'verbs'         && <VerbStudio onBack={() => navigateTo('home')} onGainXp={() => {}} />}
+      {view === 'vocab'         && <VocabStudio onBack={() => navigateTo('home')} onGainXp={() => {}} />}
+      {view === 'grammar'       && <GrammarStudio onBack={() => navigateTo('home')} />}
+      {view === 'reading'       && <ReadingStudio onBack={() => navigateTo('home')} />}
+      {view === 'pronunciation' && <PronunciationStudio onBack={() => navigateTo('home')} />}
 
-      {/* ── VOCAB STUDIO ── */}
-      {view === 'vocab' && (
-        <VocabStudio onBack={() => setView('home')} onGainXp={() => {}} />
-      )}
-
-      {/* ── GRAMMAR STUDIO ── */}
-      {view === 'grammar' && (
-        <GrammarStudio onBack={() => setView('home')} />
-      )}
-
-      {/* ── READING STUDIO ── */}
-      {view === 'reading' && (
-        <ReadingStudio onBack={() => setView('home')} />
-      )}
-
-      {/* ── PRONUNCIATION STUDIO ── */}
-      {view === 'pronunciation' && (
-        <PronunciationStudio onBack={() => setView('home')} />
-      )}
-
-      {/* FOOTER */}
       <footer style={{ marginTop: 'auto', paddingTop: '60px', paddingBottom: '20px', textAlign: 'center', fontSize: '0.85rem', color: '#94a3b8' }}>
         Created by{' '}
-        <a
-          href="https://www.nocodediary.co.uk/"
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ color: '#14532d', fontWeight: 800, textDecoration: 'none' }}
-        >
+        <a href="https://www.nocodediary.co.uk/" target="_blank" rel="noopener noreferrer" style={{ color: '#14532d', fontWeight: 800, textDecoration: 'none' }}>
           Marco De Curtis
         </a>
       </footer>
     </div>
   );
 }
-
-export default App;

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { PRONUNCIATION_RULES } from './pronunciationData';
 import type { PronunciationRule } from './pronunciationData';
-import { speak } from './speak';
+import { speak, stopSpeaking } from './speak';
 
 interface Props {
   onBack: () => void;
@@ -75,7 +75,7 @@ export default function PronunciationStudio({ onBack }: Props) {
           </div>
 
           <div className="back-btn-container">
-            <button className="back-btn" onClick={() => setSelectedRule(null)}>
+            <button className="back-btn" onClick={() => { stopSpeaking(); setSelectedRule(null); }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M15 18l-6-6 6-6"/>
               </svg>
@@ -95,7 +95,6 @@ export default function PronunciationStudio({ onBack }: Props) {
         <p className="main-subtitle">Aprende a soar como um brasileiro</p>
       </header>
 
-      {/* Category Filter */}
       <div className="pronunciation-filter-row">
         {categories.map(cat => (
           <button
@@ -136,7 +135,7 @@ export default function PronunciationStudio({ onBack }: Props) {
       </div>
 
       <div className="back-btn-container">
-        <button className="back-btn" onClick={onBack}>
+        <button className="back-btn" onClick={() => { stopSpeaking(); onBack(); }}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <path d="M15 18l-6-6 6-6"/>
           </svg>

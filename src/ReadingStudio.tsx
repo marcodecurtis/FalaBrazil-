@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ARTICLES } from './articlesData';
 import type { Article } from './articlesData';
+import { speak, stopSpeaking } from './speak';
 
 interface Props {
   onBack: () => void;
@@ -35,12 +36,7 @@ export default function ReadingStudio({ onBack }: Props) {
 
   const handleSpeak = (text: string, index: number) => {
     setSpeakingIndex(index);
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'pt-BR';
-    utterance.rate = 0.85;
-    utterance.onend = () => setSpeakingIndex(null);
-    window.speechSynthesis.speak(utterance);
+    speak(text).finally(() => setSpeakingIndex(null));
   };
 
   if (selectedArticle) {
@@ -95,14 +91,7 @@ export default function ReadingStudio({ onBack }: Props) {
                   <button
                     className="speak-btn"
                     style={{ flexShrink: 0, marginTop: '2px', background: speakingIndex === i ? '#e07b39' : undefined }}
-                    onClick={() => {
-                      if (speakingIndex === i) {
-                        window.speechSynthesis.cancel();
-                        setSpeakingIndex(null);
-                      } else {
-                        handleSpeak(para.pt, i);
-                      }
-                    }}
+                    onClick={() => handleSpeak(para.pt, i)}
                     title="Ouvir parágrafo"
                   >
                     {speakingIndex === i ? '⏹' : '🔊'}
@@ -127,11 +116,11 @@ export default function ReadingStudio({ onBack }: Props) {
 
           <div className="back-btn-container">
             <button className="back-btn" onClick={() => {
+              stopSpeaking();
               setSelectedArticle(null);
               setShowTranslation(false);
               setRevealedParagraphs(new Set());
               setSpeakingIndex(null);
-              window.speechSynthesis.cancel();
             }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M15 18l-6-6 6-6"/>
@@ -183,7 +172,7 @@ export default function ReadingStudio({ onBack }: Props) {
       </div>
 
       <div className="back-btn-container">
-        <button className="back-btn" onClick={onBack}>
+        <button className="back-btn" onClick={() => { stopSpeaking(); onBack(); }}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <path d="M15 18l-6-6 6-6"/>
           </svg>
