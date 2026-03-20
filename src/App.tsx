@@ -31,10 +31,8 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
-    // Listen for Firebase auth state changes
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        // User is logged in — fetch their Firestore data
         setIsLoggedIn(true);
         try {
           const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
@@ -55,7 +53,6 @@ export default function App() {
           setView('onboarding');
         }
       } else {
-        // Not logged in — check localStorage for returning guest
         setIsLoggedIn(false);
         const hasSeenWelcome = localStorage.getItem('hasSeenWelcome');
         const savedLevel     = localStorage.getItem('userLevel') as Level | null;
@@ -128,9 +125,9 @@ export default function App() {
         </button>
       )}
 
-      {view === 'welcome'      && <WelcomeScreen onFinish={handleWelcomeFinish} />}
-      {view === 'auth'         && <AuthScreen onContinueWithoutAccount={handleContinueWithoutAccount} onAuthSuccess={handleAuthSuccess} />}
-      {view === 'onboarding'   && <OnboardingScreen onComplete={handleOnboardingComplete} />}
+      {view === 'welcome'    && <WelcomeScreen onFinish={handleWelcomeFinish} />}
+      {view === 'auth'       && <AuthScreen onContinueWithoutAccount={handleContinueWithoutAccount} onAuthSuccess={handleAuthSuccess} />}
+      {view === 'onboarding' && <OnboardingScreen onComplete={handleOnboardingComplete} />}
 
       {/* ── HOME ── */}
       {view === 'home' && (
@@ -201,6 +198,18 @@ export default function App() {
               <div className="card-icon">🔊</div>
               <div className="card-content"><h3>Pronúncia</h3><p>20 regras de pronúncia com exemplos para ouvir.</p></div>
               <div className="card-arrow">→</div>
+            </div>
+            <div className="nav-card" style={{ opacity: 0.6, cursor: 'default' }}>
+              <div className="card-icon">🤖</div>
+              <div className="card-content">
+                <h3>
+                  AI Tutor{' '}
+                  <span style={{ fontSize: '0.65rem', background: '#fef9c3', color: '#854d0e', fontWeight: 800, padding: '2px 8px', borderRadius: '10px', marginLeft: '6px', verticalAlign: 'middle' }}>
+                    Coming Soon
+                  </span>
+                </h3>
+                <p>Chat with an AI tutor in Portuguese. Get instant feedback.</p>
+              </div>
             </div>
           </div>
         </div>
