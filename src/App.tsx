@@ -106,7 +106,7 @@ export default function App() {
       <div className="container" style={{ justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
         <div style={{ textAlign: 'center' }}>
           <img src="https://flagcdn.com/w80/br.png" alt="Brazil" style={{ width: '48px', borderRadius: '6px', marginBottom: '16px' }} />
-          <div style={{ fontSize: '0.85rem', color: 'var(--text-dim)', fontWeight: 600 }}>A carregar...</div>
+          <div style={{ fontSize: '0.85rem', color: 'var(--text-dim)', fontWeight: 600 }}>Loading...</div>
         </div>
       </div>
     );
@@ -121,7 +121,7 @@ export default function App() {
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <path d="M15 18l-6-6 6-6"/>
           </svg>
-          Voltar
+          Back
         </button>
       )}
 
@@ -138,14 +138,14 @@ export default function App() {
             </div>
             <h1 className="main-title">Fala Brazil!</h1>
             {userData?.name
-              ? <p className="main-subtitle">Olá, {userData.name.split(' ')[0]}! Pronto para aprender? 👋</p>
-              : <p className="main-subtitle">Aprende português do jeito certo</p>
+              ? <p className="main-subtitle">Hey {userData.name.split(' ')[0]}! Ready to learn? 👋</p>
+              : <p className="main-subtitle">Learn Portuguese the right way</p>
             }
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
               {userLevel && (
                 <span style={{ background: 'var(--accent)', color: 'white', fontWeight: 800, fontSize: '0.78rem', padding: '4px 14px', borderRadius: '20px', letterSpacing: '0.5px' }}>
-                  Nível {userLevel}
+                  Level {userLevel}
                 </span>
               )}
               {isLoggedIn ? (
@@ -160,14 +160,14 @@ export default function App() {
                   }}
                   style={{ background: 'none', border: 'none', color: 'var(--text-dim)', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', padding: '4px 8px', borderRadius: '8px', fontFamily: 'inherit' }}
                 >
-                  Sair
+                  Log out
                 </button>
               ) : (
                 <button
                   onClick={() => navigateTo('auth')}
                   style={{ background: 'none', border: '1.5px solid var(--accent)', color: 'var(--accent)', fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer', padding: '4px 12px', borderRadius: '20px', fontFamily: 'inherit' }}
                 >
-                  Criar conta
+                  Create account
                 </button>
               )}
             </div>
@@ -176,34 +176,34 @@ export default function App() {
           <div className="grid-nav">
             <div className="nav-card" onClick={() => navigateTo('verbs')}>
               <div className="card-icon">📚</div>
-              <div className="card-content"><h3>Praticar Verbos</h3><p>Treine as 6 conjugações mais importantes de 100 verbos.</p></div>
+              <div className="card-content"><h3>Practise Verbs</h3><p>Master the 6 most important conjugations across 100 verbs.</p></div>
               <div className="card-arrow">→</div>
             </div>
             <div className="nav-card" onClick={() => navigateTo('vocab')}>
               <div className="card-icon">🗂️</div>
-              <div className="card-content"><h3>Aprender Palavras</h3><p>Flashcards inteligentes divididos por 10 categorias.</p></div>
+              <div className="card-content"><h3>Learn Vocabulary</h3><p>Smart flashcards across 10 themed categories.</p></div>
               <div className="card-arrow">→</div>
             </div>
             <div className="nav-card" onClick={() => navigateTo('grammar')}>
               <div className="card-icon">✍️</div>
-              <div className="card-content"><h3>Gramática</h3><p>20 regras essenciais com exemplos do A1 ao B2.</p></div>
+              <div className="card-content"><h3>Master Grammar</h3><p>20 essential rules with examples from A1 to B2.</p></div>
               <div className="card-arrow">→</div>
             </div>
             <div className="nav-card" onClick={() => navigateTo('reading')}>
               <div className="card-icon">📰</div>
-              <div className="card-content"><h3>Leitura</h3><p>Lê artigos reais em português com tradução integrada.</p></div>
+              <div className="card-content"><h3>Read Articles</h3><p>Real Portuguese articles with integrated translation.</p></div>
               <div className="card-arrow">→</div>
             </div>
             <div className="nav-card" onClick={() => navigateTo('pronunciation')}>
               <div className="card-icon">🔊</div>
-              <div className="card-content"><h3>Pronúncia</h3><p>20 regras de pronúncia com exemplos para ouvir.</p></div>
+              <div className="card-content"><h3>Perfect Pronunciation</h3><p>20 pronunciation rules with audio examples.</p></div>
               <div className="card-arrow">→</div>
             </div>
             <div className="nav-card" style={{ opacity: 0.6, cursor: 'default' }}>
               <div className="card-icon">🤖</div>
               <div className="card-content">
                 <h3>
-                  AI Tutor{' '}
+                  Chat with AI Tutor{' '}
                   <span style={{ fontSize: '0.65rem', background: '#fef9c3', color: '#854d0e', fontWeight: 800, padding: '2px 8px', borderRadius: '10px', marginLeft: '6px', verticalAlign: 'middle' }}>
                     Coming Soon
                   </span>

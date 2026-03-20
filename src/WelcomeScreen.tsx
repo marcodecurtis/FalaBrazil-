@@ -55,8 +55,8 @@ const SLIDES = [
   },
   {
     id: 5,
-    image: 'https://images.unsplash.com/photo-1483729558449-99ef09a8c325?w=900&q=85',
-    imageAlt: 'Rio de Janeiro',
+    image: 'https://images.unsplash.com/photo-1516306580123-e6e52b1b7b5f?w=900&q=85',
+    imageAlt: 'Brazilian carnival dancers',
     eyebrow: 'Start · Começa',
     titleEn: 'Your first lesson starts now',
     titlePt: 'A tua primeira aula começa agora',
