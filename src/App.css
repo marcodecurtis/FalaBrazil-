@@ -858,3 +858,41 @@ body {
 .hide-btn:hover {
   color: var(--accent);
 }
+
+/* --- SPEAK BUTTONS --- */
+.speak-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 2px 4px;
+  border-radius: 6px;
+  transition: transform 0.15s;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.speak-btn:hover {
+  transform: scale(1.2);
+}
+
+.speak-btn-large {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--accent-light);
+  border: 1.5px solid var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 8px 18px;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: 0.2s;
+  font-family: inherit;
+}
+
+.speak-btn-large:hover {
+  background: var(--accent);
+  color: white;
+}

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { GRAMMAR_RULES } from './grammarData';
 import type { GrammarRule, GrammarExample } from './grammarData';
+import { speak } from './speak';
 
 interface Props {
   onBack: () => void;
@@ -16,16 +17,12 @@ export default function GrammarStudio({ onBack }: Props) {
     B2: '#9c4fd6',
   };
 
-  // --- RULE DETAIL PAGE ---
   if (selectedRule) {
     return (
       <div className="grammar-studio">
         <div className="grammar-detail">
           <div className="grammar-detail-header">
-            <span
-              className="grammar-level-badge"
-              style={{ background: levelColor[selectedRule.level] }}
-            >
+            <span className="grammar-level-badge" style={{ background: levelColor[selectedRule.level] }}>
               {selectedRule.level}
             </span>
             <h2>{selectedRule.title}</h2>
@@ -41,8 +38,13 @@ export default function GrammarStudio({ onBack }: Props) {
             <h4>✏️ Exemplos</h4>
             {selectedRule.examples.map((ex: GrammarExample, i: number) => (
               <div key={i} className="grammar-example-row">
-                <div className="grammar-pt">{ex.pt}</div>
-                <div className="grammar-en">{ex.en}</div>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
+                  <div>
+                    <div className="grammar-pt">{ex.pt}</div>
+                    <div className="grammar-en">{ex.en}</div>
+                  </div>
+                  <button className="speak-btn" onClick={() => speak(ex.pt)} title="Ouvir pronúncia">🔊</button>
+                </div>
               </div>
             ))}
           </div>
@@ -60,7 +62,6 @@ export default function GrammarStudio({ onBack }: Props) {
     );
   }
 
-  // --- RULE LIST PAGE ---
   return (
     <div className="grammar-studio">
       <header className="dashboard-header" style={{ marginBottom: '32px' }}>
@@ -70,16 +71,9 @@ export default function GrammarStudio({ onBack }: Props) {
 
       <div className="grammar-rules-grid">
         {GRAMMAR_RULES.map((rule: GrammarRule) => (
-          <div
-            key={rule.id}
-            className="grammar-rule-card"
-            onClick={() => setSelectedRule(rule)}
-          >
+          <div key={rule.id} className="grammar-rule-card" onClick={() => setSelectedRule(rule)}>
             <div className="grammar-rule-left">
-              <span
-                className="grammar-level-badge"
-                style={{ background: levelColor[rule.level] }}
-              >
+              <span className="grammar-level-badge" style={{ background: levelColor[rule.level] }}>
                 {rule.level}
               </span>
               <div>

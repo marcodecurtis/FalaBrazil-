@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { VERB_BANK, TENSE_ORDER, PERSON_ORDER, norm } from './verbData';
+import { speak } from './speak';
 
 interface Props {
   onBack: () => void;
@@ -14,7 +15,7 @@ export default function VerbStudio({ onBack, onGainXp }: Props) {
   const [rewardedForms, setRewardedForms] = useState<Set<string>>(new Set());
 
   const allVerbKeys = Object.keys(VERB_BANK).sort();
-  
+
   const filteredKeys = allVerbKeys.filter(key => {
     const verbData = VERB_BANK[key];
     const search = norm(searchTerm);
@@ -39,7 +40,7 @@ export default function VerbStudio({ onBack, onGainXp }: Props) {
 
     const tenseData = verb.tenses[tense];
     const correctForm = tenseData.forms[index];
-    
+
     if (norm(value) === norm(correctForm) && !rewardedForms.has(uniqueId)) {
       onGainXp(20);
       setRewardedForms(prev => new Set(prev).add(uniqueId));
@@ -55,21 +56,21 @@ export default function VerbStudio({ onBack, onGainXp }: Props) {
               <svg className="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
                 <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
               </svg>
-              <input 
-                type="text" 
-                placeholder="Search verb or meaning..." 
+              <input
+                type="text"
+                placeholder="Search verb or meaning..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="verb-search-input"
               />
             </div>
 
-            <select 
+            <select
               className="verb-select"
-              value={currentVerb} 
+              value={currentVerb}
               onChange={(e) => {
-                setCurrentVerb(e.target.value); 
-                setUserInputs({}); 
+                setCurrentVerb(e.target.value);
+                setUserInputs({});
               }}
             >
               {filteredKeys.length > 0 ? (
@@ -87,9 +88,12 @@ export default function VerbStudio({ onBack, onGainXp }: Props) {
             </div>
           </div>
         </div>
-        
+
         <div className="pill-row">
-          <div className="pill active">● <b>{currentVerb}</b> — {verb.meaning}</div>
+          <div className="pill active" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            ● <b>{currentVerb}</b> — {verb.meaning}
+            <button className="speak-btn" onClick={() => speak(currentVerb)} title="Ouvir pronúncia">🔊</button>
+          </div>
         </div>
       </div>
 
@@ -104,7 +108,7 @@ export default function VerbStudio({ onBack, onGainXp }: Props) {
                 <h3>{tenseName}</h3>
                 <div className="study-badge">{isQuiz ? "Quiz" : "Study"}</div>
               </div>
-              
+
               <div className="conjugation-list">
                 {PERSON_ORDER.map((person, i) => {
                   const correct = tenseData.forms[i];
@@ -116,17 +120,25 @@ export default function VerbStudio({ onBack, onGainXp }: Props) {
                     <div key={person} className="row">
                       <span className="person">{person}</span>
                       {isQuiz ? (
-                        <input 
-                          type="text"
-                          className={`quiz-input ${userVal ? (isCorrect ? "good" : "bad") : ""}`}
-                          placeholder="..."
-                          value={userVal}
-                          onChange={(e) => handleInputChange(tenseName, i, e.target.value)}
-                          spellCheck="false"
-                          autoComplete="off"
-                        />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <input
+                            type="text"
+                            className={`quiz-input ${userVal ? (isCorrect ? "good" : "bad") : ""}`}
+                            placeholder="..."
+                            value={userVal}
+                            onChange={(e) => handleInputChange(tenseName, i, e.target.value)}
+                            spellCheck="false"
+                            autoComplete="off"
+                          />
+                          {isCorrect && userVal && (
+                            <button className="speak-btn" onClick={() => speak(correct)} title="Ouvir">🔊</button>
+                          )}
+                        </div>
                       ) : (
-                        <span className="answer">{correct}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span className="answer">{correct}</span>
+                          <button className="speak-btn" onClick={() => speak(correct)} title="Ouvir pronúncia">🔊</button>
+                        </div>
                       )}
                     </div>
                   );
@@ -134,8 +146,13 @@ export default function VerbStudio({ onBack, onGainXp }: Props) {
               </div>
 
               <div className="sentence-box">
-                <div className="pt-sent">{tenseData.sentence.pt}</div>
-                <div className="en-sent">{tenseData.sentence.en}</div>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
+                  <div>
+                    <div className="pt-sent">{tenseData.sentence.pt}</div>
+                    <div className="en-sent">{tenseData.sentence.en}</div>
+                  </div>
+                  <button className="speak-btn" onClick={() => speak(tenseData.sentence.pt)} title="Ouvir frase">🔊</button>
+                </div>
               </div>
             </div>
           );

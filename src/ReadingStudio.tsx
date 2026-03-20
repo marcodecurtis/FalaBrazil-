@@ -10,6 +10,7 @@ export default function ReadingStudio({ onBack }: Props) {
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [showTranslation, setShowTranslation] = useState(false);
   const [revealedParagraphs, setRevealedParagraphs] = useState<Set<number>>(new Set());
+  const [speakingIndex, setSpeakingIndex] = useState<number | null>(null);
 
   const levelColor: Record<string, string> = {
     A2: '#2196b5',
@@ -27,22 +28,26 @@ export default function ReadingStudio({ onBack }: Props) {
   const toggleParagraph = (index: number) => {
     setRevealedParagraphs(prev => {
       const next = new Set(prev);
-      if (next.has(index)) {
-        next.delete(index);
-      } else {
-        next.add(index);
-      }
+      if (next.has(index)) { next.delete(index); } else { next.add(index); }
       return next;
     });
   };
 
-  // --- ARTICLE DETAIL VIEW ---
+  const handleSpeak = (text: string, index: number) => {
+    setSpeakingIndex(index);
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'pt-BR';
+    utterance.rate = 0.85;
+    utterance.onend = () => setSpeakingIndex(null);
+    window.speechSynthesis.speak(utterance);
+  };
+
   if (selectedArticle) {
     return (
       <div className="reading-studio">
         <div className="article-detail">
 
-          {/* Header */}
           <div className="article-detail-header">
             <div className="article-meta-row">
               <span className="article-topic-badge" style={{ background: topicColor[selectedArticle.topic] }}>
@@ -55,37 +60,64 @@ export default function ReadingStudio({ onBack }: Props) {
             <h2>{selectedArticle.title}</h2>
             <p className="article-intro">{selectedArticle.intro}</p>
 
-            {/* Global toggle */}
-            <button
-              className="translation-toggle-btn"
-              onClick={() => {
-                setShowTranslation(!showTranslation);
-                if (!showTranslation) {
-                  const all = new Set(selectedArticle.paragraphs.map((_, i) => i));
-                  setRevealedParagraphs(all);
-                } else {
-                  setRevealedParagraphs(new Set());
-                }
-              }}
-            >
-              {showTranslation ? '🙈 Esconder Tradução' : '🌍 Mostrar Toda a Tradução'}
-            </button>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button
+                className="translation-toggle-btn"
+                onClick={() => {
+                  setShowTranslation(!showTranslation);
+                  if (!showTranslation) {
+                    setRevealedParagraphs(new Set(selectedArticle.paragraphs.map((_, i) => i)));
+                  } else {
+                    setRevealedParagraphs(new Set());
+                  }
+                }}
+              >
+                {showTranslation ? '🙈 Esconder Tradução' : '🌍 Mostrar Toda a Tradução'}
+              </button>
+              <button
+                className="translation-toggle-btn"
+                style={{ background: '#2a9d8f' }}
+                onClick={() => {
+                  const fullText = selectedArticle.paragraphs.map(p => p.pt).join(' ');
+                  handleSpeak(fullText, -1);
+                }}
+              >
+                {speakingIndex === -1 ? '⏹ Parar' : '🔊 Ouvir Artigo Completo'}
+              </button>
+            </div>
           </div>
 
-          {/* Paragraphs */}
           <div className="article-paragraphs">
             {selectedArticle.paragraphs.map((para, i) => (
               <div key={i} className="article-paragraph-block">
-                <p className="article-pt-text">{para.pt}</p>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                  <p className="article-pt-text" style={{ flex: 1, margin: 0 }}>{para.pt}</p>
+                  <button
+                    className="speak-btn"
+                    style={{ flexShrink: 0, marginTop: '2px', background: speakingIndex === i ? '#e07b39' : undefined }}
+                    onClick={() => {
+                      if (speakingIndex === i) {
+                        window.speechSynthesis.cancel();
+                        setSpeakingIndex(null);
+                      } else {
+                        handleSpeak(para.pt, i);
+                      }
+                    }}
+                    title="Ouvir parágrafo"
+                  >
+                    {speakingIndex === i ? '⏹' : '🔊'}
+                  </button>
+                </div>
+
                 {revealedParagraphs.has(i) ? (
-                  <div className="article-translation-box">
+                  <div className="article-translation-box" style={{ marginTop: '12px' }}>
                     <p className="article-en-text">{para.en}</p>
                     <button className="para-toggle-btn hide-btn" onClick={() => toggleParagraph(i)}>
                       Esconder ↑
                     </button>
                   </div>
                 ) : (
-                  <button className="para-toggle-btn show-btn" onClick={() => toggleParagraph(i)}>
+                  <button className="para-toggle-btn show-btn" style={{ marginTop: '10px' }} onClick={() => toggleParagraph(i)}>
                     🌍 Traduzir este parágrafo
                   </button>
                 )}
@@ -98,6 +130,8 @@ export default function ReadingStudio({ onBack }: Props) {
               setSelectedArticle(null);
               setShowTranslation(false);
               setRevealedParagraphs(new Set());
+              setSpeakingIndex(null);
+              window.speechSynthesis.cancel();
             }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M15 18l-6-6 6-6"/>
@@ -110,7 +144,6 @@ export default function ReadingStudio({ onBack }: Props) {
     );
   }
 
-  // --- ARTICLE LIST VIEW ---
   return (
     <div className="reading-studio">
       <header className="dashboard-header" style={{ marginBottom: '32px' }}>
@@ -127,6 +160,7 @@ export default function ReadingStudio({ onBack }: Props) {
               setSelectedArticle(article);
               setShowTranslation(false);
               setRevealedParagraphs(new Set());
+              setSpeakingIndex(null);
             }}
           >
             <div className="article-card-top" style={{ background: topicColor[article.topic] }}>

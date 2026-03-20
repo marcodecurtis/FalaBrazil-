@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { VOCAB_LIBRARY } from './vocabData';
 import type { VocabItem } from './vocabData';
+import { speak } from './speak';
 
 interface Props {
   onBack: () => void;
@@ -111,7 +112,17 @@ export default function VocabStudio({ onBack, onGainXp }: Props) {
           </div>
         </div>
 
-        <div className="back-btn-container" style={{ gap: '15px', marginTop: '30px' }}>
+        {/* Pronunciation button outside the card so it doesn't trigger flip */}
+        <button
+          className="speak-btn speak-btn-large"
+          onClick={(e) => { e.stopPropagation(); speak(current.pt); }}
+          title="Ouvir pronúncia"
+          style={{ marginTop: '16px' }}
+        >
+          🔊 Ouvir em português
+        </button>
+
+        <div className="back-btn-container" style={{ gap: '15px', marginTop: '16px' }}>
           <button className="back-btn" onClick={prevCard}>Anterior</button>
           <button className="back-btn" style={{ background: 'var(--accent)', color: 'white' }} onClick={nextCard}>Próximo</button>
         </div>
