@@ -9,7 +9,6 @@ interface Props {
 interface Video {
   id: string;
   title: string;
-  titlePt?: string;
   level: string;
   topic: string;
   duration: string;
@@ -191,7 +190,6 @@ const ALL_VIDEOS: Video[] = [
 
 const LEVEL_ORDER = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
 const NEXT_LEVEL: Record<string, string> = { A1: 'A2', A2: 'B1', B1: 'B2', B2: 'C1', C1: 'C2', C2: 'C2' };
-
 const LEVEL_COLORS: Record<string, string> = {
   A1: '#16a34a', A2: '#15803d',
   B1: '#0284c7', B2: '#0369a1',
@@ -204,7 +202,7 @@ function getVideosForLevel(userLevel: string | null): Video[] {
   return ALL_VIDEOS.filter(v => v.level === userLevel || v.level === next);
 }
 
-export default function VideoStudio({ onBack: _onBack, userLevel }: Props) {
+export default function VideoStudio({ userLevel }: Props) {
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState('');
@@ -212,27 +210,21 @@ export default function VideoStudio({ onBack: _onBack, userLevel }: Props) {
   const [showVocab, setShowVocab] = useState(false);
 
   const videos = getVideosForLevel(userLevel);
-  const allVideos = userLevel ? ALL_VIDEOS : ALL_VIDEOS;
 
   const handleAskClaude = async () => {
     if (!question.trim() || !selectedVideo) return;
     setLoadingAnswer(true);
     setAnswer('');
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const response = await fetch('/api/ask-claude', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 500,
-          messages: [{
-            role: 'user',
-            content: `The user is watching a Brazilian Portuguese video called "${selectedVideo.title}" (topic: ${selectedVideo.topic}). Their CEFR level is ${selectedVideo.level}. They ask: "${question}". Give a clear, helpful answer in English appropriate for a ${selectedVideo.level} learner. Keep it concise — 2-4 sentences max.`,
-          }],
+          prompt: `The user is watching a Brazilian Portuguese video called "${selectedVideo.title}" (topic: ${selectedVideo.topic}, CEFR level: ${selectedVideo.level}). They ask: "${question}". Give a clear, helpful answer in English appropriate for a ${selectedVideo.level} learner. Keep it concise — 2-4 sentences max.`,
         }),
       });
       const data = await response.json();
-      setAnswer(data.content?.[0]?.text || 'Sorry, could not get an answer.');
+      setAnswer(data.text || 'Sorry, something went wrong.');
     } catch {
       setAnswer('Sorry, something went wrong. Please try again.');
     } finally {
