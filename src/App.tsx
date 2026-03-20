@@ -8,13 +8,14 @@ import VocabStudio from './VocabStudio';
 import GrammarStudio from './GrammarStudio';
 import ReadingStudio from './ReadingStudio';
 import PronunciationStudio from './PronunciationStudio';
+import VideoStudio from './VideoStudio';
 import OnboardingScreen from './OnboardingScreen';
 import WelcomeScreen from './WelcomeScreen';
 import AuthScreen from './AuthScreen';
 import { stopSpeaking } from './speak';
 
 type Level = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
-type View = 'loading' | 'welcome' | 'auth' | 'onboarding' | 'home' | 'verbs' | 'vocab' | 'grammar' | 'reading' | 'pronunciation';
+type View = 'loading' | 'welcome' | 'auth' | 'onboarding' | 'home' | 'verbs' | 'vocab' | 'grammar' | 'reading' | 'pronunciation' | 'video';
 
 interface UserData {
   name: string;
@@ -25,9 +26,9 @@ interface UserData {
 }
 
 export default function App() {
-  const [view, setView]           = useState<View>('loading');
-  const [userLevel, setUserLevel] = useState<Level | null>(null);
-  const [userData, setUserData]   = useState<UserData | null>(null);
+  const [view, setView]             = useState<View>('loading');
+  const [userLevel, setUserLevel]   = useState<Level | null>(null);
+  const [userData, setUserData]     = useState<UserData | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
@@ -82,7 +83,7 @@ export default function App() {
   };
 
   const handleAuthSuccess = () => {
-    // Firebase onAuthStateChanged will handle the redirect automatically
+    // Firebase onAuthStateChanged handles redirect automatically
   };
 
   const handleContinueWithoutAccount = () => {
@@ -186,17 +187,22 @@ export default function App() {
             </div>
             <div className="nav-card" onClick={() => navigateTo('grammar')}>
               <div className="card-icon">✍️</div>
-              <div className="card-content"><h3>Master Grammar</h3><p>20 essential rules with examples from A1 to B2.</p></div>
+              <div className="card-content"><h3>Master Grammar</h3><p>Essential rules with examples tailored to your level.</p></div>
               <div className="card-arrow">→</div>
             </div>
             <div className="nav-card" onClick={() => navigateTo('reading')}>
               <div className="card-icon">📰</div>
-              <div className="card-content"><h3>Read Articles</h3><p>Real Portuguese articles with integrated translation.</p></div>
+              <div className="card-content"><h3>Read Articles</h3><p>Real Portuguese articles adapted to your CEFR level.</p></div>
               <div className="card-arrow">→</div>
             </div>
             <div className="nav-card" onClick={() => navigateTo('pronunciation')}>
               <div className="card-icon">🔊</div>
               <div className="card-content"><h3>Perfect Pronunciation</h3><p>20 pronunciation rules with audio examples.</p></div>
+              <div className="card-arrow">→</div>
+            </div>
+            <div className="nav-card" onClick={() => navigateTo('video')}>
+              <div className="card-icon">🎬</div>
+              <div className="card-content"><h3>Watch & Learn</h3><p>Real Brazilian videos with vocabulary and AI Q&A.</p></div>
               <div className="card-arrow">→</div>
             </div>
             <div className="nav-card" style={{ opacity: 0.6, cursor: 'default' }}>
@@ -216,10 +222,11 @@ export default function App() {
       )}
 
       {view === 'verbs'         && <VerbStudio onBack={() => navigateTo('home')} onGainXp={() => {}} />}
-      {view === 'vocab'         && <VocabStudio onBack={() => navigateTo('home')} onGainXp={() => {}} />}
-      {view === 'grammar'       && <GrammarStudio onBack={() => navigateTo('home')} />}
-      {view === 'reading'       && <ReadingStudio onBack={() => navigateTo('home')} />}
+      {view === 'vocab'         && <VocabStudio onBack={() => navigateTo('home')} onGainXp={() => {}} userLevel={userLevel} />}
+      {view === 'grammar'       && <GrammarStudio onBack={() => navigateTo('home')} userLevel={userLevel} />}
+      {view === 'reading'       && <ReadingStudio onBack={() => navigateTo('home')} userLevel={userLevel} />}
       {view === 'pronunciation' && <PronunciationStudio onBack={() => navigateTo('home')} />}
+      {view === 'video'         && <VideoStudio onBack={() => navigateTo('home')} userLevel={userLevel} />}
 
       <footer style={{ marginTop: 'auto', paddingTop: '60px', paddingBottom: '20px', textAlign: 'center', fontSize: '0.85rem', color: '#94a3b8' }}>
         Created by{' '}
