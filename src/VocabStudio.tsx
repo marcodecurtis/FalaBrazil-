@@ -40,20 +40,20 @@ const TOPIC_ICONS: Record<string, string> = {
 };
 
 export default function VocabStudio({ onBack, onGainXp, userLevel }: Props) {
-  const [vocabSets, setVocabSets]         = useState<VocabSet[]>([]);
-  const [loading, setLoading]             = useState(true);
-  const [selectedSet, setSelectedSet]     = useState<VocabSet | null>(null);
-  const [cardIndex, setCardIndex]         = useState(0);
-  const [isFlipped, setIsFlipped]         = useState(false);
-  const [hasGainedXp, setHasGainedXp]     = useState(false);
-  const [showExample, setShowExample]     = useState(false);
+  const [vocabSets, setVocabSets]     = useState<VocabSet[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [selectedSet, setSelectedSet] = useState<VocabSet | null>(null);
+  const [cardIndex, setCardIndex]     = useState(0);
+  const [isFlipped, setIsFlipped]     = useState(false);
+  const [hasGainedXp, setHasGainedXp] = useState(false);
+  const [showExample, setShowExample] = useState(false);
 
   useEffect(() => {
     async function load() {
       setLoading(true);
       try {
-        const level = userLevel || 'A1';
-        const next  = NEXT_LEVEL[level] || level;
+        const level  = userLevel || 'A1';
+        const next   = NEXT_LEVEL[level] || level;
         const levels = level === next ? [level] : [level, next];
 
         const all: VocabSet[] = [];
@@ -103,7 +103,6 @@ export default function VocabStudio({ onBack, onGainXp, userLevel }: Props) {
     setCardIndex(prev => (prev - 1 + (selectedSet?.words.length || 1)) % (selectedSet?.words.length || 1));
   };
 
-  // ── LOADING ───────────────────────────────────────
   if (loading) {
     return (
       <div className="vocab-studio">
@@ -115,24 +114,21 @@ export default function VocabStudio({ onBack, onGainXp, userLevel }: Props) {
     );
   }
 
-  // ── NO CONTENT ────────────────────────────────────
   if (vocabSets.length === 0) {
     return (
       <div className="vocab-studio">
         <div style={{ textAlign:'center', padding:'60px 20px' }}>
           <div style={{ fontSize:'2.5rem', marginBottom:'16px' }}>🎉</div>
           <h2 style={{ fontWeight:900, marginBottom:'8px' }}>More content coming soon!</h2>
-          <p style={{ color:'var(--text-dim)', marginBottom:'32px' }}>You've completed all vocabulary sets at your level.</p>
+          <p style={{ color:'var(--text-dim)', marginBottom:'32px' }}>Check back soon for new vocabulary sets.</p>
           <button className="back-btn" onClick={onBack}>← Back to Menu</button>
         </div>
       </div>
     );
   }
 
-  // ── FLASHCARD SESSION ─────────────────────────────
   if (selectedSet) {
     const current = selectedSet.words[cardIndex];
-
     return (
       <div className="vocab-studio">
         <div className="flashcard-session">
@@ -142,7 +138,6 @@ export default function VocabStudio({ onBack, onGainXp, userLevel }: Props) {
             <div className="pill"><b>{cardIndex + 1}</b> / {selectedSet.words.length}</div>
           </div>
 
-          {/* Level badge */}
           <div style={{ textAlign:'center', marginBottom:'8px' }}>
             <span className="grammar-level-badge" style={{ background: LEVEL_COLORS[selectedSet.level] }}>
               {selectedSet.level}
@@ -164,7 +159,6 @@ export default function VocabStudio({ onBack, onGainXp, userLevel }: Props) {
             </div>
           </div>
 
-          {/* Pronunciation */}
           <button
             className="speak-btn speak-btn-large"
             onClick={e => { e.stopPropagation(); speak(current.word); }}
@@ -173,7 +167,6 @@ export default function VocabStudio({ onBack, onGainXp, userLevel }: Props) {
             🔊 Listen in Portuguese
           </button>
 
-          {/* Example sentence */}
           {current.example_pt && (
             <div style={{ margin:'12px 16px 0', textAlign:'center' }}>
               {showExample ? (
@@ -204,19 +197,18 @@ export default function VocabStudio({ onBack, onGainXp, userLevel }: Props) {
     );
   }
 
-  // ── CATEGORY LIST ─────────────────────────────────
   return (
     <div className="vocab-studio">
       <header className="dashboard-header" style={{ marginBottom:'40px' }}>
         <h1 className="main-title" style={{ fontSize:'3rem' }}>Learn Vocabulary</h1>
         <p className="main-subtitle">
-          {userLevel ? `Your level: ${userLevel} & ${NEXT_LEVEL[userLevel]}` : 'Choose a topic to practise'}
+          {userLevel ? `Level ${userLevel} & ${NEXT_LEVEL[userLevel]}` : 'Choose a topic to practise'}
         </p>
       </header>
 
       <div className="vocab-cat-grid">
         {vocabSets.map(set => (
-          <div key={set.id} className="cat-card" onClick={() => handleSelectSet(set)}>
+          <div key={set.id} className="cat-card" onClick={() => handleSelectSet(set)} style={{ position:'relative' }}>
             <div className="cat-icon">
               {TOPIC_ICONS[set.topic.toLowerCase()] || '📝'}
             </div>

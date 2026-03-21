@@ -25,13 +25,12 @@ const LEVEL_COLORS: Record<string, string> = {
 };
 
 export default function ReadingStudio({ onBack, userLevel }: Props) {
-  const [articles, setArticles]           = useState<FirestoreArticle[]>([]);
-  const [loading, setLoading]             = useState(true);
-  const [selected, setSelected]           = useState<FirestoreArticle | null>(null);
-  const [revealedIdx, setRevealedIdx]     = useState<Set<number>>(new Set());
-  const [speakingIdx, setSpeakingIdx]     = useState<number | null>(null);
-  const [showAnswers, setShowAnswers]     = useState<Set<number>>(new Set());
-  const [doneAll, setDoneAll]             = useState(false);
+  const [articles, setArticles]       = useState<FirestoreArticle[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [selected, setSelected]       = useState<FirestoreArticle | null>(null);
+  const [revealedIdx, setRevealedIdx] = useState<Set<number>>(new Set());
+  const [speakingIdx, setSpeakingIdx] = useState<number | null>(null);
+  const [showAnswers, setShowAnswers] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     async function load() {
@@ -47,10 +46,8 @@ export default function ReadingStudio({ onBack, userLevel }: Props) {
           snap.forEach(doc => all.push({ id: doc.id, ...doc.data() } as FirestoreArticle));
         }
         setArticles(all);
-        setDoneAll(all.length === 0);
       } catch (e) {
         console.error('Error loading reading content:', e);
-        setDoneAll(true);
       } finally {
         setLoading(false);
       }
@@ -79,7 +76,6 @@ export default function ReadingStudio({ onBack, userLevel }: Props) {
     });
   };
 
-  // ── LOADING ───────────────────────────────────────
   if (loading) {
     return (
       <div className="reading-studio">
@@ -91,21 +87,19 @@ export default function ReadingStudio({ onBack, userLevel }: Props) {
     );
   }
 
-  // ── NO CONTENT ────────────────────────────────────
-  if (doneAll || articles.length === 0) {
+  if (articles.length === 0) {
     return (
       <div className="reading-studio">
         <div style={{ textAlign:'center', padding:'60px 20px' }}>
           <div style={{ fontSize:'2.5rem', marginBottom:'16px' }}>🎉</div>
           <h2 style={{ fontWeight:900, marginBottom:'8px' }}>More content coming soon!</h2>
-          <p style={{ color:'var(--text-dim)', marginBottom:'32px' }}>You've explored all articles at your level. Check back soon for new ones.</p>
+          <p style={{ color:'var(--text-dim)', marginBottom:'32px' }}>Check back soon for new articles at your level.</p>
           <button className="back-btn" onClick={onBack}>← Back to Menu</button>
         </div>
       </div>
     );
   }
 
-  // ── ARTICLE DETAIL ────────────────────────────────
   if (selected) {
     const paragraphs = selected.text.split('\n').filter(p => p.trim());
 
@@ -147,7 +141,6 @@ export default function ReadingStudio({ onBack, userLevel }: Props) {
             </div>
           </div>
 
-          {/* Paragraphs */}
           <div className="article-paragraphs">
             {paragraphs.map((para, i) => (
               <div key={i} className="article-paragraph-block">
@@ -164,7 +157,7 @@ export default function ReadingStudio({ onBack, userLevel }: Props) {
                 {revealedIdx.has(i) ? (
                   <div className="article-translation-box" style={{ marginTop:'12px' }}>
                     <p className="article-en-text" style={{ fontStyle:'italic', color:'#64748b' }}>
-                      [Translation — tap to practice reading in Portuguese first]
+                      [Read in Portuguese first, then reveal the translation]
                     </p>
                     <button className="para-toggle-btn hide-btn" onClick={() => toggleReveal(i)}>Hide ↑</button>
                   </div>
@@ -177,7 +170,6 @@ export default function ReadingStudio({ onBack, userLevel }: Props) {
             ))}
           </div>
 
-          {/* Vocabulary highlight */}
           {selected.vocabulary_highlight?.length > 0 && (
             <div style={{ margin:'24px 16px', background:'#f0fdf4', border:'1px solid #bbf7d0', borderRadius:'12px', padding:'16px' }}>
               <h4 style={{ fontWeight:800, color:'#14532d', marginBottom:'12px' }}>📚 Key Vocabulary</h4>
@@ -192,7 +184,6 @@ export default function ReadingStudio({ onBack, userLevel }: Props) {
             </div>
           )}
 
-          {/* Comprehension questions */}
           {selected.questions?.length > 0 && (
             <div style={{ margin:'0 16px 24px' }}>
               <h4 style={{ fontWeight:800, color:'#0f172a', marginBottom:'12px' }}>❓ Comprehension Questions</h4>
@@ -237,13 +228,12 @@ export default function ReadingStudio({ onBack, userLevel }: Props) {
     );
   }
 
-  // ── ARTICLE LIST ──────────────────────────────────
   return (
     <div className="reading-studio">
       <header className="dashboard-header" style={{ marginBottom:'32px' }}>
         <h1 className="main-title" style={{ fontSize:'2.8rem' }}>Read Articles</h1>
         <p className="main-subtitle">
-          {userLevel ? `Showing articles for level ${userLevel} & ${NEXT_LEVEL[userLevel]}` : 'Real Brazilian Portuguese articles'}
+          {userLevel ? `Level ${userLevel} & ${NEXT_LEVEL[userLevel]}` : 'Real Brazilian Portuguese articles'}
         </p>
       </header>
 

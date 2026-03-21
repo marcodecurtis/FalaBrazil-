@@ -27,18 +27,18 @@ const LEVEL_COLORS: Record<string, string> = {
 };
 
 export default function GrammarStudio({ onBack, userLevel }: Props) {
-  const [rules, setRules]           = useState<FirestoreRule[]>([]);
-  const [loading, setLoading]       = useState(true);
-  const [selected, setSelected]     = useState<FirestoreRule | null>(null);
-  const [answers, setAnswers]       = useState<Record<number, string>>({});
-  const [checked, setChecked]       = useState<Record<number, boolean>>({});
+  const [rules, setRules]       = useState<FirestoreRule[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [selected, setSelected] = useState<FirestoreRule | null>(null);
+  const [answers, setAnswers]   = useState<Record<number, string>>({});
+  const [checked, setChecked]   = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     async function load() {
       setLoading(true);
       try {
-        const level = userLevel || 'A1';
-        const next  = NEXT_LEVEL[level] || level;
+        const level  = userLevel || 'A1';
+        const next   = NEXT_LEVEL[level] || level;
         const levels = level === next ? [level] : [level, next];
 
         const all: FirestoreRule[] = [];
@@ -60,11 +60,10 @@ export default function GrammarStudio({ onBack, userLevel }: Props) {
     setAnswers(prev => ({ ...prev, [i]: val }));
   };
 
-  const checkAnswer = (i: number, _correct: string) => {
+  const checkAnswer = (i: number) => {
     setChecked(prev => ({ ...prev, [i]: true }));
   };
 
-  // ── LOADING ───────────────────────────────────────
   if (loading) {
     return (
       <div className="grammar-studio">
@@ -76,21 +75,19 @@ export default function GrammarStudio({ onBack, userLevel }: Props) {
     );
   }
 
-  // ── NO CONTENT ────────────────────────────────────
   if (rules.length === 0) {
     return (
       <div className="grammar-studio">
         <div style={{ textAlign:'center', padding:'60px 20px' }}>
           <div style={{ fontSize:'2.5rem', marginBottom:'16px' }}>🎉</div>
           <h2 style={{ fontWeight:900, marginBottom:'8px' }}>More content coming soon!</h2>
-          <p style={{ color:'var(--text-dim)', marginBottom:'32px' }}>You've completed all grammar lessons at your level.</p>
+          <p style={{ color:'var(--text-dim)', marginBottom:'32px' }}>Check back soon for new grammar lessons.</p>
           <button className="back-btn" onClick={onBack}>← Back to Menu</button>
         </div>
       </div>
     );
   }
 
-  // ── RULE DETAIL ───────────────────────────────────
   if (selected) {
     return (
       <div className="grammar-studio">
@@ -103,13 +100,11 @@ export default function GrammarStudio({ onBack, userLevel }: Props) {
             <p className="grammar-summary" style={{ color:'#64748b', fontSize:'0.82rem' }}>{selected.topic}</p>
           </div>
 
-          {/* Explanation */}
           <div className="grammar-explanation-box">
             <h4>📖 Explanation</h4>
             <p>{selected.explanation}</p>
           </div>
 
-          {/* Examples */}
           <div className="grammar-examples-list">
             <h4>✏️ Examples</h4>
             {selected.examples.map((ex, i) => (
@@ -125,7 +120,6 @@ export default function GrammarStudio({ onBack, userLevel }: Props) {
             ))}
           </div>
 
-          {/* Exercise */}
           {selected.exercise?.questions?.length > 0 && (
             <div style={{ margin:'16px', background:'#fffbeb', border:'1px solid #fde68a', borderRadius:'12px', padding:'16px' }}>
               <h4 style={{ fontWeight:800, color:'#92400e', marginBottom:'4px' }}>🏋️ Practice</h4>
@@ -148,7 +142,8 @@ export default function GrammarStudio({ onBack, userLevel }: Props) {
                         onChange={e => handleAnswer(i, e.target.value)}
                         placeholder="Type your answer…"
                         style={{
-                          flex:1, border:`1.5px solid ${isCorrect ? '#16a34a' : isWrong ? '#dc2626' : '#e2e8f0'}`,
+                          flex:1,
+                          border:`1.5px solid ${isCorrect ? '#16a34a' : isWrong ? '#dc2626' : '#e2e8f0'}`,
                           borderRadius:'8px', padding:'8px 10px', fontSize:'0.85rem',
                           fontFamily:'inherit', outline:'none',
                           background: isCorrect ? '#f0fdf4' : isWrong ? '#fef2f2' : 'white'
@@ -156,7 +151,7 @@ export default function GrammarStudio({ onBack, userLevel }: Props) {
                       />
                       {!checked[i] && (
                         <button
-                          onClick={() => checkAnswer(i, q.answer)}
+                          onClick={() => checkAnswer(i)}
                           style={{ background:'#92400e', color:'white', border:'none', borderRadius:'8px', padding:'8px 14px', fontSize:'0.82rem', fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}
                         >
                           Check
@@ -184,13 +179,12 @@ export default function GrammarStudio({ onBack, userLevel }: Props) {
     );
   }
 
-  // ── RULES LIST ────────────────────────────────────
   return (
     <div className="grammar-studio">
       <header className="dashboard-header" style={{ marginBottom:'32px' }}>
         <h1 className="main-title" style={{ fontSize:'2.8rem' }}>Master Grammar</h1>
         <p className="main-subtitle">
-          {userLevel ? `Your level: ${userLevel} & ${NEXT_LEVEL[userLevel]}` : 'Grammar rules with examples'}
+          {userLevel ? `Level ${userLevel} & ${NEXT_LEVEL[userLevel]}` : 'Grammar rules with examples'}
         </p>
       </header>
 
