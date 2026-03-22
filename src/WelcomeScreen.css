@@ -166,9 +166,8 @@
   transition: all 0.35s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+/* ── FIX: active dot stays a circle ──────────────── */
 .wc-dot-active {
-  width: 24px;
-  border-radius: 4px;
   background: #16a34a !important;
 }
 
