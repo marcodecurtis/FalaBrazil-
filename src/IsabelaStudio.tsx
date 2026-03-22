@@ -6,7 +6,7 @@ interface Props {
   userLevel: string | null;
 }
 
-type Screen = 'pick' | 'conv' | 'report';
+type Screen = 'pick' | 'permission' | 'conv' | 'report';
 
 interface Message {
   role: 'isabela' | 'user';
@@ -80,12 +80,14 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
   const [timeLeft, setTimeLeft]           = useState(CONVERSATION_SECONDS);
   const [error, setError]                 = useState('');
   const [report, setReport]               = useState<Report | null>(null);
+  const [permissionDenied, setPermissionDenied] = useState(false);
 
   const timerRef        = useRef<ReturnType<typeof setInterval> | null>(null);
   const recognitionRef  = useRef<any>(null);
   const messagesEndRef  = useRef<HTMLDivElement>(null);
   const audioRef        = useRef<HTMLAudioElement | null>(null);
   const conversationRef = useRef<Message[]>([]);
+  const autoListenRef   = useRef(false);
   const level           = userLevel || 'B1';
 
   useEffect(() => { conversationRef.current = messages; }, [messages]);
@@ -102,6 +104,53 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
     const m = Math.floor(s / 60);
     const sec = s % 60;
     return `${m}:${sec.toString().padStart(2, '0')}`;
+  };
+
+  const requestMicPermission = async (): Promise<boolean> => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(t => t.stop());
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const handlePermissionAndStart = async () => {
+    const granted = await requestMicPermission();
+    if (granted) {
+      setPermissionDenied(false);
+      await startConversation();
+    } else {
+      setPermissionDenied(true);
+    }
+  };
+
+  const startListening = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) { setError('Speech recognition not supported. Please use Chrome.'); return; }
+    if (audioRef.current) { audioRef.current.pause(); setIsSpeaking(false); }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'pt-BR';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognitionRef.current = recognition;
+
+    recognition.onstart  = () => setIsListening(true);
+    recognition.onend    = () => setIsListening(false);
+    recognition.onerror  = (e: any) => {
+      setIsListening(false);
+      if (e.error !== 'no-speech') {
+        setError('Could not hear you. Try again.');
+      }
+    };
+    recognition.onresult = (e: any) => {
+      const t = e.results[0][0].transcript;
+      if (t.trim()) sendToIsabela(t);
+    };
+
+    try { recognition.start(); } catch { }
   };
 
   const speakWithElevenLabs = async (text: string) => {
@@ -127,6 +176,9 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
       console.error('ElevenLabs error:', e);
     } finally {
       setIsSpeaking(false);
+      if (autoListenRef.current) {
+        setTimeout(() => startListening(), 300);
+      }
     }
   };
 
@@ -153,12 +205,13 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
       setIsLoading(false);
       await speakWithElevenLabs(reply);
     } catch {
-      setError('Erro de ligação. Tenta novamente.');
+      setError('Connection error. Please try again.');
       setIsLoading(false);
     }
   };
 
   const startConversation = async () => {
+    autoListenRef.current = true;
     setScreen('conv');
     setMessages([]);
     setTimeLeft(CONVERSATION_SECONDS);
@@ -188,28 +241,13 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
       setIsLoading(false);
       await speakWithElevenLabs(greeting);
     } catch {
-      setError('Erro ao iniciar conversa.');
+      setError('Error starting conversation.');
       setIsLoading(false);
     }
   };
 
-  const startListening = () => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) { setError('O teu browser não suporta reconhecimento de voz. Tenta o Chrome.'); return; }
-    if (audioRef.current) { audioRef.current.pause(); setIsSpeaking(false); }
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'pt-BR';
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognitionRef.current = recognition;
-    recognition.onstart  = () => setIsListening(true);
-    recognition.onend    = () => setIsListening(false);
-    recognition.onerror  = () => { setIsListening(false); setError('Não consegui ouvir. Tenta novamente.'); };
-    recognition.onresult = (e: any) => { const t = e.results[0][0].transcript; if (t.trim()) sendToIsabela(t); };
-    recognition.start();
-  };
-
   const endConversation = async () => {
+    autoListenRef.current = false;
     if (timerRef.current) clearInterval(timerRef.current);
     if (recognitionRef.current) recognitionRef.current.abort();
     if (audioRef.current) audioRef.current.pause();
@@ -233,20 +271,16 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
         body: JSON.stringify({
           messages: [{
             role: 'user',
-            content: `Analyze this Portuguese learner's messages (level ${level}) and return ONLY valid JSON with no extra text:
+            content: `Analyze this Portuguese learner's messages (level ${level}) and return ONLY valid JSON with no extra text. Include as many goodPhrases and corrections as are genuinely relevant — minimum 1, maximum 5 each. Do not force exactly 3 if there are more or fewer:
 {
   "score": <number 1-10>,
   "goodPhrases": [
-    {"phrase": "<exact phrase used>", "note": "<why it was good>"},
-    {"phrase": "<exact phrase used>", "note": "<why it was good>"},
-    {"phrase": "<exact phrase used>", "note": "<why it was good>"}
+    {"phrase": "<exact phrase the learner used>", "note": "<why it was good>"}
   ],
   "corrections": [
-    {"wrong": "<what they said>", "right": "<correct version>"},
-    {"wrong": "<what they said>", "right": "<correct version>"},
-    {"wrong": "<what they said>", "right": "<correct version>"}
+    {"wrong": "<what they said>", "right": "<correct version with brief explanation>"}
   ],
-  "tip": "<one specific tip for a ${level} learner>"
+  "tip": "<one specific, actionable tip for a ${level} learner>"
 }
 
 Learner messages:
@@ -309,9 +343,68 @@ ${userMessages}`,
           ))}
         </div>
 
-        <button className="is-start-btn" onClick={startConversation}>
+        <button className="is-start-btn" onClick={() => setScreen('permission')}>
           Falar com Isabela →
         </button>
+      </div>
+    );
+  }
+
+  // ── PERMISSION SCREEN ────────────────────────────
+  if (screen === 'permission') {
+    return (
+      <div className="is-wrapper">
+        <div className="is-header">
+          <img
+            src="/isabela.png"
+            alt="Isabela"
+            className="is-avatar"
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+              (e.currentTarget.nextElementSibling as HTMLElement)?.style.removeProperty('display');
+            }}
+          />
+          <div className="is-avatar-fallback" style={{ display: 'none' }}>
+            <span className="is-avatar-initials">Is</span>
+          </div>
+          <div className="is-name">Isabela</div>
+          <div className="is-tagline">A tua parceira de conversa brasileira</div>
+        </div>
+
+        <div className="is-permission-card">
+          <div className="is-permission-icon">🎙️</div>
+          <h2 className="is-permission-title">Microphone access needed</h2>
+          <p className="is-permission-desc">
+            Isabela needs to hear you speak Portuguese! When prompted, please tap <strong>"Allow"</strong> to enable your microphone.
+          </p>
+          <div className="is-permission-steps">
+            <div className="is-permission-step">
+              <span className="is-permission-step-num">1</span>
+              <span>Tap the button below</span>
+            </div>
+            <div className="is-permission-step">
+              <span className="is-permission-step-num">2</span>
+              <span>Allow microphone access when asked</span>
+            </div>
+            <div className="is-permission-step">
+              <span className="is-permission-step-num">3</span>
+              <span>Isabela will greet you and the conversation begins automatically!</span>
+            </div>
+          </div>
+
+          {permissionDenied && (
+            <div className="is-error" style={{ marginBottom: '16px' }}>
+              Microphone access was denied. Please enable it in your browser settings and try again.
+            </div>
+          )}
+
+          <button className="is-start-btn" onClick={handlePermissionAndStart}>
+            Allow microphone & start →
+          </button>
+          <button className="is-permission-back" onClick={() => setScreen('pick')}>
+            ← Go back
+          </button>
+        </div>
       </div>
     );
   }
@@ -364,7 +457,7 @@ ${userMessages}`,
         <div className="is-voice-bar">
           <button
             className={`is-mic-btn ${isListening ? 'listening' : ''}`}
-            onClick={startListening}
+            onClick={() => startListening()}
             disabled={isLoading || isSpeaking}
           >
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
@@ -374,10 +467,10 @@ ${userMessages}`,
             </svg>
           </button>
           <div className="is-mic-label">
-            {isListening ? 'A ouvir... toca para parar' : isSpeaking ? 'Isabela está a falar...' : 'Toca para falar'}
+            {isListening ? 'Listening... tap to stop' : isSpeaking ? 'Isabela is speaking...' : 'Tap to speak or wait for auto-listen'}
           </div>
           <button className="is-end-btn" onClick={endConversation}>
-            Terminar conversa
+            End conversation
           </button>
         </div>
       </div>
@@ -400,23 +493,31 @@ ${userMessages}`,
 
       {report ? (
         <>
-          <div className="is-report-section is-report-good">
-            <div className="is-report-section-title">3 phrases you used well</div>
-            {report.goodPhrases.map((p, i) => (
-              <div key={i} className="is-report-item">
-                <strong>"{p.phrase}"</strong> — {p.note}
+          {report.goodPhrases.length > 0 && (
+            <div className="is-report-section is-report-good">
+              <div className="is-report-section-title">
+                {report.goodPhrases.length === 1 ? 'Phrase you used well' : `${report.goodPhrases.length} phrases you used well`}
               </div>
-            ))}
-          </div>
-          <div className="is-report-section is-report-fix">
-            <div className="is-report-section-title">3 corrections</div>
-            {report.corrections.map((c, i) => (
-              <div key={i} className="is-report-item">
-                <span className="is-report-wrong">{c.wrong}</span>
-                <span className="is-report-right">✓ {c.right}</span>
+              {report.goodPhrases.map((p, i) => (
+                <div key={i} className="is-report-item">
+                  <strong>"{p.phrase}"</strong> — {p.note}
+                </div>
+              ))}
+            </div>
+          )}
+          {report.corrections.length > 0 && (
+            <div className="is-report-section is-report-fix">
+              <div className="is-report-section-title">
+                {report.corrections.length === 1 ? 'Correction' : `${report.corrections.length} corrections`}
               </div>
-            ))}
-          </div>
+              {report.corrections.map((c, i) => (
+                <div key={i} className="is-report-item">
+                  <span className="is-report-wrong">{c.wrong}</span>
+                  <span className="is-report-right">✓ {c.right}</span>
+                </div>
+              ))}
+            </div>
+          )}
           <div className="is-report-section is-report-tip">
             <div className="is-report-section-title">Isabela's tip for {level}</div>
             <div className="is-report-item">{report.tip}</div>
@@ -424,11 +525,11 @@ ${userMessages}`,
         </>
       ) : (
         <div className="is-report-item" style={{ textAlign: 'center', padding: '24px', color: '#64748b' }}>
-          A preparar o teu relatório...
+          Preparing your report...
         </div>
       )}
 
-      <button className="is-report-btn" onClick={() => { setScreen('pick'); setReport(null); }}>
+      <button className="is-report-btn" onClick={() => { setScreen('pick'); setReport(null); autoListenRef.current = false; }}>
         Nova conversa →
       </button>
       <button className="is-report-btn-secondary" onClick={onBack}>
