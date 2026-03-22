@@ -8,13 +8,13 @@ interface OnboardingScreenProps {
   onComplete: (level: Level) => void;
 }
 
-const LEVELS: { level: Level; label: string; emoji: string; desc: string; color: string; bg: string }[] = [
-  { level: 'A1', label: 'Iniciante',        emoji: '🌱', desc: 'Conheço palavras básicas como "olá", números e cores.',             color: '#166534', bg: 'linear-gradient(135deg, #f0fdf4, #dcfce7)' },
-  { level: 'A2', label: 'Elementar',        emoji: '🌿', desc: 'Consigo apresentar-me e falar sobre coisas simples do dia-a-dia.',  color: '#15803d', bg: 'linear-gradient(135deg, #dcfce7, #bbf7d0)' },
-  { level: 'B1', label: 'Intermédio',       emoji: '🌳', desc: 'Entendo conversas sobre temas comuns e expresso opiniões básicas.', color: '#16a34a', bg: 'linear-gradient(135deg, #bbf7d0, #86efac)' },
-  { level: 'B2', label: 'Intermédio Alto',  emoji: '🎋', desc: 'Comunico com fluência em situações variadas e leio textos elaborados.', color: '#14532d', bg: 'linear-gradient(135deg, #86efac, #4ade80)' },
-  { level: 'C1', label: 'Avançado',         emoji: '🌴', desc: 'Expresso-me com espontaneidade e domino estruturas complexas.',    color: '#052e16', bg: 'linear-gradient(135deg, #4ade80, #22c55e)' },
-  { level: 'C2', label: 'Proficiente',      emoji: '👑', desc: 'Domino o português ao nível de um nativo. Sem esforço.',            color: '#fff',    bg: 'linear-gradient(135deg, #14532d, #052e16)' },
+const LEVELS: { level: Level; label: string; labelEn: string; emoji: string; desc: string; descEn: string; color: string; bg: string }[] = [
+  { level: 'A1', label: 'Iniciante',       labelEn: 'Beginner',          emoji: '🌱', desc: 'Conheço palavras básicas como "olá", números e cores.',                descEn: 'I know basic words like "hello", numbers and colours.',              color: '#166534', bg: 'linear-gradient(135deg, #f0fdf4, #dcfce7)' },
+  { level: 'A2', label: 'Elementar',       labelEn: 'Elementary',        emoji: '🌿', desc: 'Consigo apresentar-me e falar sobre coisas simples do dia-a-dia.',    descEn: 'I can introduce myself and talk about simple everyday things.',      color: '#15803d', bg: 'linear-gradient(135deg, #dcfce7, #bbf7d0)' },
+  { level: 'B1', label: 'Intermédio',      labelEn: 'Intermediate',      emoji: '🌳', desc: 'Entendo conversas sobre temas comuns e expresso opiniões básicas.',   descEn: 'I understand common topics and can express basic opinions.',         color: '#16a34a', bg: 'linear-gradient(135deg, #bbf7d0, #86efac)' },
+  { level: 'B2', label: 'Intermédio Alto', labelEn: 'Upper Intermediate', emoji: '🎋', desc: 'Comunico com fluência em situações variadas e leio textos elaborados.', descEn: 'I communicate fluently in varied situations and read complex texts.', color: '#14532d', bg: 'linear-gradient(135deg, #86efac, #4ade80)' },
+  { level: 'C1', label: 'Avançado',        labelEn: 'Advanced',          emoji: '🌴', desc: 'Expresso-me com espontaneidade e domino estruturas complexas.',        descEn: 'I express myself spontaneously and master complex structures.',      color: '#052e16', bg: 'linear-gradient(135deg, #4ade80, #22c55e)' },
+  { level: 'C2', label: 'Proficiente',     labelEn: 'Proficient',        emoji: '👑', desc: 'Domino o português ao nível de um nativo. Sem esforço.',               descEn: 'I speak Portuguese at native level. Effortlessly.',                  color: '#fff',    bg: 'linear-gradient(135deg, #14532d, #052e16)' },
 ];
 
 interface Question {
@@ -61,21 +61,21 @@ function getLevel(score: number): Level {
   return 'C2';
 }
 
-const RESULT_MESSAGES: Record<Level, string> = {
-  A1: 'Estás a dar os primeiros passos. Tens tudo à tua frente — e é uma boa posição para começar.',
-  A2: 'Já tens uma base. Com prática consistente, chegas ao B1 mais depressa do que pensas.',
-  B1: 'Já consegues comunicar em português. A partir daqui, a fluência está ao virar da esquina.',
-  B2: 'Tens uma fluência real. Os detalhes que faltam são exatamente o que vamos trabalhar.',
-  C1: 'Dominas o português com confiança. Falta só o brilho final.',
-  C2: 'Nível nativo. O teu português é uma obra de arte — e o Fala Brazil! vai mantê-la assim.',
+const RESULT_MESSAGES: Record<Level, { pt: string; en: string }> = {
+  A1: { pt: 'Estás a dar os primeiros passos. Tens tudo à tua frente — e é uma boa posição para começar.', en: 'You\'re taking your first steps. Everything is ahead of you — and that\'s a great place to start.' },
+  A2: { pt: 'Já tens uma base. Com prática consistente, chegas ao B1 mais depressa do que pensas.', en: 'You already have a foundation. With consistent practice, you\'ll reach B1 faster than you think.' },
+  B1: { pt: 'Já consegues comunicar em português. A partir daqui, a fluência está ao virar da esquina.', en: 'You can already communicate in Portuguese. From here, fluency is just around the corner.' },
+  B2: { pt: 'Tens uma fluência real. Os detalhes que faltam são exatamente o que vamos trabalhar.', en: 'You have real fluency. The missing details are exactly what we\'ll work on.' },
+  C1: { pt: 'Dominas o português com confiança. Falta só o brilho final.', en: 'You master Portuguese with confidence. Just the final polish left.' },
+  C2: { pt: 'Nível nativo. O teu português é uma obra de arte — e o Fala Brazil! vai mantê-la assim.', en: 'Native level. Your Portuguese is a work of art — and Fala Brazil! will keep it that way.' },
 };
 
 export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
-  const [screen, setScreen]       = useState<Screen>('pick');
-  const [currentQ, setCurrentQ]   = useState(0);
-  const [answers, setAnswers]     = useState<(number | null)[]>(Array(QUESTIONS.length).fill(null));
+  const [screen, setScreen]           = useState<Screen>('pick');
+  const [currentQ, setCurrentQ]       = useState(0);
+  const [answers, setAnswers]         = useState<(number | null)[]>(Array(QUESTIONS.length).fill(null));
   const [resultLevel, setResultLevel] = useState<Level | null>(null);
-  const [animating, setAnimating] = useState(false);
+  const [animating, setAnimating]     = useState(false);
 
   const currentAnswer = answers[currentQ];
   const hasAnswered   = currentAnswer !== null;
@@ -120,11 +120,20 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
         <div className="ob-flag-row">
           <img src="https://flagcdn.com/w80/br.png" alt="Brazil" className="ob-flag" />
         </div>
-        <h1 className="ob-title">Qual é o teu<br /><em>nível de português?</em></h1>
-        <p className="ob-subtitle">Escolhe o teu nível ou descobre-o com um teste de 20 perguntas.</p>
+        <h1 className="ob-title">
+          What's your<br /><em>Portuguese level?</em>
+          <br />
+          <span style={{ fontSize: '0.55em', fontWeight: 700, color: '#94a3b8', letterSpacing: 0 }}>
+            Qual é o teu nível de português?
+          </span>
+        </h1>
+        <p className="ob-subtitle">
+          Pick your level or discover it with a 20-question test.<br />
+          <span style={{ fontSize: '0.88em', color: '#b0b8c8' }}>Escolhe o teu nível ou descobre-o com um teste de 20 perguntas.</span>
+        </p>
 
         <div className="ob-levels-grid">
-          {LEVELS.map(({ level, label, emoji, desc, color, bg }) => (
+          {LEVELS.map(({ level, label, labelEn, emoji, desc, descEn, color, bg }) => (
             <button
               key={level}
               className="ob-level-card"
@@ -135,17 +144,18 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
                 <span className="ob-level-code" style={{ color }}>{level}</span>
                 <span className="ob-level-emoji">{emoji}</span>
               </div>
-              <div className="ob-level-label" style={{ color }}>{label}</div>
-              <div className="ob-level-desc" style={{ color: level === 'C2' ? 'rgba(255,255,255,0.75)' : '#374151' }}>{desc}</div>
-              <div className="ob-level-cta" style={{ color }}>Começar com {level} →</div>
+              <div className="ob-level-label" style={{ color }}>{labelEn} · {label}</div>
+              <div className="ob-level-desc" style={{ color: level === 'C2' ? 'rgba(255,255,255,0.9)' : '#374151' }}>{descEn}</div>
+              <div style={{ fontSize: '0.7rem', color: level === 'C2' ? 'rgba(255,255,255,0.6)' : '#6b7280', marginBottom: 4, fontStyle: 'italic' }}>{desc}</div>
+              <div className="ob-level-cta" style={{ color }}>Start with {level} →</div>
             </button>
           ))}
         </div>
 
         <div className="ob-quiz-cta">
-          <span className="ob-quiz-cta-label">Não tens a certeza?</span>
+          <span className="ob-quiz-cta-label">Not sure? · Não tens a certeza?</span>
           <button className="ob-quiz-btn" onClick={() => setScreen('quiz')}>
-            Faz o teste de nivelamento
+            Take the placement test · Faz o teste de nivelamento
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
           </button>
         </div>
@@ -158,24 +168,20 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
     const q = QUESTIONS[currentQ];
     return (
       <div className="ob-wrapper">
-        {/* Header */}
         <div className="ob-quiz-header">
           <button className="ob-back-link" onClick={() => { setScreen('pick'); setCurrentQ(0); setAnswers(Array(QUESTIONS.length).fill(null)); }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
-            Voltar
+            Back · Voltar
           </button>
           <span className="ob-q-counter">{currentQ + 1} / {QUESTIONS.length}</span>
         </div>
 
-        {/* Progress bar */}
         <div className="ob-progress-track">
           <div className="ob-progress-bar" style={{ width: `${progress}%` }} />
         </div>
 
-        {/* Phase label */}
         <div className="ob-phase-badge">{q.phaseLabel}</div>
 
-        {/* Question */}
         <div className={`ob-question-card ${animating ? 'ob-fade-out' : 'ob-fade-in'}`}>
           <p className="ob-question-text">{q.q}</p>
 
@@ -183,15 +189,15 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
             {q.opts.map((opt, i) => {
               let cls = 'ob-option';
               if (hasAnswered) {
-                if (i === q.ans)          cls += ' ob-option-correct';
+                if (i === q.ans)              cls += ' ob-option-correct';
                 else if (i === currentAnswer) cls += ' ob-option-wrong';
-                else                      cls += ' ob-option-dim';
+                else                          cls += ' ob-option-dim';
               }
               return (
                 <button key={i} className={cls} onClick={() => handleAnswer(i)} disabled={hasAnswered && i !== q.ans && i !== currentAnswer}>
                   <span className="ob-opt-letter">{['A', 'B', 'C', 'D'][i]}</span>
                   <span className="ob-opt-text">{opt}</span>
-                  {hasAnswered && i === q.ans      && <span className="ob-opt-icon">✓</span>}
+                  {hasAnswered && i === q.ans                        && <span className="ob-opt-icon">✓</span>}
                   {hasAnswered && i === currentAnswer && i !== q.ans && <span className="ob-opt-icon ob-opt-x">✗</span>}
                 </button>
               );
@@ -201,15 +207,15 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
           {hasAnswered && (
             <div className={`ob-feedback ${isCorrect(currentAnswer!) ? 'ob-feedback-good' : 'ob-feedback-bad'}`}>
               {isCorrect(currentAnswer!)
-                ? '✓ Correto!'
-                : `Resposta certa: ${q.opts[q.ans]}`}
+                ? '✓ Correct! · Correto!'
+                : `Correct answer · Resposta certa: ${q.opts[q.ans]}`}
             </div>
           )}
         </div>
 
         {hasAnswered && (
           <button className="ob-next-btn" onClick={handleNext}>
-            {currentQ + 1 === QUESTIONS.length ? 'Ver resultado' : 'Próxima pergunta'}
+            {currentQ + 1 === QUESTIONS.length ? 'See result · Ver resultado' : 'Next · Próxima'}
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
           </button>
         )}
@@ -220,26 +226,32 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
   // ── RESULT ─────────────────────────────────────────────────────────
   if (screen === 'result' && resultLevel) {
     const levelInfo = LEVELS.find(l => l.level === resultLevel)!;
+    const msg = RESULT_MESSAGES[resultLevel];
     return (
       <div className="ob-wrapper ob-result-wrapper">
         <div className="ob-result-card" style={{ background: levelInfo.bg }}>
           <div className="ob-result-emoji">{levelInfo.emoji}</div>
           <div className="ob-result-level-code" style={{ color: levelInfo.color }}>{resultLevel}</div>
-          <div className="ob-result-level-label" style={{ color: resultLevel === 'C2' ? '#fff' : levelInfo.color }}>{levelInfo.label}</div>
+          <div className="ob-result-level-label" style={{ color: resultLevel === 'C2' ? '#fff' : levelInfo.color }}>
+            {levelInfo.labelEn} · {levelInfo.label}
+          </div>
           <div className="ob-result-score" style={{ color: resultLevel === 'C2' ? 'rgba(255,255,255,0.7)' : '#6b7280' }}>
-            {score} / {QUESTIONS.length} respostas certas
+            {score} / {QUESTIONS.length} correct answers · respostas certas
           </div>
         </div>
 
-        <p className="ob-result-message">{RESULT_MESSAGES[resultLevel]}</p>
+        <p className="ob-result-message">
+          {msg.en}<br />
+          <span style={{ fontSize: '0.9em', color: '#b0b8c8', fontStyle: 'italic' }}>{msg.pt}</span>
+        </p>
 
         <div className="ob-result-actions">
           <button className="ob-confirm-btn" onClick={() => handleConfirm(resultLevel)}>
-            Começar com {resultLevel} · {levelInfo.label}
+            Start with {resultLevel} · {levelInfo.labelEn}
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
           </button>
           <button className="ob-change-btn" onClick={() => setScreen('pick')}>
-            Prefiro escolher o nível manualmente
+            I'd rather choose my level manually · Prefiro escolher manualmente
           </button>
         </div>
       </div>
