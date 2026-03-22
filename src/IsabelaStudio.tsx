@@ -126,10 +126,24 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
     }
   };
 
+  // ── Stop Isabela speaking and start listening ─────
+  const interruptIsabela = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    setIsSpeaking(false);
+    setTimeout(() => startListening(), 200);
+  };
+
   const startListening = () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) { setError('Speech recognition not supported. Please use Chrome.'); return; }
-    if (audioRef.current) { audioRef.current.pause(); setIsSpeaking(false); }
+
+    // Stop any existing recognition
+    if (recognitionRef.current) {
+      try { recognitionRef.current.abort(); } catch { }
+    }
 
     const recognition = new SpeechRecognition();
     recognition.lang = 'pt-BR';
@@ -137,12 +151,14 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
     recognition.interimResults = false;
     recognitionRef.current = recognition;
 
-    recognition.onstart  = () => setIsListening(true);
+    recognition.onstart  = () => { setIsListening(true); setError(''); };
     recognition.onend    = () => setIsListening(false);
     recognition.onerror  = (e: any) => {
       setIsListening(false);
-      if (e.error !== 'no-speech') {
-        setError('Could not hear you. Try again.');
+      if (e.error === 'not-allowed') {
+        setError('Microphone access denied. Please check your browser settings.');
+      } else if (e.error !== 'no-speech' && e.error !== 'aborted') {
+        setError('Could not hear you. Tap the mic to try again.');
       }
     };
     recognition.onresult = (e: any) => {
@@ -176,8 +192,9 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
       console.error('ElevenLabs error:', e);
     } finally {
       setIsSpeaking(false);
+      // Auto-listen after Isabela finishes — 800ms delay for browser to reset mic
       if (autoListenRef.current) {
-        setTimeout(() => startListening(), 300);
+        setTimeout(() => startListening(), 800);
       }
     }
   };
@@ -194,8 +211,9 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: updated.map(m => ({ role: m.role === 'isabela' ? 'assistant' : 'user', content: m.text })),
+          messages: updated.slice(-6).map(m => ({ role: m.role === 'isabela' ? 'assistant' : 'user', content: m.text })),
           systemPrompt: buildSystemPrompt(topic, level),
+          isReport: false,
         }),
       });
       const data = await res.json();
@@ -233,6 +251,7 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
         body: JSON.stringify({
           messages: [],
           systemPrompt: buildSystemPrompt(topic, level),
+          isReport: false,
         }),
       });
       const data = await res.json();
@@ -249,7 +268,7 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
   const endConversation = async () => {
     autoListenRef.current = false;
     if (timerRef.current) clearInterval(timerRef.current);
-    if (recognitionRef.current) recognitionRef.current.abort();
+    if (recognitionRef.current) { try { recognitionRef.current.abort(); } catch { } }
     if (audioRef.current) audioRef.current.pause();
     setIsListening(false);
     setIsSpeaking(false);
@@ -287,6 +306,7 @@ Learner messages:
 ${userMessages}`,
           }],
           systemPrompt: 'You are a Portuguese language expert. Return ONLY valid JSON, no markdown, no explanation.',
+          isReport: true,
         }),
       });
       const data   = await res.json();
@@ -374,21 +394,19 @@ ${userMessages}`,
         <div className="is-permission-card">
           <div className="is-permission-icon">🎙️</div>
           <h2 className="is-permission-title">Microphone access needed</h2>
-          <p className="is-permission-desc">
-            Isabela needs to hear you speak Portuguese! When prompted, please tap <strong>"Allow"</strong> to enable your microphone.
-          </p>
+          <p className="is-permission-desc">3 quick steps to start talking with Isabela.</p>
           <div className="is-permission-steps">
             <div className="is-permission-step">
               <span className="is-permission-step-num">1</span>
-              <span>Tap the button below</span>
+              <span>Tap <strong>"Allow microphone &amp; start"</strong> below</span>
             </div>
             <div className="is-permission-step">
               <span className="is-permission-step-num">2</span>
-              <span>Allow microphone access when asked</span>
+              <span>Tap <strong>"Allow"</strong> when your browser asks for microphone permission</span>
             </div>
             <div className="is-permission-step">
               <span className="is-permission-step-num">3</span>
-              <span>Isabela will greet you and the conversation begins automatically!</span>
+              <span>Isabela will greet you and the conversation starts automatically 🎉</span>
             </div>
           </div>
 
@@ -399,7 +417,7 @@ ${userMessages}`,
           )}
 
           <button className="is-start-btn" onClick={handlePermissionAndStart}>
-            Allow microphone & start →
+            Allow microphone &amp; start →
           </button>
           <button className="is-permission-back" onClick={() => setScreen('pick')}>
             ← Go back
@@ -456,18 +474,35 @@ ${userMessages}`,
 
         <div className="is-voice-bar">
           <button
-            className={`is-mic-btn ${isListening ? 'listening' : ''}`}
-            onClick={() => startListening()}
-            disabled={isLoading || isSpeaking}
+            className={`is-mic-btn ${isListening ? 'listening' : ''} ${isSpeaking ? 'interrupt' : ''}`}
+            onClick={() => {
+              if (isSpeaking) {
+                interruptIsabela();
+              } else {
+                startListening();
+              }
+            }}
+            disabled={isLoading}
           >
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
-              <rect x="9" y="2" width="6" height="12" rx="3" fill="white"/>
-              <path d="M5 10a7 7 0 0014 0" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-              <line x1="12" y1="19" x2="12" y2="22" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
+            {isSpeaking ? (
+              // Show stop/interrupt icon when Isabela is speaking
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+                <rect x="6" y="6" width="12" height="12" rx="2" fill="white"/>
+              </svg>
+            ) : (
+              // Show mic icon normally
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+                <rect x="9" y="2" width="6" height="12" rx="3" fill="white"/>
+                <path d="M5 10a7 7 0 0014 0" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+                <line x1="12" y1="19" x2="12" y2="22" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+            )}
           </button>
           <div className="is-mic-label">
-            {isListening ? 'Listening... tap to stop' : isSpeaking ? 'Isabela is speaking...' : 'Tap to speak or wait for auto-listen'}
+            {isLoading ? 'Isabela is thinking...' :
+             isSpeaking ? 'Tap to interrupt Isabela' :
+             isListening ? 'Listening... speak now' :
+             'Tap to speak'}
           </div>
           <button className="is-end-btn" onClick={endConversation}>
             End conversation

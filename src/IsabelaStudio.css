@@ -30,11 +30,11 @@
     object-position: center 15%;
     border: 3px solid #e2e8f0;
     margin-bottom: 14px;
-  }  
+  }
   
   .is-avatar-fallback {
-    width: 110px;
-    height: 110px;
+    width: 90px;
+    height: 90px;
     border-radius: 50%;
     background: linear-gradient(135deg, #14532d, #16a34a);
     display: flex;
@@ -157,6 +157,94 @@
     transform: translateY(-2px);
   }
   
+  /* ── PERMISSION SCREEN ────────────────────────────── */
+  .is-permission-card {
+    margin: 0 16px;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 20px;
+    padding: 28px 20px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  
+  .is-permission-icon {
+    font-size: 2.8rem;
+    margin-bottom: 14px;
+    line-height: 1;
+  }
+  
+  .is-permission-title {
+    font-size: 1.2rem;
+    font-weight: 900;
+    color: #0f172a;
+    font-family: 'Playfair Display', Georgia, serif;
+    margin: 0 0 8px;
+  }
+  
+  .is-permission-desc {
+    font-size: 0.82rem;
+    color: #64748b;
+    line-height: 1.5;
+    margin: 0 0 20px;
+  }
+  
+  .is-permission-steps {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 24px;
+    text-align: left;
+  }
+  
+  .is-permission-step {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-size: 0.82rem;
+    color: #374151;
+    line-height: 1.4;
+  }
+  
+  .is-permission-step-num {
+    width: 24px;
+    height: 24px;
+    min-width: 24px;
+    border-radius: 50%;
+    background: #14532d;
+    color: white;
+    font-size: 0.72rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  
+  .is-permission-back {
+    background: none;
+    border: none;
+    color: #94a3b8;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    margin-top: 10px;
+    padding: 6px;
+    transition: color 0.2s;
+    width: 100%;
+    text-align: center;
+  }
+  
+  .is-permission-back:hover { color: #14532d; }
+  
   /* ── CONVERSATION ─────────────────────────────────── */
   .is-conv-header {
     display: flex;
@@ -175,7 +263,7 @@
     height: 42px;
     border-radius: 50%;
     object-fit: cover;
-    object-position: center top;
+    object-position: center 15%;
     flex-shrink: 0;
   }
   
