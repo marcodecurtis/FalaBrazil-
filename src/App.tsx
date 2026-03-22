@@ -73,7 +73,6 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Close menu when clicking outside
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -135,18 +134,9 @@ export default function App() {
 
   return (
     <>
-      {/* ── SANDWICH MENU — outside .container so it's never clipped ── */}
+      {/* ── SANDWICH MENU ── */}
       {view === 'home' && (
-        <div
-          ref={menuRef}
-          style={{
-            position: 'fixed',
-            top: '16px',
-            right: '16px',
-            zIndex: 9999,
-          }}
-        >
-          {/* Hamburger button */}
+        <div ref={menuRef} style={{ position: 'fixed', top: '16px', right: '16px', zIndex: 9999 }}>
           <button
             onClick={() => setMenuOpen(!menuOpen)}
             style={{
@@ -162,7 +152,6 @@ export default function App() {
             <span style={{ width: '18px', height: '2px', background: '#0f172a', borderRadius: '2px', display: 'block' }} />
           </button>
 
-          {/* Dropdown */}
           {menuOpen && (
             <div style={{
               position: 'absolute', top: '48px', right: 0,
@@ -170,7 +159,6 @@ export default function App() {
               borderRadius: '14px', boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
               minWidth: '220px', overflow: 'hidden',
             }}>
-              {/* Account info */}
               {isLoggedIn && userData && (
                 <div style={{ padding: '16px', borderBottom: '1px solid #f1f5f9', background: '#f8fafc' }}>
                   <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>Account</div>
@@ -191,7 +179,6 @@ export default function App() {
                 </div>
               )}
 
-              {/* Level */}
               <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9' }}>
                 <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94a3b8', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Your Level</div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -207,7 +194,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Privacy policy */}
               <a
                 href="/privacy-policy.html"
                 target="_blank"
@@ -218,7 +204,6 @@ export default function App() {
                 📄 Privacy Policy & Terms
               </a>
 
-              {/* Log out */}
               {isLoggedIn && (
                 <button
                   onClick={handleLogout}
@@ -234,7 +219,6 @@ export default function App() {
 
       <div className="container">
 
-        {/* ── BACK BUTTON ── */}
         {view !== 'home' && view !== 'onboarding' && view !== 'welcome' && view !== 'auth' && (
           <button className="top-back-btn" onClick={() => navigateTo('home')}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -248,7 +232,6 @@ export default function App() {
         {view === 'auth'       && <AuthScreen onContinueWithoutAccount={handleContinueWithoutAccount} onAuthSuccess={handleAuthSuccess} />}
         {view === 'onboarding' && <OnboardingScreen onComplete={handleOnboardingComplete} />}
 
-        {/* ── HOME ── */}
         {view === 'home' && (
           <div className="dashboard">
             <header className="dashboard-header">
@@ -260,8 +243,6 @@ export default function App() {
                 ? <p className="main-subtitle">Hey {userData.name.split(' ')[0]}! Ready to learn? 👋</p>
                 : <p className="main-subtitle">Learn Portuguese the right way</p>
               }
-
-              {/* ── Clean header: Level pill + Review level only ── */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px', justifyContent: 'center' }}>
                 {userLevel && (
                   <span style={{ background: 'var(--accent)', color: 'white', fontWeight: 800, fontSize: '0.78rem', padding: '4px 14px', borderRadius: '20px', letterSpacing: '0.5px' }}>
@@ -309,7 +290,13 @@ export default function App() {
                 <div className="card-arrow">→</div>
               </div>
               <div className="nav-card" onClick={() => navigateTo('isabela')}>
-                <div className="card-icon">🗣️</div>
+                <div className="card-icon" style={{ padding: 0, overflow: 'hidden', borderRadius: '14px' }}>
+                  <img
+                    src="/isabela.png"
+                    alt="Isabela"
+                    style={{ width: '56px', height: '56px', objectFit: 'cover', objectPosition: 'center top', display: 'block' }}
+                  />
+                </div>
                 <div className="card-content">
                   <h3>Chat with Isabela</h3>
                   <p>Practise speaking Portuguese with your AI conversation partner.</p>
