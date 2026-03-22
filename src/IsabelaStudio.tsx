@@ -21,14 +21,14 @@ interface Report {
 }
 
 const TOPICS = [
-  { id: 'food',       name: 'Brazilian food',       icon: '🍖' },
-  { id: 'music',      name: 'Brazilian music',       icon: '🎵' },
-  { id: 'soccer',     name: 'Brazilian soccer',      icon: '⚽' },
-  { id: 'telenovelas',name: 'Brazilian telenovelas', icon: '📺' },
-  { id: 'books',      name: 'Brazilian books',       icon: '📚' },
-  { id: 'culture',    name: 'Brazilian culture',     icon: '🎭' },
-  { id: 'cities',     name: 'Brazilian cities',      icon: '🏙️' },
-  { id: 'politics',   name: 'Brazilian politics',    icon: '🗳️' },
+  { id: 'food',        name: 'Food',        fullName: 'Brazilian food',        icon: '🍖', color: '#fef3c7', border: '#fcd34d', text: '#92400e' },
+  { id: 'music',       name: 'Music',       fullName: 'Brazilian music',       icon: '🎵', color: '#fce7f3', border: '#f9a8d4', text: '#9d174d' },
+  { id: 'soccer',      name: 'Soccer',      fullName: 'Brazilian soccer',      icon: '⚽', color: '#dcfce7', border: '#86efac', text: '#14532d' },
+  { id: 'telenovelas', name: 'Telenovelas', fullName: 'Brazilian telenovelas', icon: '📺', color: '#ede9fe', border: '#c4b5fd', text: '#4c1d95' },
+  { id: 'books',       name: 'Books',       fullName: 'Brazilian books',       icon: '📚', color: '#e0f2fe', border: '#7dd3fc', text: '#0c4a6e' },
+  { id: 'culture',     name: 'Culture',     fullName: 'Brazilian culture',     icon: '🎭', color: '#ffedd5', border: '#fdba74', text: '#7c2d12' },
+  { id: 'cities',      name: 'Cities',      fullName: 'Brazilian cities',      icon: '🏙️', color: '#f1f5f9', border: '#cbd5e1', text: '#0f172a' },
+  { id: 'politics',    name: 'Politics',    fullName: 'Brazilian politics',    icon: '🗳️', color: '#fef2f2', border: '#fca5a5', text: '#7f1d1d' },
 ];
 
 const ELEVENLABS_VOICE_ID = '33B4UnXyTNbgLmdEDh5P';
@@ -71,15 +71,15 @@ Comece a conversa com uma saudação calorosa e uma pergunta sobre o tema.`;
 }
 
 export default function IsabelaStudio({ onBack, userLevel }: Props) {
-  const [screen, setScreen]           = useState<Screen>('pick');
+  const [screen, setScreen]               = useState<Screen>('pick');
   const [selectedTopic, setSelectedTopic] = useState<string>(TOPICS[0].id);
-  const [messages, setMessages]       = useState<Message[]>([]);
-  const [isListening, setIsListening] = useState(false);
-  const [isSpeaking, setIsSpeaking]   = useState(false);
-  const [isLoading, setIsLoading]     = useState(false);
-  const [timeLeft, setTimeLeft]       = useState(CONVERSATION_SECONDS);
-  const [error, setError]             = useState('');
-  const [report, setReport]           = useState<Report | null>(null);
+  const [messages, setMessages]           = useState<Message[]>([]);
+  const [isListening, setIsListening]     = useState(false);
+  const [isSpeaking, setIsSpeaking]       = useState(false);
+  const [isLoading, setIsLoading]         = useState(false);
+  const [timeLeft, setTimeLeft]           = useState(CONVERSATION_SECONDS);
+  const [error, setError]                 = useState('');
+  const [report, setReport]               = useState<Report | null>(null);
 
   const timerRef        = useRef<ReturnType<typeof setInterval> | null>(null);
   const recognitionRef  = useRef<any>(null);
@@ -88,14 +88,8 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
   const conversationRef = useRef<Message[]>([]);
   const level           = userLevel || 'B1';
 
-  useEffect(() => {
-    conversationRef.current = messages;
-  }, [messages]);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isSpeaking]);
-
+  useEffect(() => { conversationRef.current = messages; }, [messages]);
+  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, isSpeaking]);
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
@@ -119,8 +113,8 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
         body: JSON.stringify({ text, voiceId: ELEVENLABS_VOICE_ID }),
       });
       if (!res.ok) throw new Error('ElevenLabs error');
-      const blob = await res.blob();
-      const url  = URL.createObjectURL(blob);
+      const blob  = await res.blob();
+      const url   = URL.createObjectURL(blob);
       const audio = new Audio(url);
       audioRef.current = audio;
       audio.play();
@@ -142,17 +136,13 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
     setMessages(updated);
     setIsLoading(true);
     setError('');
-
     try {
-      const topic = TOPICS.find(t => t.id === selectedTopic)?.name || selectedTopic;
+      const topic = TOPICS.find(t => t.id === selectedTopic)?.fullName || selectedTopic;
       const res = await fetch('/api/isabela', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: updated.map(m => ({
-            role: m.role === 'isabela' ? 'assistant' : 'user',
-            content: m.text,
-          })),
+          messages: updated.map(m => ({ role: m.role === 'isabela' ? 'assistant' : 'user', content: m.text })),
           systemPrompt: buildSystemPrompt(topic, level),
         }),
       });
@@ -176,16 +166,12 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
 
     timerRef.current = setInterval(() => {
       setTimeLeft(prev => {
-        if (prev <= 1) {
-          clearInterval(timerRef.current!);
-          endConversation();
-          return 0;
-        }
+        if (prev <= 1) { clearInterval(timerRef.current!); endConversation(); return 0; }
         return prev - 1;
       });
     }, 1000);
 
-    const topic = TOPICS.find(t => t.id === selectedTopic)?.name || selectedTopic;
+    const topic = TOPICS.find(t => t.id === selectedTopic)?.fullName || selectedTopic;
     setIsLoading(true);
     try {
       const res = await fetch('/api/isabela', {
@@ -198,8 +184,7 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
       });
       const data = await res.json();
       const greeting = data.text || 'Olá! Vamos conversar!';
-      const msg: Message = { role: 'isabela', text: greeting };
-      setMessages([msg]);
+      setMessages([{ role: 'isabela', text: greeting }]);
       setIsLoading(false);
       await speakWithElevenLabs(greeting);
     } catch {
@@ -210,28 +195,17 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
 
   const startListening = () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      setError('O teu browser não suporta reconhecimento de voz. Tenta o Chrome.');
-      return;
-    }
-    if (audioRef.current) {
-      audioRef.current.pause();
-      setIsSpeaking(false);
-    }
-
+    if (!SpeechRecognition) { setError('O teu browser não suporta reconhecimento de voz. Tenta o Chrome.'); return; }
+    if (audioRef.current) { audioRef.current.pause(); setIsSpeaking(false); }
     const recognition = new SpeechRecognition();
     recognition.lang = 'pt-BR';
     recognition.continuous = false;
     recognition.interimResults = false;
     recognitionRef.current = recognition;
-
     recognition.onstart  = () => setIsListening(true);
     recognition.onend    = () => setIsListening(false);
     recognition.onerror  = () => { setIsListening(false); setError('Não consegui ouvir. Tenta novamente.'); };
-    recognition.onresult = (e: any) => {
-      const transcript = e.results[0][0].transcript;
-      if (transcript.trim()) sendToIsabela(transcript);
-    };
+    recognition.onresult = (e: any) => { const t = e.results[0][0].transcript; if (t.trim()) sendToIsabela(t); };
     recognition.start();
   };
 
@@ -252,7 +226,6 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
       setReport({ score: 0, goodPhrases: [], corrections: [], tip: 'Try to speak more next time!' });
       return;
     }
-
     try {
       const res = await fetch('/api/isabela', {
         method: 'POST',
@@ -282,21 +255,17 @@ ${userMessages}`,
           systemPrompt: 'You are a Portuguese language expert. Return ONLY valid JSON, no markdown, no explanation.',
         }),
       });
-      const data = await res.json();
-      const clean = data.text.replace(/```json|```/g, '').trim();
+      const data   = await res.json();
+      const clean  = data.text.replace(/```json|```/g, '').trim();
       const parsed = JSON.parse(clean);
       setReport(parsed);
     } catch {
-      setReport({
-        score: 7,
-        goodPhrases: [{ phrase: 'Boa tentativa!', note: 'You made a great effort.' }],
-        corrections: [],
-        tip: 'Keep practising — consistency is key!',
-      });
+      setReport({ score: 7, goodPhrases: [{ phrase: 'Boa tentativa!', note: 'You made a great effort.' }], corrections: [], tip: 'Keep practising — consistency is key!' });
     }
   };
 
-  const topicName = TOPICS.find(t => t.id === selectedTopic)?.name || '';
+  const topicInfo = TOPICS.find(t => t.id === selectedTopic);
+  const topicName = topicInfo?.fullName || '';
 
   // ── TOPIC PICKER ─────────────────────────────────
   if (screen === 'pick') {
@@ -309,7 +278,7 @@ ${userMessages}`,
             className="is-avatar"
             onError={(e) => {
               e.currentTarget.style.display = 'none';
-              e.currentTarget.nextElementSibling?.removeAttribute('style');
+              (e.currentTarget.nextElementSibling as HTMLElement)?.style.removeProperty('display');
             }}
           />
           <div className="is-avatar-fallback" style={{ display: 'none' }}>
@@ -326,10 +295,16 @@ ${userMessages}`,
             <button
               key={topic.id}
               className={`is-topic-card ${selectedTopic === topic.id ? 'selected' : ''}`}
+              style={{
+                background: selectedTopic === topic.id ? topic.color : 'white',
+                borderColor: selectedTopic === topic.id ? topic.border : '#e2e8f0',
+              }}
               onClick={() => setSelectedTopic(topic.id)}
             >
               <span className="is-topic-icon">{topic.icon}</span>
-              <div className="is-topic-name">{topic.name}</div>
+              <div className="is-topic-name" style={{ color: selectedTopic === topic.id ? topic.text : '#0f172a' }}>
+                {topic.name}
+              </div>
             </button>
           ))}
         </div>
@@ -352,7 +327,7 @@ ${userMessages}`,
             className="is-conv-avatar"
             onError={(e) => {
               e.currentTarget.style.display = 'none';
-              e.currentTarget.nextElementSibling?.removeAttribute('style');
+              (e.currentTarget.nextElementSibling as HTMLElement)?.style.removeProperty('display');
             }}
           />
           <div className="is-conv-avatar-fallback" style={{ display: 'none' }}>Is</div>
@@ -372,20 +347,16 @@ ${userMessages}`,
               <div className="is-msg-bubble">{msg.text}</div>
             </div>
           ))}
-
           {(isLoading || isSpeaking) && (
             <div className="is-msg is-msg-isabela">
               <div className="is-msg-sender">Isabela</div>
               <div className="is-msg-bubble">
                 <div className="is-speaking-dots">
-                  <div className="is-dot" />
-                  <div className="is-dot" />
-                  <div className="is-dot" />
+                  <div className="is-dot" /><div className="is-dot" /><div className="is-dot" />
                 </div>
               </div>
             </div>
           )}
-
           {error && <div className="is-error">{error}</div>}
           <div ref={messagesEndRef} />
         </div>
@@ -437,7 +408,6 @@ ${userMessages}`,
               </div>
             ))}
           </div>
-
           <div className="is-report-section is-report-fix">
             <div className="is-report-section-title">3 corrections</div>
             {report.corrections.map((c, i) => (
@@ -447,7 +417,6 @@ ${userMessages}`,
               </div>
             ))}
           </div>
-
           <div className="is-report-section is-report-tip">
             <div className="is-report-section-title">Isabela's tip for {level}</div>
             <div className="is-report-item">{report.tip}</div>

@@ -50,7 +50,7 @@ const SLIDES = [
       { icon: '📖', label: 'Grammar', desc: 'A1 to C2 · clear rules' },
       { icon: '📰', label: 'Reading', desc: 'Real Brazilian articles' },
       { icon: '🔊', label: 'Pronunciation', desc: 'AI-powered feedback' },
-      { icon: '🤖', label: 'AI Tutor', desc: 'Chat in Portuguese' },
+      { icon: '🗣️', label: 'Isabela', desc: 'Chat in Portuguese' },
     ],
   },
   {
