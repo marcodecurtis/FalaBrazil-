@@ -494,9 +494,11 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
 
   // ── READING BLOCK ─────────────────────────────────
   if (block.type === 'reading') {
-    const title     = block.content?.title     || 'Reading';
-    const text      = block.content?.text      || '';
-    const questions: string[] = block.content?.questions || [];
+    const title = block.content?.title || 'Reading';
+    const text  = block.content?.text  || '';
+
+    type ReadingQuestion = string | { question: string; options: string[]; correctAnswer: string };
+    const questions: ReadingQuestion[] = block.content?.questions || [];
 
     if (phase === 'learn') {
       return (
@@ -520,22 +522,22 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
 
     if (phase === 'test' && questions.length > 0) {
       const q = questions[currentTestQ];
-      
+
       // Handle both old format (string) and new format (object with options)
       let question = '';
-      let options = [];
+      let options: string[] = [];
       let correctAnswer = '';
-      
+
       if (typeof q === 'string') {
         // Old format - just a question string, no validation possible
         question = q;
-      } else if (typeof q === 'object' && q.question) {
+      } else {
         // New format with options
-        question = q.question;
+        question = q.question || '';
         options = q.options || [];
         correctAnswer = q.correctAnswer || '';
       }
-      
+
       const isAnswered = testAnswers[currentTestQ] !== undefined && testAnswers[currentTestQ] !== null;
       const selectedAnswer = testAnswers[currentTestQ];
       const isCorrect = selectedAnswer === correctAnswer;
@@ -553,16 +555,16 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
           </div>
           <div className="lp-phase-label">Answer the question</div>
           <div className="lp-grammar-fill-q">{question}</div>
-          
+
           {options.length > 0 ? (
             // Multiple choice format
             <div className="lp-options">
-              {options.map((option, i) => {
+              {options.map((option: string, i: number) => {
                 let cls = 'lp-option';
                 if (isAnswered) {
-                  if (option === correctAnswer) cls += ' lp-option-correct';
+                  if (option === correctAnswer)    cls += ' lp-option-correct';
                   else if (option === selectedAnswer) cls += ' lp-option-wrong';
-                  else cls += ' lp-option-dim';
+                  else                            cls += ' lp-option-dim';
                 }
                 return (
                   <button
@@ -596,7 +598,7 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
               disabled={isAnswered}
             />
           )}
-          
+
           {!isAnswered && options.length === 0 && (
             <button className="lp-next-btn" onClick={(e) => {
               const ta = e.currentTarget.parentElement?.querySelector('.lp-fill-textarea') as HTMLTextAreaElement;
@@ -608,7 +610,7 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
               setScore(s => s + 1);
             }}>Submit answer</button>
           )}
-          
+
           {isAnswered && (
             <>
               {options.length > 0 ? (
@@ -648,8 +650,6 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
 
   // ── ISABELA BLOCK ──────────────────────────────
   if (block.type === 'isabela') {
-    // Navigate to isabela AI coach - this will be handled by parent component
-    // For now, show a redirect message
     return (
       <div className="lp-wrapper">
         <div className="lp-header">
@@ -663,7 +663,7 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
         }}>
           <div style={{ fontSize: '2rem', marginBottom: '12px' }}>🎙️</div>
           <p style={{ fontWeight: 700, marginBottom: '20px' }}>Redirecting to Isabela...</p>
-          <button 
+          <button
             className="lp-next-btn"
             onClick={onPass}
             style={{ marginTop: '20px' }}
