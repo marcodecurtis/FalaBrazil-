@@ -57,6 +57,15 @@ const FREE_PRACTICE = [
   { id: 'isabela',       label: 'Chat with Isabela',      desc: 'AI conversation partner',        icon: null,  isIsabela: true  },
 ];
 
+// Days required to complete each level
+const DAYS_PER_LEVEL: Record<string, number> = {
+  A1: 30, A2: 45, B1: 60, B2: 60, C1: 60, C2: 45,
+};
+
+const NEXT_LEVEL: Record<string, string> = {
+  A1: 'A2', A2: 'B1', B1: 'B2', B2: 'C1', C1: 'C2', C2: 'C2',
+};
+
 const getCacheKey = (level: string, day: number) => `lesson_cache_${level}_day${day}`;
 
 const getCachedLesson = (level: string, day: number): Lesson | null => {
@@ -102,6 +111,11 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
   const level          = userLevel || 'A1';
   const timePreference = localStorage.getItem('timePreference') || '30';
   const learningGoal   = localStorage.getItem('learningGoal')   || 'conversation';
+
+  // ── Real level progress based on days completed ───
+  const daysForLevel   = DAYS_PER_LEVEL[level] || 30;
+  const levelProgress  = Math.min(100, Math.round(((dayNumber - 1) / daysForLevel) * 100));
+  const nextLevel      = NEXT_LEVEL[level];
 
   useEffect(() => {
     const user = auth.currentUser;
@@ -210,6 +224,10 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
     if (allBlocksDone) {
       setStreak(newStreak);
       setShowCelebration(true);
+      // Advance to next day
+      const nextDay = dayNumber + 1;
+      setDayNumber(nextDay);
+      localStorage.setItem('currentDay', nextDay.toString());
     }
     await saveProgress(dayNumber, newCompleted, newPts, newStreak);
     if (allBlocksDone) preGenerateNextLesson(dayNumber + 1);
@@ -248,9 +266,6 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
   const ptsEarned       = lesson ? lesson.blocks.filter(b => completed.includes(b.type)).reduce((sum, b) => sum + b.xp, 0) : 0;
   const allDone         = totalBlocks > 0 && completedCount === totalBlocks;
 
-  const levelProgress: Record<string, number> = { A1: 10, A2: 25, B1: 45, B2: 62, C1: 80, C2: 95 };
-  const nextLevel: Record<string, string>      = { A1: 'A2', A2: 'B1', B1: 'B2', B2: 'C1', C1: 'C2', C2: 'C2' };
-
   return (
     <div className="ts-wrapper">
 
@@ -282,15 +297,18 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
         </div>
       </div>
 
+      {/* ── LEVEL PROGRESS — real, based on days done ── */}
       <div className="ts-level-bar">
         <div className="ts-level-row">
           <span className="ts-level-pill">{level}</span>
           <span className="ts-level-next">
-            {level !== 'C2' ? `${levelProgress[level] || 0}% to ${nextLevel[level]}` : 'Max level'}
+            {level !== 'C2'
+              ? `${levelProgress}% to ${nextLevel} · Day ${dayNumber} of ${daysForLevel}`
+              : 'Max level reached!'}
           </span>
         </div>
         <div className="ts-level-track">
-          <div className="ts-level-fill" style={{ width: `${levelProgress[level] || 0}%` }} />
+          <div className="ts-level-fill" style={{ width: `${levelProgress}%` }} />
         </div>
       </div>
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import './LessonPlayer.css';
 import type { LessonBlock } from './TodayScreen';
 
@@ -18,18 +18,41 @@ function getWrongOptions(correctWord: string, allWords: { word: string; translat
 }
 
 export default function LessonPlayer({ block, onPass, onBack }: Props) {
-  const [phase, setPhase]           = useState<'learn' | 'test' | 'result'>('learn');
-  const [cardIndex, setCardIndex]   = useState(0);
-  const [flipped, setFlipped]       = useState(false);
-  const [testAnswers, setTestAnswers] = useState<(string | null)[]>([]);
-  const [currentTestQ, setCurrentTestQ] = useState(0);
+  const [phase, setPhase]                   = useState<'learn' | 'test' | 'result'>('learn');
+  const [cardIndex, setCardIndex]           = useState(0);
+  const [flipped, setFlipped]               = useState(false);
+  const [testAnswers, setTestAnswers]       = useState<(string | null)[]>([]);
+  const [currentTestQ, setCurrentTestQ]     = useState(0);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
-  const [showFeedback, setShowFeedback] = useState(false);
-  const [score, setScore]           = useState(0);
+  const [showFeedback, setShowFeedback]     = useState(false);
+  const [score, setScore]                   = useState(0);
+
+  const words: { word: string; translation: string; example: string }[] =
+    block.content?.words || [];
+
+  // ── Stable test words — computed ONCE, never reshuffled ──
+  const testWords = useMemo(() => shuffle(words).slice(0, Math.min(5, words.length)), [block]);
+
+  // ── Stable options per question — computed ONCE per question ──
+  const testOptions = useMemo(() =>
+    testWords.map(q => shuffle([q.translation, ...getWrongOptions(q.translation, words)])),
+    [testWords]
+  );
+
+  const pronouns = ['eu', 'você', 'ele/ela', 'nós', 'vocês', 'eles/elas'];
+  const testPronouns = useMemo(() => shuffle(pronouns).slice(0, 4), [block]);
+
+  const resetTest = () => {
+    setPhase('test');
+    setCurrentTestQ(0);
+    setScore(0);
+    setSelectedOption(null);
+    setShowFeedback(false);
+    setTestAnswers([]);
+  };
 
   // ── VOCABULARY ────────────────────────────────────
   if (block.type === 'vocabulary' || block.type === 'mini_exercise') {
-    const words: { word: string; translation: string; example: string }[] = block.content?.words || [];
     if (words.length === 0) { onPass(); return null; }
 
     if (phase === 'learn') {
@@ -65,7 +88,7 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
             {!isLast ? (
               <button className="lp-nav-btn lp-nav-next" onClick={() => { setCardIndex(i => i + 1); setFlipped(false); }}>Next →</button>
             ) : (
-              <button className="lp-nav-btn lp-nav-test" onClick={() => { setPhase('test'); setCurrentTestQ(0); setScore(0); }}>Take the test →</button>
+              <button className="lp-nav-btn lp-nav-test" onClick={() => { setPhase('test'); setCurrentTestQ(0); setScore(0); setSelectedOption(null); setShowFeedback(false); }}>Take the test →</button>
             )}
           </div>
         </div>
@@ -73,14 +96,13 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
     }
 
     if (phase === 'test') {
-      const testWords    = shuffle(words).slice(0, Math.min(5, words.length));
-      const q            = testWords[currentTestQ];
+      const q          = testWords[currentTestQ];
+      const allOptions = testOptions[currentTestQ] || [];
       if (!q) return null;
-      const wrongOptions = getWrongOptions(q.translation, words);
-      const allOptions   = shuffle([q.translation, ...wrongOptions]);
-      const isAnswered   = selectedOption !== null;
-      const isCorrect    = selectedOption === q.translation;
-      const isLastQ      = currentTestQ === testWords.length - 1;
+
+      const isAnswered = selectedOption !== null;
+      const isCorrect  = selectedOption === q.translation;
+      const isLastQ    = currentTestQ === testWords.length - 1;
 
       const handleSelect = (opt: string) => {
         if (isAnswered) return;
@@ -92,13 +114,17 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
       const handleNext = () => {
         setSelectedOption(null);
         setShowFeedback(false);
-        if (isLastQ) { setPhase('result'); } else { setCurrentTestQ(i => i + 1); }
+        if (isLastQ) {
+          setPhase('result');
+        } else {
+          setCurrentTestQ(i => i + 1);
+        }
       };
 
       return (
         <div className="lp-wrapper">
           <div className="lp-header">
-            <button className="lp-back-btn" onClick={() => setPhase('learn')}>← Study</button>
+            <button className="lp-back-btn" onClick={() => { setPhase('learn'); setSelectedOption(null); setShowFeedback(false); }}>← Study</button>
             <div className="lp-header-title">Quick test</div>
             <div className="lp-counter">{currentTestQ + 1} / {testWords.length}</div>
           </div>
@@ -140,7 +166,6 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
     }
 
     if (phase === 'result') {
-      const testWords = shuffle(words).slice(0, Math.min(5, words.length));
       const total     = testWords.length;
       const passScore = Math.ceil(total * 0.8);
       const passed    = score >= passScore;
@@ -161,8 +186,8 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
               <>
                 <div className="lp-result-title">Not quite there yet</div>
                 <div className="lp-result-sub">You need {passScore}/{total} to pass. Study the words again and retry.</div>
-                <button className="lp-result-btn" onClick={() => { setPhase('learn'); setCardIndex(0); setFlipped(false); setScore(0); }}>Study again →</button>
-                <button className="lp-result-btn-sec" onClick={() => { setPhase('test'); setCurrentTestQ(0); setScore(0); setSelectedOption(null); setShowFeedback(false); }}>Retry test</button>
+                <button className="lp-result-btn" onClick={() => { setPhase('learn'); setCardIndex(0); setFlipped(false); setScore(0); setSelectedOption(null); setShowFeedback(false); }}>Study again →</button>
+                <button className="lp-result-btn-sec" onClick={resetTest}>Retry test</button>
               </>
             )}
           </div>
@@ -178,8 +203,6 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
     const conjugation = block.content?.conjugation || {};
     const examples: string[] = block.content?.examples || [];
 
-    const pronouns = ['eu', 'você', 'ele/ela', 'nós', 'vocês', 'eles/elas'];
-
     if (phase === 'learn') {
       return (
         <div className="lp-wrapper">
@@ -189,12 +212,10 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
             <div className="lp-counter">Verb</div>
           </div>
           <div className="lp-phase-label">Today's verb</div>
-
           <div className="lp-verb-card">
             <div className="lp-verb-title">{verb}</div>
             <div className="lp-verb-translation">{translation}</div>
           </div>
-
           <div className="lp-conjugation-table">
             <div className="lp-conj-label">Present tense conjugation</div>
             {pronouns.map(p => (
@@ -204,7 +225,6 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
               </div>
             ))}
           </div>
-
           {examples.length > 0 && (
             <div className="lp-grammar-examples" style={{ marginTop: '16px' }}>
               <div className="lp-examples-label">Example sentences:</div>
@@ -213,7 +233,6 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
               ))}
             </div>
           )}
-
           <button className="lp-next-btn" style={{ marginTop: '24px' }} onClick={() => { setPhase('test'); setCurrentTestQ(0); setScore(0); setTestAnswers([]); }}>
             Test yourself →
           </button>
@@ -222,17 +241,25 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
     }
 
     if (phase === 'test') {
-      const testPronouns = shuffle(pronouns).slice(0, 4);
-      const q            = testPronouns[currentTestQ];
-      const correctForm  = conjugation[q] || '';
-      const isAnswered   = testAnswers[currentTestQ] !== undefined && testAnswers[currentTestQ] !== null;
-      const isCorrect    = testAnswers[currentTestQ]?.toLowerCase().trim() === correctForm.toLowerCase().trim();
-      const isLastQ      = currentTestQ === testPronouns.length - 1;
+      const q           = testPronouns[currentTestQ];
+      const correctForm = conjugation[q] || '';
+      const isAnswered  = testAnswers[currentTestQ] !== undefined && testAnswers[currentTestQ] !== null;
+      const isCorrect   = testAnswers[currentTestQ]?.toLowerCase().trim() === correctForm.toLowerCase().trim();
+      const isLastQ     = currentTestQ === testPronouns.length - 1;
+
+      const checkAnswer = (val: string) => {
+        if (!val.trim() || isAnswered) return;
+        const correct = val.toLowerCase().trim() === correctForm.toLowerCase().trim();
+        const newAnswers = [...testAnswers];
+        newAnswers[currentTestQ] = val;
+        setTestAnswers(newAnswers);
+        if (correct) setScore(s => s + 1);
+      };
 
       return (
         <div className="lp-wrapper">
           <div className="lp-header">
-            <button className="lp-back-btn" onClick={() => setPhase('learn')}>← Study</button>
+            <button className="lp-back-btn" onClick={() => { setPhase('learn'); setTestAnswers([]); setScore(0); }}>← Study</button>
             <div className="lp-header-title">Conjugation test</div>
             <div className="lp-counter">{currentTestQ + 1} / {testPronouns.length}</div>
           </div>
@@ -244,37 +271,22 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
             {verb} → <strong>{q}</strong> ___?
           </div>
           <input
+            key={currentTestQ}
             className="lp-fill-input"
             placeholder="Type the conjugated form..."
             disabled={isAnswered}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !isAnswered) {
-                const val = (e.target as HTMLInputElement).value.trim();
-                if (!val) return;
-                const correct = val.toLowerCase() === correctForm.toLowerCase();
-                const newAnswers = [...testAnswers];
-                newAnswers[currentTestQ] = val;
-                setTestAnswers(newAnswers);
-                if (correct) setScore(s => s + 1);
-              }
-            }}
+            onKeyDown={(e) => { if (e.key === 'Enter') checkAnswer((e.target as HTMLInputElement).value); }}
           />
           {!isAnswered && (
             <button className="lp-next-btn" onClick={(e) => {
-              const input = (e.currentTarget.parentElement?.querySelector('.lp-fill-input') as HTMLInputElement);
-              const val = input?.value.trim();
-              if (!val) return;
-              const correct = val.toLowerCase() === correctForm.toLowerCase();
-              const newAnswers = [...testAnswers];
-              newAnswers[currentTestQ] = val;
-              setTestAnswers(newAnswers);
-              if (correct) setScore(s => s + 1);
+              const input = e.currentTarget.parentElement?.querySelector('.lp-fill-input') as HTMLInputElement;
+              checkAnswer(input?.value || '');
             }}>Check answer</button>
           )}
           {isAnswered && (
             <>
               <div className={`lp-feedback ${isCorrect ? 'lp-feedback-good' : 'lp-feedback-bad'}`}>
-                {isCorrect ? `✓ Correct! ${q} ${correctForm}` : `Correct: ${q} ${correctForm}`}
+                {isCorrect ? `✓ Correct! ${q} → ${correctForm}` : `Correct: ${q} → ${correctForm}`}
               </div>
               <button className="lp-next-btn" onClick={() => {
                 if (isLastQ) { setPhase('result'); } else { setCurrentTestQ(i => i + 1); }
@@ -288,8 +300,8 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
     }
 
     if (phase === 'result') {
-      const total     = 4;
-      const passScore = 3;
+      const total     = testPronouns.length;
+      const passScore = Math.ceil(total * 0.75);
       const passed    = score >= passScore;
       return (
         <div className="lp-wrapper">
@@ -307,7 +319,7 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
             ) : (
               <>
                 <div className="lp-result-title">Keep practising</div>
-                <div className="lp-result-sub">You need {passScore}/{total} to pass. Review the conjugation and try again.</div>
+                <div className="lp-result-sub">You need {passScore}/{total} to pass. Review and try again.</div>
                 <button className="lp-result-btn" onClick={() => { setPhase('learn'); setScore(0); setTestAnswers([]); }}>Study again →</button>
                 <button className="lp-result-btn-sec" onClick={() => { setPhase('test'); setCurrentTestQ(0); setScore(0); setTestAnswers([]); }}>Retry test</button>
               </>
@@ -328,11 +340,11 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
     const testItems = items.length > 0
       ? items.slice(0, 3)
       : examples.slice(0, 3).map((ex: string) => {
-          const words = ex.split(' ');
-          const blankIdx = Math.floor(words.length / 2);
-          const answer = words[blankIdx];
-          words[blankIdx] = '___';
-          return { question: words.join(' '), answer };
+          const ws = ex.split(' ');
+          const blankIdx = Math.floor(ws.length / 2);
+          const answer = ws[blankIdx];
+          ws[blankIdx] = '___';
+          return { question: ws.join(' '), answer };
         });
 
     if (phase === 'learn') {
@@ -356,7 +368,7 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
               ))}
             </div>
           )}
-          <button className="lp-next-btn" style={{ marginTop: '24px' }} onClick={() => { setPhase('test'); setCurrentTestQ(0); setScore(0); }}>
+          <button className="lp-next-btn" style={{ marginTop: '24px' }} onClick={() => { setPhase('test'); setCurrentTestQ(0); setScore(0); setTestAnswers([]); }}>
             Take the test →
           </button>
         </div>
@@ -364,16 +376,24 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
     }
 
     if (phase === 'test') {
-      const q = testItems[currentTestQ];
+      const q          = testItems[currentTestQ];
       if (!q) { setPhase('result'); return null; }
       const isAnswered = testAnswers[currentTestQ] !== undefined && testAnswers[currentTestQ] !== null;
       const isCorrect  = testAnswers[currentTestQ]?.toLowerCase().trim() === q.answer.toLowerCase().trim();
       const isLastQ    = currentTestQ === testItems.length - 1;
 
+      const checkAnswer = (val: string) => {
+        if (!val.trim() || isAnswered) return;
+        const newAnswers = [...testAnswers];
+        newAnswers[currentTestQ] = val;
+        setTestAnswers(newAnswers);
+        if (val.toLowerCase().trim() === q.answer.toLowerCase().trim()) setScore(s => s + 1);
+      };
+
       return (
         <div className="lp-wrapper">
           <div className="lp-header">
-            <button className="lp-back-btn" onClick={() => setPhase('learn')}>← Study</button>
+            <button className="lp-back-btn" onClick={() => { setPhase('learn'); setTestAnswers([]); setScore(0); }}>← Study</button>
             <div className="lp-header-title">Fill in the blank</div>
             <div className="lp-counter">{currentTestQ + 1} / {testItems.length}</div>
           </div>
@@ -383,29 +403,16 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
           <div className="lp-phase-label">Complete the sentence</div>
           <div className="lp-grammar-fill-q">{q.question}</div>
           <input
+            key={currentTestQ}
             className="lp-fill-input"
             placeholder="Type your answer..."
             disabled={isAnswered}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !isAnswered) {
-                const val = (e.target as HTMLInputElement).value.trim();
-                if (!val) return;
-                const newAnswers = [...testAnswers];
-                newAnswers[currentTestQ] = val;
-                setTestAnswers(newAnswers);
-                if (val.toLowerCase() === q.answer.toLowerCase()) setScore(s => s + 1);
-              }
-            }}
+            onKeyDown={(e) => { if (e.key === 'Enter') checkAnswer((e.target as HTMLInputElement).value); }}
           />
           {!isAnswered && (
             <button className="lp-next-btn" onClick={(e) => {
-              const input = (e.currentTarget.parentElement?.querySelector('.lp-fill-input') as HTMLInputElement);
-              const val = input?.value.trim();
-              if (!val) return;
-              const newAnswers = [...testAnswers];
-              newAnswers[currentTestQ] = val;
-              setTestAnswers(newAnswers);
-              if (val.toLowerCase() === q.answer.toLowerCase()) setScore(s => s + 1);
+              const input = e.currentTarget.parentElement?.querySelector('.lp-fill-input') as HTMLInputElement;
+              checkAnswer(input?.value || '');
             }}>Check answer</button>
           )}
           {isAnswered && (
@@ -498,10 +505,16 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
           </div>
           <div className="lp-phase-label">Answer in Portuguese or English</div>
           <div className="lp-grammar-fill-q">{q}</div>
-          <textarea className="lp-fill-textarea" placeholder="Type your answer..." rows={3} disabled={isAnswered} />
+          <textarea
+            key={currentTestQ}
+            className="lp-fill-textarea"
+            placeholder="Type your answer..."
+            rows={3}
+            disabled={isAnswered}
+          />
           {!isAnswered && (
             <button className="lp-next-btn" onClick={(e) => {
-              const ta = (e.currentTarget.parentElement?.querySelector('.lp-fill-textarea') as HTMLTextAreaElement);
+              const ta = e.currentTarget.parentElement?.querySelector('.lp-fill-textarea') as HTMLTextAreaElement;
               const val = ta?.value.trim();
               if (!val) return;
               const newAnswers = [...testAnswers];

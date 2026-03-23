@@ -93,13 +93,14 @@ export default function App() {
   const handleLogout = async () => {
     setMenuOpen(false);
     await auth.signOut();
+    // Clear all progress keys correctly
     localStorage.removeItem('userLevel');
     localStorage.removeItem('hasSeenWelcome');
     localStorage.removeItem('timePreference');
     localStorage.removeItem('learningGoal');
     localStorage.removeItem('currentDay');
     localStorage.removeItem('streak');
-    localStorage.removeItem('totalXp');
+    localStorage.removeItem('totalPts');  // fixed: was totalXp
     setUserData(null);
     setUserLevel(null);
     setView('welcome');
@@ -124,7 +125,6 @@ export default function App() {
 
   const handleOnboardingComplete = (level: Level) => {
     setUserLevel(level);
-    // Start from day 1 for new users
     if (!localStorage.getItem('currentDay')) {
       localStorage.setItem('currentDay', '1');
     }
@@ -146,7 +146,16 @@ export default function App() {
     <>
       {/* ── SANDWICH MENU ── */}
       {view === 'home' && (
-        <div ref={menuRef} style={{ position: 'fixed', top: '16px', right: '16px', zIndex: 9999 }}>
+        <div
+          ref={menuRef}
+          style={{
+            position: 'fixed',
+            top: '16px',
+            right: '16px',
+            zIndex: 99999,
+            transform: 'translateZ(0)',
+          }}
+        >
           <button
             onClick={() => setMenuOpen(!menuOpen)}
             style={{
@@ -164,10 +173,16 @@ export default function App() {
 
           {menuOpen && (
             <div style={{
-              position: 'absolute', top: '48px', right: 0,
-              background: 'white', border: '1px solid #e2e8f0',
-              borderRadius: '14px', boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
-              minWidth: '220px', overflow: 'hidden',
+              position: 'fixed',
+              top: '64px',
+              right: '16px',
+              background: 'white',
+              border: '1px solid #e2e8f0',
+              borderRadius: '14px',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+              minWidth: '220px',
+              overflow: 'hidden',
+              zIndex: 99999,
             }}>
               {isLoggedIn && userData && (
                 <div style={{ padding: '16px', borderBottom: '1px solid #f1f5f9', background: '#f8fafc' }}>
@@ -242,12 +257,11 @@ export default function App() {
         {view === 'auth'       && <AuthScreen onContinueWithoutAccount={handleContinueWithoutAccount} onAuthSuccess={handleAuthSuccess} />}
         {view === 'onboarding' && <OnboardingScreen onComplete={handleOnboardingComplete} />}
 
-        {/* ── NEW HOME — TodayScreen ── */}
         {view === 'home' && (
           <TodayScreen
-          userLevel={userLevel}
-          onNavigate={(v) => navigateTo(v as View)}
-        />
+            userLevel={userLevel}
+            onNavigate={(v) => navigateTo(v as View)}
+          />
         )}
 
         {view === 'verbs'         && <VerbStudio onBack={() => navigateTo('home')} onGainXp={() => {}} />}
