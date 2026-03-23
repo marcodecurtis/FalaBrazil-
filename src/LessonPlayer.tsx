@@ -576,6 +576,35 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
     }
   }
 
+  // ── ISABELA BLOCK ──────────────────────────────
+  if (block.type === 'isabela') {
+    // Navigate to isabela AI coach - this will be handled by parent component
+    // For now, show a redirect message
+    return (
+      <div className="lp-wrapper">
+        <div className="lp-header">
+          <button className="lp-back-btn" onClick={onBack}>← Back</button>
+          <div className="lp-header-title">Chat with Isabela</div>
+        </div>
+        <div style={{
+          padding: '60px 20px',
+          textAlign: 'center',
+          color: '#94a3b8',
+        }}>
+          <div style={{ fontSize: '2rem', marginBottom: '12px' }}>🎙️</div>
+          <p style={{ fontWeight: 700, marginBottom: '20px' }}>Redirecting to Isabela...</p>
+          <button 
+            className="lp-next-btn"
+            onClick={onPass}
+            style={{ marginTop: '20px' }}
+          >
+            Start Chat →
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   onPass();
   return null;
 }

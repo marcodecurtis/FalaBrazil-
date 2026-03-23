@@ -273,11 +273,6 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
   };
 
   const handleBlockStart = (block: LessonBlock) => {
-    if (block.type === 'isabela') {
-      onNavigate('isabela');
-      markBlockComplete(block.type, block.xp);
-      return;
-    }
     setActiveBlock(block);
   };
 
