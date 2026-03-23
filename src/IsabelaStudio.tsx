@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import './LessonPlayer.css';
+import { speak } from './speak';
 import type { LessonBlock } from './TodayScreen';
 
 interface Props {
@@ -233,6 +234,13 @@ export default function IsabelaStudio({ block, onPass, onBack }: Props) {
               <div className="lp-card-word">{card.translation}</div>
             </div>
           </div>
+          <button
+            className="speak-btn speak-btn-large"
+            onClick={() => speak(card.word)}
+            style={{ marginTop: '16px' }}
+          >
+            🔊 Listen to pronunciation
+          </button>
           <div className="lp-nav-row">
             {cardIndex > 0 && (
               <button className="lp-nav-btn lp-nav-prev" onClick={() => { setCardIndex(i => i - 1); setFlipped(false); }}>← Previous</button>

@@ -19,12 +19,18 @@ export interface LessonBlock {
 }
 
 interface Lesson {
-  day: number;
-  theme: string;
+  id: string;
+  title: string;
   themeEmoji: string;
   totalMinutes: number;
   xpAvailable: number;
   blocks: LessonBlock[];
+  isRequired?: boolean;
+}
+
+interface DailyContent {
+  requiredLesson: Lesson;
+  availableLessons: Lesson[];
 }
 
 const BLOCK_ICONS: Record<string, string> = {
@@ -57,38 +63,40 @@ const FREE_PRACTICE = [
   { id: 'isabela',       label: 'Chat with Isabela',      desc: 'AI conversation partner',        icon: null,  isIsabela: true  },
 ];
 
-// Days required to complete each level
-const DAYS_PER_LEVEL: Record<string, number> = {
-  A1: 30, A2: 45, B1: 60, B2: 60, C1: 60, C2: 45,
+// Lessons needed per level based on time preference
+const LESSONS_PER_LEVEL: Record<string, number> = {
+  '5':  100,
+  '15': 60,
+  '30': 30,
 };
 
 const NEXT_LEVEL: Record<string, string> = {
   A1: 'A2', A2: 'B1', B1: 'B2', B2: 'C1', C1: 'C2', C2: 'C2',
 };
 
-const getCacheKey = (level: string, day: number) => `lesson_cache_${level}_day${day}`;
+const getCacheKey = (level: string) => `lessons_cache_${level}`;
 
-const getCachedLesson = (level: string, day: number): Lesson | null => {
+const getCachedLessons = (level: string): DailyContent | null => {
   try {
-    const cached = localStorage.getItem(getCacheKey(level, day));
+    const cached = localStorage.getItem(getCacheKey(level));
     if (!cached) return null;
-    const { lesson, cachedAt } = JSON.parse(cached);
+    const { content, cachedAt } = JSON.parse(cached);
     const isValid = Date.now() - cachedAt < 24 * 60 * 60 * 1000;
-    return isValid ? lesson : null;
+    return isValid ? content : null;
   } catch { return null; }
 };
 
-const setCachedLesson = (level: string, day: number, lesson: Lesson) => {
+const setCachedLessons = (level: string, content: DailyContent) => {
   try {
-    localStorage.setItem(getCacheKey(level, day), JSON.stringify({ lesson, cachedAt: Date.now() }));
+    localStorage.setItem(getCacheKey(level), JSON.stringify({ content, cachedAt: Date.now() }));
   } catch { }
 };
 
-const fetchLessonFromAPI = async (level: string, day: number, timePreference: string, learningGoal: string): Promise<Lesson> => {
+const fetchLessonsFromAPI = async (level: string, timePreference: string, learningGoal: string): Promise<DailyContent> => {
   const res = await fetch('/api/curriculum', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ level, dayNumber: day, timePreference, learningGoal }),
+    body: JSON.stringify({ level, timePreference, learningGoal, type: 'daily' }),
   });
   const data = await res.json();
   if (data.error) throw new Error(data.error);
@@ -96,26 +104,24 @@ const fetchLessonFromAPI = async (level: string, day: number, timePreference: st
 };
 
 export default function TodayScreen({ userLevel, onNavigate }: Props) {
-  const [lesson, setLesson]           = useState<Lesson | null>(null);
-  const [loading, setLoading]         = useState(true);
-  const [error, setError]             = useState('');
-  const [completed, setCompleted]     = useState<string[]>([]);
-  const [dayNumber, setDayNumber]     = useState(1);
-  const [streak, setStreak]           = useState(0);
-  const [totalPts, setTotalPts]       = useState(0);
-  const [isLoggedIn, setIsLoggedIn]   = useState(false);
+  const [dailyContent, setDailyContent]     = useState<DailyContent | null>(null);
+  const [loading, setLoading]               = useState(true);
+  const [error, setError]                   = useState('');
+  const [streak, setStreak]                 = useState(0);
+  const [lessonsCompleted, setLessonsCompleted] = useState(0);
+  const [totalPts, setTotalPts]             = useState(0);
+  const [isLoggedIn, setIsLoggedIn]         = useState(false);
   const [showSaveBanner, setShowSaveBanner] = useState(false);
-  const [activeBlock, setActiveBlock] = useState<LessonBlock | null>(null);
-  const [activeBlockIndex, setActiveBlockIndex] = useState<number | null>(null);
+  const [activeLesson, setActiveLesson]     = useState<Lesson | null>(null);
+  const [activeLessonIsRequired, setActiveLessonIsRequired] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
+  const [completedToday, setCompletedToday] = useState<string[]>([]);
 
   const level          = userLevel || 'A1';
   const timePreference = localStorage.getItem('timePreference') || '30';
   const learningGoal   = localStorage.getItem('learningGoal')   || 'conversation';
-
-  // ── Real level progress based on days completed ───
-  const daysForLevel   = DAYS_PER_LEVEL[level] || 30;
-  const levelProgress  = Math.min(100, Math.round(((dayNumber - 1) / daysForLevel) * 100));
+  const lessonsNeeded  = LESSONS_PER_LEVEL[timePreference] || 30;
+  const levelProgress  = Math.min(100, Math.round((lessonsCompleted / lessonsNeeded) * 100));
   const nextLevel      = NEXT_LEVEL[level];
 
   useEffect(() => {
@@ -124,30 +130,27 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
     if (user) {
       loadFromFirebase(user.uid);
     } else {
-      const savedDay       = parseInt(localStorage.getItem('currentDay') || '1');
+      const savedLessons   = parseInt(localStorage.getItem('lessonsCompleted') || '0');
       const savedStreak    = parseInt(localStorage.getItem('streak') || '0');
       const savedPts       = parseInt(localStorage.getItem('totalPts') || '0');
-      const savedCompleted = JSON.parse(localStorage.getItem(`completed_day_${savedDay}`) || '[]');
-      const lastActive     = localStorage.getItem('lastActive');
+      const lastLessonDate = localStorage.getItem('lastLessonDate');
       
-      // ── OPTION 1: Check if user missed a day (streak break) ──
+      // Check if streak should be reset
       const today = new Date().toISOString().split('T')[0];
       let currentStreak = savedStreak;
-      if (lastActive && lastActive !== today) {
-        const lastDate = new Date(lastActive);
+      if (lastLessonDate && lastLessonDate !== today) {
+        const lastDate = new Date(lastLessonDate);
         const todayDate = new Date(today);
         const daysDiff = Math.floor((todayDate.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
-        // If more than 1 day passed without completing, streak breaks
         if (daysDiff > 1) {
           currentStreak = 0;
         }
       }
       
-      setDayNumber(savedDay);
+      setLessonsCompleted(savedLessons);
       setStreak(currentStreak);
       setTotalPts(savedPts);
-      setCompleted(savedCompleted);
-      loadLesson(savedDay);
+      loadLessons();
       setTimeout(() => setShowSaveBanner(true), 3000);
     }
   }, [level]);
@@ -156,153 +159,145 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
     try {
       const userDoc = await getDoc(doc(db, 'users', uid));
       if (userDoc.exists()) {
-        const data       = userDoc.data();
-        const savedDay   = data.currentDay || 1;
-        const savedStreak = data.streak    || 0;
-        const savedPts   = data.totalPts   || 0;
-        const savedCompleted = data[`completed_day_${savedDay}`] || [];
-        const lastActive = data.lastActive;
+        const data = userDoc.data();
+        const savedLessons = data.lessonsCompleted || 0;
+        const savedStreak = data.streak || 0;
+        const savedPts = data.totalPts || 0;
+        const lastLessonDate = data.lastLessonDate;
         
-        // ── OPTION 1: Check if user missed a day (streak break) ──
         const today = new Date().toISOString().split('T')[0];
         let currentStreak = savedStreak;
-        if (lastActive && lastActive !== today) {
-          const lastDate = new Date(lastActive);
+        if (lastLessonDate && lastLessonDate !== today) {
+          const lastDate = new Date(lastLessonDate);
           const todayDate = new Date(today);
           const daysDiff = Math.floor((todayDate.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
-          // If more than 1 day passed without completing, streak breaks
           if (daysDiff > 1) {
             currentStreak = 0;
           }
         }
         
-        setDayNumber(savedDay);
+        setLessonsCompleted(savedLessons);
         setStreak(currentStreak);
         setTotalPts(savedPts);
-        setCompleted(savedCompleted);
-        localStorage.setItem('currentDay', savedDay.toString());
+        localStorage.setItem('lessonsCompleted', savedLessons.toString());
         localStorage.setItem('streak', currentStreak.toString());
         localStorage.setItem('totalPts', savedPts.toString());
-        localStorage.setItem(`completed_day_${savedDay}`, JSON.stringify(savedCompleted));
-        loadLesson(savedDay);
+        loadLessons();
       } else {
-        loadLesson(1);
+        loadLessons();
       }
     } catch {
-      const savedDay = parseInt(localStorage.getItem('currentDay') || '1');
-      loadLesson(savedDay);
+      loadLessons();
     }
   };
 
-  const loadLesson = async (day: number, forceRefresh = false) => {
+  const loadLessons = async (forceRefresh = false) => {
     if (!forceRefresh) {
-      const cached = getCachedLesson(level, day);
+      const cached = getCachedLessons(level);
       if (cached) {
-        setLesson(cached);
+        setDailyContent(cached);
         setLoading(false);
-        preGenerateNextLesson(day + 1);
         return;
       }
     }
     setLoading(true);
     setError('');
     try {
-      const newLesson = await fetchLessonFromAPI(level, day, timePreference, learningGoal);
-      setCachedLesson(level, day, newLesson);
-      setLesson(newLesson);
-      preGenerateNextLesson(day + 1);
+      const content = await fetchLessonsFromAPI(level, timePreference, learningGoal);
+      setCachedLessons(level, content);
+      setDailyContent(content);
     } catch {
-      setError('Could not load today\'s lesson. Please check your connection.');
+      setError('Could not load lessons. Please check your connection.');
     } finally {
       setLoading(false);
     }
   };
 
-  const preGenerateNextLesson = async (nextDay: number) => {
-    if (getCachedLesson(level, nextDay)) return;
-    try {
-      const next = await fetchLessonFromAPI(level, nextDay, timePreference, learningGoal);
-      setCachedLesson(level, nextDay, next);
-    } catch { }
-  };
-
-  const saveProgress = async (day: number, newCompleted: string[], newPts: number, newStreak: number) => {
+  const saveProgress = async (newLessons: number, newPts: number, newStreak: number, requiredDone: boolean) => {
     const today = new Date().toISOString().split('T')[0];
-    localStorage.setItem('currentDay', day.toString());
-    localStorage.setItem(`completed_day_${day}`, JSON.stringify(newCompleted));
+    localStorage.setItem('lessonsCompleted', newLessons.toString());
     localStorage.setItem('totalPts', newPts.toString());
-    localStorage.setItem('streak', newStreak.toString());
-    localStorage.setItem('lastActive', today);
+    if (requiredDone) {
+      localStorage.setItem('streak', newStreak.toString());
+      localStorage.setItem('lastLessonDate', today);
+    }
     
     const user = auth.currentUser;
     if (user) {
       try {
-        await updateDoc(doc(db, 'users', user.uid), {
-          currentDay: day,
-          [`completed_day_${day}`]: newCompleted,
+        const updateData: any = {
+          lessonsCompleted: newLessons,
           totalPts: newPts,
-          streak: newStreak,
-          lastActive: today,
-        });
+        };
+        if (requiredDone) {
+          updateData.streak = newStreak;
+          updateData.lastLessonDate = today;
+        }
+        await updateDoc(doc(db, 'users', user.uid), updateData);
       } catch { }
     }
   };
 
-  const markBlockComplete = async (blockIndex: number, blockTitle: string, pts: number) => {
-    const blockId = `${blockIndex}-${blockTitle}`;
-    const newCompleted  = [...completed, blockId];
-    const newPts        = totalPts + pts;
-    // ── Only increment streak if ALL blocks are completed ──
-    const allBlocksDone = lesson ? lesson.blocks.every((b, idx) => newCompleted.includes(`${idx}-${b.title}`)) : false;
-    const newStreak     = allBlocksDone ? streak + 1 : streak;
+  const handleLessonComplete = async (lesson: Lesson, xpEarned: number, isRequired: boolean) => {
+    const newLessons = lessonsCompleted + 1;
+    const newPts = totalPts + xpEarned;
+    let newStreak = streak;
     
-    setCompleted(newCompleted);
-    setTotalPts(newPts);
-    
-    if (allBlocksDone) {
+    if (isRequired) {
+      const today = new Date().toISOString().split('T')[0];
+      const lastLessonDate = localStorage.getItem('lastLessonDate');
+      
+      // Check if streak should continue
+      if (!lastLessonDate || lastLessonDate === today) {
+        // First lesson today or already have streak
+        newStreak = lastLessonDate === today ? streak : streak + 1;
+      } else {
+        const lastDate = new Date(lastLessonDate);
+        const todayDate = new Date(today);
+        const daysDiff = Math.floor((todayDate.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
+        if (daysDiff === 1) {
+          newStreak = streak + 1; // Consecutive day
+        } else {
+          newStreak = 1; // Broken streak, restart
+        }
+      }
+      
       setStreak(newStreak);
       setShowCelebration(true);
-      // ── Only advance to next day when current day is fully complete ──
-      const nextDay = dayNumber + 1;
-      setDayNumber(nextDay);
-      localStorage.setItem('currentDay', nextDay.toString());
-      await saveProgress(nextDay, [], newPts, newStreak);
-      preGenerateNextLesson(nextDay);
-    } else {
-      // Still on same day, just save progress
-      await saveProgress(dayNumber, newCompleted, newPts, streak);
     }
+    
+    setLessonsCompleted(newLessons);
+    setTotalPts(newPts);
+    setCompletedToday([...completedToday, lesson.id]);
+    setActiveLesson(null);
+    setActiveLessonIsRequired(false);
+    
+    await saveProgress(newLessons, newPts, newStreak, isRequired);
   };
 
-  const handleBlockStart = (block: LessonBlock, index: number) => {
-    setActiveBlock(block);
-    setActiveBlockIndex(index);
+  const handleLessonStart = (lesson: Lesson, isRequired: boolean) => {
+    setActiveLesson(lesson);
+    setActiveLessonIsRequired(isRequired);
   };
 
-  const handlePlayerPass = async () => {
-    if (!activeBlock || activeBlockIndex === null) return;
-    await markBlockComplete(activeBlockIndex, activeBlock.title, activeBlock.xp);
-    setActiveBlock(null);
-    setActiveBlockIndex(null);
+  const handleLessonBack = () => {
+    setActiveLesson(null);
+    setActiveLessonIsRequired(false);
   };
 
-  const handlePlayerBack = () => setActiveBlock(null);
-
-  if (activeBlock) {
+  if (activeLesson) {
     return (
       <LessonPlayer
-        block={activeBlock}
-        onPass={handlePlayerPass}
-        onBack={handlePlayerBack}
+        block={activeLesson.blocks[0]}
+        onPass={async () => {
+          await handleLessonComplete(activeLesson, activeLesson.xpAvailable, activeLessonIsRequired);
+        }}
+        onBack={handleLessonBack}
       />
     );
   }
 
-  const completedCount  = lesson ? lesson.blocks.filter(b => completed.includes(b.type)).length : 0;
-  const totalBlocks     = lesson ? lesson.blocks.length : 0;
-  const progressPercent = totalBlocks > 0 ? (completedCount / totalBlocks) * 100 : 0;
-  const ptsEarned       = lesson ? lesson.blocks.filter(b => completed.includes(b.type)).reduce((sum, b) => sum + b.xp, 0) : 0;
-  const allDone         = totalBlocks > 0 && completedCount === totalBlocks;
+  const requiredDone = dailyContent && completedToday.includes(dailyContent.requiredLesson.id);
 
   return (
     <div className="ts-wrapper">
@@ -335,13 +330,13 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
         </div>
       </div>
 
-      {/* ── LEVEL PROGRESS — real, based on days done ── */}
+      {/* ── LEVEL PROGRESS — based on lessons completed ── */}
       <div className="ts-level-bar">
         <div className="ts-level-row">
           <span className="ts-level-pill">{level}</span>
           <span className="ts-level-next">
             {level !== 'C2'
-              ? `${levelProgress}% to ${nextLevel} · Day ${dayNumber} of ${daysForLevel}`
+              ? `${levelProgress}% to ${nextLevel} · ${lessonsCompleted} of ${lessonsNeeded} lessons`
               : 'Max level reached!'}
           </span>
         </div>
@@ -355,79 +350,89 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
           <div className="ts-loading-dots">
             <div className="ts-loading-dot" /><div className="ts-loading-dot" /><div className="ts-loading-dot" />
           </div>
-          <div className="ts-loading-text">Preparing today's lesson...</div>
+          <div className="ts-loading-text">Preparing today's lessons...</div>
         </div>
       ) : error ? (
         <div className="ts-error">
           <div className="ts-error-text">{error}</div>
-          <button className="ts-retry-btn" onClick={() => loadLesson(dayNumber, true)}>Try again</button>
+          <button className="ts-retry-btn" onClick={() => loadLessons(true)}>Try again</button>
         </div>
-      ) : lesson ? (
+      ) : dailyContent ? (
         <>
-          {showCelebration && allDone && (
+          {showCelebration && requiredDone && (
             <div className="ts-celebration">
               <div className="ts-celebration-emoji">🎉</div>
-              <div className="ts-celebration-title">Day {lesson.day} complete!</div>
-              <div className="ts-celebration-pts">+{ptsEarned} points earned</div>
+              <div className="ts-celebration-title">Required lesson done!</div>
+              <div className="ts-celebration-pts">Great work today 🌟</div>
               <div className="ts-celebration-streak">🔥 {streak} day streak</div>
               <div className="ts-celebration-next">
-                Come back tomorrow for Day {lesson.day + 1} — it's already ready!
+                You can do more lessons below or come back tomorrow for new content!
               </div>
               <button className="ts-celebration-btn" onClick={() => setShowCelebration(false)}>
-                Keep practising ↓
+                See more lessons ↓
               </button>
             </div>
           )}
 
           <div className="ts-lesson-card">
             <div className="ts-lesson-eyebrow">
-              {allDone ? '✅ Lesson complete!' : `Day ${lesson.day} · Today's lesson`}
+              {requiredDone ? '✅ Required lesson done!' : '📌 Today\'s required lesson'}
             </div>
-            <div className="ts-lesson-title">{lesson.themeEmoji} {lesson.theme}</div>
-            <div className="ts-lesson-meta">{lesson.totalMinutes} mins · {lesson.xpAvailable} pts available</div>
+            <div className="ts-lesson-title">{dailyContent.requiredLesson.themeEmoji} {dailyContent.requiredLesson.title}</div>
+            <div className="ts-lesson-meta">{dailyContent.requiredLesson.totalMinutes} mins · {dailyContent.requiredLesson.xpAvailable} pts</div>
 
-            <div className="ts-progress-track">
-              <div className="ts-progress-fill" style={{ width: `${progressPercent}%` }} />
-            </div>
-            <div className="ts-progress-label">
-              {completedCount} of {totalBlocks} blocks complete
-              {ptsEarned > 0 && ` · ${ptsEarned} pts earned`}
-            </div>
-
-            <div className="ts-blocks">
-              {lesson.blocks.map((block, i) => {
-                // Check if this specific block index is completed by checking title (unique identifier)
-                const isDone = completed.includes(`${i}-${block.title}`);
-                // Next block is available when all previous blocks are done
-                const isNext = !isDone && (i === 0 || lesson.blocks.slice(0, i).every((b, idx) => completed.includes(`${idx}-${b.title}`)));
-                return (
-                  <div key={i} className={`ts-block ${isDone ? 'ts-block-done' : ''} ${isNext ? 'ts-block-active' : ''}`}>
-                    <div className="ts-block-icon" style={{ background: BLOCK_COLORS[block.type] }}>
-                      {BLOCK_ICONS[block.type]}
-                    </div>
-                    <div className="ts-block-content">
-                      <div className="ts-block-title">{block.title}</div>
-                      <div className="ts-block-desc">{block.description}</div>
-                      <div className="ts-block-meta">{block.duration} min · {block.xp} pts</div>
-                    </div>
-                    <div className="ts-block-right">
-                      {isDone ? (
-                        <div className="ts-block-check">
-                          <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                            <path d="M2 5L4 7L8 3" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                        </div>
-                      ) : isNext ? (
-                        <button className="ts-block-btn" onClick={() => handleBlockStart(block, i)}>Start</button>
-                      ) : (
-                        <div className="ts-block-dot" />
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            {!requiredDone ? (
+              <button 
+                className="ts-block-btn"
+                onClick={() => handleLessonStart(dailyContent.requiredLesson, true)}
+                style={{ width: '100%', marginTop: '16px', padding: '12px' }}
+              >
+                Start Required Lesson →
+              </button>
+            ) : (
+              <div style={{ padding: '12px', background: '#f0fdf4', borderRadius: '8px', color: '#14532d', fontWeight: 700, textAlign: 'center', marginTop: '16px' }}>
+                ✓ Completed - Streak unlocked!
+              </div>
+            )}
           </div>
+
+          {dailyContent.availableLessons.length > 0 && (
+            <>
+              <div className="ts-divider">
+                <div className="ts-divider-line" />
+                <div className="ts-divider-text">more lessons</div>
+                <div className="ts-divider-line" />
+              </div>
+
+              <div className="ts-blocks">
+                {dailyContent.availableLessons.map((lesson, i) => {
+                  const isDone = completedToday.includes(lesson.id);
+                  return (
+                    <div key={i} className={`ts-block ${isDone ? 'ts-block-done' : ''}`}>
+                      <div className="ts-block-icon" style={{ background: BLOCK_COLORS['vocabulary'] }}>
+                        {lesson.themeEmoji}
+                      </div>
+                      <div className="ts-block-content">
+                        <div className="ts-block-title">{lesson.title}</div>
+                        <div className="ts-block-meta">{lesson.totalMinutes} min · {lesson.xpAvailable} pts</div>
+                      </div>
+                      <div className="ts-block-right">
+                        {isDone ? (
+                          <div className="ts-block-check">
+                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                              <path d="M2 5L4 7L8 3" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          </div>
+                        ) : (
+                          <button className="ts-block-btn" onClick={() => handleLessonStart(lesson, false)}>Start</button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </>
       ) : null}
 

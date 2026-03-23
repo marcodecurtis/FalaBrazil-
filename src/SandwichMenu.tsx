@@ -48,9 +48,7 @@ export default function SandwichMenu({ isLoggedIn, userData, userLevel, onNaviga
         position: 'fixed',
         top: '16px',
         right: '16px',
-        zIndex: 99999,
-        transform: 'translateZ(0)',
-        willChange: 'transform',
+        zIndex: 999999,
       }}
     >
       <button
@@ -80,7 +78,7 @@ export default function SandwichMenu({ isLoggedIn, userData, userLevel, onNaviga
           boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
           minWidth: '220px',
           overflow: 'hidden',
-          zIndex: 99999,
+          zIndex: 999999,
         }}>
           {isLoggedIn && userData && (
             <div style={{ padding: '16px', borderBottom: '1px solid #f1f5f9', background: '#f8fafc' }}>

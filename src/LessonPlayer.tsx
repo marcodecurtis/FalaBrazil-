@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import './LessonPlayer.css';
+import { speak } from './speak';
 import type { LessonBlock } from './TodayScreen';
 
 interface Props {
@@ -90,6 +91,13 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
               <div className="lp-card-word">{card.translation}</div>
             </div>
           </div>
+          <button
+            className="speak-btn speak-btn-large"
+            onClick={() => speak(card.word)}
+            style={{ marginTop: '16px' }}
+          >
+            🔊 Listen to pronunciation
+          </button>
           <div className="lp-nav-row">
             {cardIndex > 0 && (
               <button className="lp-nav-btn lp-nav-prev" onClick={() => { setCardIndex(i => i - 1); setFlipped(false); }}>← Previous</button>
@@ -511,9 +519,27 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
     }
 
     if (phase === 'test' && questions.length > 0) {
-      const q          = questions[currentTestQ];
+      const q = questions[currentTestQ];
+      
+      // Handle both old format (string) and new format (object with options)
+      let question = '';
+      let options = [];
+      let correctAnswer = '';
+      
+      if (typeof q === 'string') {
+        // Old format - just a question string, no validation possible
+        question = q;
+      } else if (typeof q === 'object' && q.question) {
+        // New format with options
+        question = q.question;
+        options = q.options || [];
+        correctAnswer = q.correctAnswer || '';
+      }
+      
       const isAnswered = testAnswers[currentTestQ] !== undefined && testAnswers[currentTestQ] !== null;
-      const isLastQ    = currentTestQ === questions.length - 1;
+      const selectedAnswer = testAnswers[currentTestQ];
+      const isCorrect = selectedAnswer === correctAnswer;
+      const isLastQ = currentTestQ === questions.length - 1;
 
       return (
         <div className="lp-wrapper">
@@ -525,16 +551,53 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
           <div className="lp-progress-track">
             <div className="lp-progress-fill" style={{ width: `${((currentTestQ + 1) / questions.length) * 100}%` }} />
           </div>
-          <div className="lp-phase-label">Answer in Portuguese or English</div>
-          <div className="lp-grammar-fill-q">{q}</div>
-          <textarea
-            key={currentTestQ}
-            className="lp-fill-textarea"
-            placeholder="Type your answer..."
-            rows={3}
-            disabled={isAnswered}
-          />
-          {!isAnswered && (
+          <div className="lp-phase-label">Answer the question</div>
+          <div className="lp-grammar-fill-q">{question}</div>
+          
+          {options.length > 0 ? (
+            // Multiple choice format
+            <div className="lp-options">
+              {options.map((option, i) => {
+                let cls = 'lp-option';
+                if (isAnswered) {
+                  if (option === correctAnswer) cls += ' lp-option-correct';
+                  else if (option === selectedAnswer) cls += ' lp-option-wrong';
+                  else cls += ' lp-option-dim';
+                }
+                return (
+                  <button
+                    key={i}
+                    className={cls}
+                    onClick={() => {
+                      if (!isAnswered) {
+                        const newAnswers = [...testAnswers];
+                        newAnswers[currentTestQ] = option;
+                        setTestAnswers(newAnswers);
+                        if (option === correctAnswer) setScore(s => s + 1);
+                      }
+                    }}
+                    disabled={isAnswered}
+                  >
+                    <span className="lp-option-letter">{['A','B','C','D'][i]}</span>
+                    <span className="lp-option-text">{option}</span>
+                    {isAnswered && option === correctAnswer && <span className="lp-option-icon">✓</span>}
+                    {isAnswered && option === selectedAnswer && option !== correctAnswer && <span className="lp-option-icon lp-option-x">✗</span>}
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            // Fallback to textarea for old format
+            <textarea
+              key={currentTestQ}
+              className="lp-fill-textarea"
+              placeholder="Type your answer..."
+              rows={3}
+              disabled={isAnswered}
+            />
+          )}
+          
+          {!isAnswered && options.length === 0 && (
             <button className="lp-next-btn" onClick={(e) => {
               const ta = e.currentTarget.parentElement?.querySelector('.lp-fill-textarea') as HTMLTextAreaElement;
               const val = ta?.value.trim();
@@ -545,9 +608,16 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
               setScore(s => s + 1);
             }}>Submit answer</button>
           )}
+          
           {isAnswered && (
             <>
-              <div className="lp-feedback lp-feedback-good">✓ Answer recorded — keep going!</div>
+              {options.length > 0 ? (
+                <div className={`lp-feedback ${isCorrect ? 'lp-feedback-good' : 'lp-feedback-bad'}`}>
+                  {isCorrect ? '✓ Correct!' : `✗ Incorrect. The correct answer is: ${correctAnswer}`}
+                </div>
+              ) : (
+                <div className="lp-feedback lp-feedback-good">✓ Answer recorded — keep going!</div>
+              )}
               <button className="lp-next-btn" onClick={() => {
                 if (isLastQ) { setPhase('result'); } else { setCurrentTestQ(i => i + 1); }
               }}>
