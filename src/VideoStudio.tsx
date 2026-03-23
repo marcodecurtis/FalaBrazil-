@@ -278,7 +278,7 @@ const LEVEL_COLORS: Record<string, string> = {
   A1: '#4caf7d', A2: '#2196b5', B1: '#e07b39', B2: '#9c4fd6', C1: '#e63946', C2: '#c62828',
 };
 
-export default function VideoStudio({ onBack, userLevel }: Props) {
+export default function VideoStudio({ onBack: _onBack, userLevel }: Props) {
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
   const [phase, setPhase]                 = useState<'watch' | 'quiz' | 'result'>('watch');
   const [currentQ, setCurrentQ]           = useState(0);
