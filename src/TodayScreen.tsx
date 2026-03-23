@@ -127,8 +127,23 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
       const savedStreak    = parseInt(localStorage.getItem('streak') || '0');
       const savedPts       = parseInt(localStorage.getItem('totalPts') || '0');
       const savedCompleted = JSON.parse(localStorage.getItem(`completed_day_${savedDay}`) || '[]');
+      const lastActive     = localStorage.getItem('lastActive');
+      
+      // ── OPTION 1: Check if user missed a day (streak break) ──
+      const today = new Date().toISOString().split('T')[0];
+      let currentStreak = savedStreak;
+      if (lastActive && lastActive !== today) {
+        const lastDate = new Date(lastActive);
+        const todayDate = new Date(today);
+        const daysDiff = Math.floor((todayDate.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
+        // If more than 1 day passed without completing, streak breaks
+        if (daysDiff > 1) {
+          currentStreak = 0;
+        }
+      }
+      
       setDayNumber(savedDay);
-      setStreak(savedStreak);
+      setStreak(currentStreak);
       setTotalPts(savedPts);
       setCompleted(savedCompleted);
       loadLesson(savedDay);
@@ -145,12 +160,27 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
         const savedStreak = data.streak    || 0;
         const savedPts   = data.totalPts   || 0;
         const savedCompleted = data[`completed_day_${savedDay}`] || [];
+        const lastActive = data.lastActive;
+        
+        // ── OPTION 1: Check if user missed a day (streak break) ──
+        const today = new Date().toISOString().split('T')[0];
+        let currentStreak = savedStreak;
+        if (lastActive && lastActive !== today) {
+          const lastDate = new Date(lastActive);
+          const todayDate = new Date(today);
+          const daysDiff = Math.floor((todayDate.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
+          // If more than 1 day passed without completing, streak breaks
+          if (daysDiff > 1) {
+            currentStreak = 0;
+          }
+        }
+        
         setDayNumber(savedDay);
-        setStreak(savedStreak);
+        setStreak(currentStreak);
         setTotalPts(savedPts);
         setCompleted(savedCompleted);
         localStorage.setItem('currentDay', savedDay.toString());
-        localStorage.setItem('streak', savedStreak.toString());
+        localStorage.setItem('streak', currentStreak.toString());
         localStorage.setItem('totalPts', savedPts.toString());
         localStorage.setItem(`completed_day_${savedDay}`, JSON.stringify(savedCompleted));
         loadLesson(savedDay);
@@ -196,10 +226,13 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
   };
 
   const saveProgress = async (day: number, newCompleted: string[], newPts: number, newStreak: number) => {
+    const today = new Date().toISOString().split('T')[0];
     localStorage.setItem('currentDay', day.toString());
     localStorage.setItem(`completed_day_${day}`, JSON.stringify(newCompleted));
     localStorage.setItem('totalPts', newPts.toString());
     localStorage.setItem('streak', newStreak.toString());
+    localStorage.setItem('lastActive', today);
+    
     const user = auth.currentUser;
     if (user) {
       try {
@@ -208,7 +241,7 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
           [`completed_day_${day}`]: newCompleted,
           totalPts: newPts,
           streak: newStreak,
-          lastActive: new Date().toISOString().split('T')[0],
+          lastActive: today,
         });
       } catch { }
     }
@@ -217,20 +250,26 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
   const markBlockComplete = async (blockType: string, pts: number) => {
     const newCompleted  = [...completed, blockType];
     const newPts        = totalPts + pts;
+    // ── OPTION 1: Only increment streak if ALL blocks are completed ──
     const allBlocksDone = lesson ? lesson.blocks.every(b => newCompleted.includes(b.type)) : false;
     const newStreak     = allBlocksDone ? streak + 1 : streak;
+    
     setCompleted(newCompleted);
     setTotalPts(newPts);
+    
     if (allBlocksDone) {
       setStreak(newStreak);
       setShowCelebration(true);
-      // Advance to next day
+      // ── OPTION 1: Only advance to next day when current day is fully complete ──
       const nextDay = dayNumber + 1;
       setDayNumber(nextDay);
       localStorage.setItem('currentDay', nextDay.toString());
+      await saveProgress(nextDay, [], newPts, newStreak);
+      preGenerateNextLesson(nextDay);
+    } else {
+      // Still on same day, just save progress
+      await saveProgress(dayNumber, newCompleted, newPts, streak);
     }
-    await saveProgress(dayNumber, newCompleted, newPts, newStreak);
-    if (allBlocksDone) preGenerateNextLesson(dayNumber + 1);
   };
 
   const handleBlockStart = (block: LessonBlock) => {

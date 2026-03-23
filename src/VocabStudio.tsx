@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from './firebase';
 import { speak } from './speak';
+import type { Level } from './App';
 
 interface Props {
   onBack: () => void;
-  onGainXp: (amount: number) => void;
-  userLevel?: string | null;
+  userLevel: Level | null;
 }
 
 interface VocabWord {
@@ -39,7 +39,7 @@ const TOPIC_ICONS: Record<string, string> = {
   society:'👥', history:'📜', philosophy:'🧠', business:'💼', psychology:'🧩',
 };
 
-export default function VocabStudio({ onBack, onGainXp, userLevel }: Props) {
+export default function VocabStudio({ onBack, userLevel }: Props) {
   const [vocabSets, setVocabSets]     = useState<VocabSet[]>([]);
   const [loading, setLoading]         = useState(true);
   const [selectedSet, setSelectedSet] = useState<VocabSet | null>(null);
@@ -82,7 +82,6 @@ export default function VocabStudio({ onBack, onGainXp, userLevel }: Props) {
   const handleFlip = () => {
     setIsFlipped(!isFlipped);
     if (!isFlipped && !hasGainedXp) {
-      onGainXp(10);
       setHasGainedXp(true);
     }
   };

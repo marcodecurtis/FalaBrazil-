@@ -16,7 +16,7 @@ import AuthScreen from './AuthScreen';
 import TodayScreen from './TodayScreen';
 import { stopSpeaking } from './speak';
 
-type Level = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
+export type Level = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
 type View = 'loading' | 'welcome' | 'auth' | 'onboarding' | 'home' | 'verbs' | 'vocab' | 'grammar' | 'reading' | 'pronunciation' | 'video' | 'isabela';
 
 interface UserData {
@@ -154,6 +154,7 @@ export default function App() {
             right: '16px',
             zIndex: 99999,
             transform: 'translateZ(0)',
+            willChange: 'transform',
           }}
         >
           <button
@@ -264,8 +265,8 @@ export default function App() {
           />
         )}
 
-        {view === 'verbs'         && <VerbStudio onBack={() => navigateTo('home')} onGainXp={() => {}} />}
-        {view === 'vocab'         && <VocabStudio onBack={() => navigateTo('home')} onGainXp={() => {}} userLevel={userLevel} />}
+        {view === 'verbs'         && <VerbStudio onBack={() => navigateTo('home')} />}
+        {view === 'vocab'         && <VocabStudio onBack={() => navigateTo('home')} userLevel={userLevel} />}
         {view === 'grammar'       && <GrammarStudio onBack={() => navigateTo('home')} userLevel={userLevel} />}
         {view === 'reading'       && <ReadingStudio onBack={() => navigateTo('home')} userLevel={userLevel} />}
         {view === 'pronunciation' && <PronunciationStudio onBack={() => navigateTo('home')} />}
