@@ -170,10 +170,9 @@ export default function App() {
         {view === 'reading'       && <ReadingStudio onBack={() => navigateTo('home')} userLevel={userLevel} />}
         {view === 'pronunciation' && <PronunciationStudio onBack={() => navigateTo('home')} />}
         {view === 'video'         && <VideoStudio onBack={() => navigateTo('home')} userLevel={userLevel} />}
-        {view === 'isabela'       && <IsabelaStudio 
-          block={{ type: 'vocabulary', title: 'Isabela\'s Lessons', content: { words: [] } } as any}
-          onPass={() => navigateTo('home')} 
+        {view === 'isabela' && <IsabelaStudio 
           onBack={() => navigateTo('home')} 
+          userLevel={userLevel} 
         />}
 
         <footer style={{ marginTop: 'auto', paddingTop: '60px', paddingBottom: '20px', textAlign: 'center', fontSize: '0.85rem', color: '#94a3b8' }}>

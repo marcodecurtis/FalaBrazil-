@@ -37,8 +37,9 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
   const [showFeedback, setShowFeedback]     = useState(false);
   const [score, setScore]                   = useState(0);
 
+  // Support both "words" (vocabulary/mini_exercise) and legacy "items" field
   const words: { word: string; translation: string; example: string }[] =
-    block.content?.words || [];
+    block.content?.words || block.content?.items || [];
 
   // ── Stable test words — computed ONCE, never reshuffled ──
   const testWords = useMemo(() => shuffle(words).slice(0, Math.min(5, words.length)), [block]);

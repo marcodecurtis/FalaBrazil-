@@ -1,592 +1,413 @@
-import { useState, useMemo, useEffect } from 'react';
-import './LessonPlayer.css';
-import { speak } from './speak';
-import type { LessonBlock } from './TodayScreen';
+import { useState, useEffect, useRef } from 'react';
+import type { Level } from './App';
 
 interface Props {
-  block: LessonBlock;
-  onPass: () => void;
   onBack: () => void;
+  userLevel: Level | null;
 }
 
-function shuffle<T>(arr: T[]): T[] {
-  return [...arr].sort(() => Math.random() - 0.5);
+type Status = 'idle' | 'listening' | 'thinking' | 'speaking' | 'error';
+
+interface Message {
+  role: 'user' | 'assistant';
+  content: string;
 }
 
-// ── Accent-insensitive comparison ─────────────────────
-function normalise(str: string): string {
-  return str
-    .toLowerCase()
-    .trim()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '');
+interface DisplayMessage {
+  role: 'user' | 'isabela';
+  text: string;
 }
 
-function getWrongOptions(correctWord: string, allWords: { word: string; translation: string }[], count = 3): string[] {
-  const others = allWords.filter(w => w.translation !== correctWord).map(w => w.translation);
-  return shuffle(others).slice(0, count);
-}
+const CONVERSATION_STARTERS = [
+  'Oi! Tudo bem com você? Me conta, o que você fez hoje?',
+  'Olá! Que bom te ver! Você gosta de morar onde você mora?',
+  'Oi! Vamos conversar! Me fala um pouco sobre você.',
+  'Olá! Estou animada para praticar com você! Qual é o seu nome?',
+  'Oi! Que dia lindo! Você tem algum plano para o fim de semana?',
+];
 
-export default function IsabelaStudio({ block, onPass, onBack }: Props) {
-  const [phase, setPhase]                   = useState<'learn' | 'test' | 'result'>('learn');
-  const [cardIndex, setCardIndex]           = useState(0);
-  const [flipped, setFlipped]               = useState(false);
-  const [testAnswers, setTestAnswers]       = useState<(string | null)[]>([]);
-  const [currentTestQ, setCurrentTestQ]     = useState(0);
-  const [selectedOption, setSelectedOption] = useState<string | null>(null);
-  const [showFeedback, setShowFeedback]     = useState(false);
-  const [score, setScore]                   = useState(0);
-  const [hasMicrophone, setHasMicrophone]   = useState<boolean | null>(null);
+export default function IsabelaStudio({ onBack, userLevel }: Props) {
+  const [status, setStatus]                   = useState<Status>('idle');
+  const [apiMessages, setApiMessages]         = useState<Message[]>([]);
+  const [displayMessages, setDisplayMessages] = useState<DisplayMessage[]>([]);
+  const [transcript, setTranscript]           = useState('');
+  const [error, setError]                     = useState('');
+  const [isStarted, setIsStarted]             = useState(false);
+  const [isMuted, setIsMuted]                 = useState(false);
 
-  const words: { word: string; translation: string; example: string }[] =
-    block.content?.words || [];
+  const recognitionRef = useRef<any>(null);
+  const audioRef       = useRef<HTMLAudioElement | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isListeningRef = useRef(false);
+  const transcriptRef  = useRef('');
 
-  const testWords = useMemo(() => shuffle(words).slice(0, Math.min(5, words.length)), [block]);
-  const testOptions = useMemo(() =>
-    testWords.map(q => shuffle([q.translation, ...getWrongOptions(q.translation, words)])),
-    [testWords]
-  );
+  const level = userLevel || 'A1';
 
-  // Note: pronouns array kept for potential future use with verb conjugation in isabela mode
-  // const testPronouns = useMemo(() => shuffle(pronouns).slice(0, 4), [block]);
-
-  // ── Check for microphone availability on mount ──
   useEffect(() => {
-    const checkMicrophone = async () => {
-      try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const hasMic = devices.some(device => device.kind === 'audioinput');
-        setHasMicrophone(hasMic);
-      } catch (error) {
-        // If we can't check, assume no microphone for safety
-        setHasMicrophone(false);
-      }
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [displayMessages, transcript]);
+
+  useEffect(() => {
+    return () => {
+      stopListening();
+      audioRef.current?.pause();
     };
-    checkMicrophone();
   }, []);
 
-  const resetTest = () => {
-    setPhase('test');
-    setCurrentTestQ(0);
-    setScore(0);
-    setSelectedOption(null);
-    setShowFeedback(false);
-    setTestAnswers([]);
+  useEffect(() => {
+    transcriptRef.current = transcript;
+  }, [transcript]);
+
+  const stopListening = () => {
+    if (recognitionRef.current) {
+      isListeningRef.current = false;
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
+    }
   };
 
-  // ── MICROPHONE NOT AVAILABLE FALLBACK ──
-  if (hasMicrophone === false && block.type === 'isabela') {
-    return (
-      <div className="lp-wrapper">
-        <div className="lp-header">
-          <button className="lp-back-btn" onClick={onBack}>← Back</button>
-          <div className="lp-header-title">Chat with Isabela</div>
-          <div className="lp-counter">Unavailable</div>
-        </div>
-        
-        <div style={{
-          padding: '40px 20px',
-          textAlign: 'center',
-          background: '#fef3c7',
-          borderRadius: '12px',
-          margin: '20px',
-        }}>
-          <div style={{ fontSize: '3rem', marginBottom: '16px' }}>🎙️</div>
-          <div style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '8px', color: '#0f172a' }}>
-            Microphone Not Available
-          </div>
-          <div style={{ color: '#64748b', marginBottom: '24px', lineHeight: '1.6' }}>
-            Chat with Isabela requires a microphone. Please enable microphone access or use a device with a microphone to practice voice conversation.
-          </div>
-          <div style={{
-            background: 'white',
-            padding: '16px',
-            borderRadius: '8px',
-            marginBottom: '24px',
-            fontSize: '0.9rem',
-            color: '#475569',
-            borderLeft: '4px solid #14532d',
-          }}>
-            <strong>💡 Tip:</strong> You can still practice with other lessons that don't require a microphone, like vocabulary, grammar, and reading exercises.
-          </div>
-          <button
-            onClick={onPass}
-            style={{
-              width: '100%',
-              padding: '14px',
-              background: '#14532d',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              fontSize: '1rem',
-              fontWeight: 700,
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-            }}
-          >
-            Continue Anyway →
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // ── ElevenLabs TTS via backend proxy ──
+  const speakText = async (text: string): Promise<void> => {
+    if (isMuted) return;
+    setStatus('speaking');
+    try {
+      const res = await fetch('/api/elevenlabs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      if (!res.ok) throw new Error('TTS failed');
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      return new Promise((resolve) => {
+        const audio = new Audio(url);
+        audioRef.current = audio;
+        audio.onended = () => { URL.revokeObjectURL(url); resolve(); };
+        audio.onerror = () => { URL.revokeObjectURL(url); resolve(); };
+        audio.play().catch(() => resolve());
+      });
+    } catch (e) {
+      console.error('TTS error:', e);
+      // Don't block conversation if TTS fails
+    }
+  };
 
-  // ── LOADING: Checking for microphone (only for isabela block) ──
-  if (hasMicrophone === null && block.type === 'isabela') {
-    return (
-      <div className="lp-wrapper">
-        <div className="lp-header">
-          <button className="lp-back-btn" onClick={onBack}>← Back</button>
-          <div className="lp-header-title">Chat with Isabela</div>
-        </div>
-        <div style={{ padding: '60px 20px', textAlign: 'center', color: '#94a3b8' }}>
-          <div style={{ fontSize: '2rem', marginBottom: '12px' }}>🎙️</div>
-          <p style={{ fontWeight: 700 }}>Checking microphone access...</p>
-        </div>
-      </div>
-    );
-  }
+  // ── Get Isabela's reply from Claude via backend ──
+  const getIsabelaReply = async (history: Message[]): Promise<string> => {
+    const res = await fetch('/api/isabela', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: history, level }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    return data.text;
+  };
 
-  // ── VOICE CHAT READY (when microphone available) ──
-  if (hasMicrophone === true && block.type === 'isabela' && phase === 'learn') {
-    return (
-      <div className="lp-wrapper">
-        <div className="lp-header">
-          <button className="lp-back-btn" onClick={onBack}>← Back</button>
-          <div className="lp-header-title">Chat with Isabela</div>
-          <div className="lp-counter">Ready</div>
-        </div>
-        
-        <div style={{
-          padding: '40px 20px',
-          textAlign: 'center',
-          background: '#fce7f3',
-          borderRadius: '12px',
-          margin: '20px',
-        }}>
-          <div style={{ fontSize: '3rem', marginBottom: '16px' }}>🎙️</div>
-          <div style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '8px', color: '#0f172a' }}>
-            Voice Chat Ready
-          </div>
-          <div style={{ color: '#64748b', marginBottom: '24px', lineHeight: '1.6' }}>
-            Your microphone is ready! Speak naturally and practice Portuguese conversation with Isabela.
-          </div>
-          <div style={{
-            background: 'white',
-            padding: '16px',
-            borderRadius: '8px',
-            marginBottom: '24px',
-            fontSize: '0.9rem',
-            color: '#475569',
-            borderLeft: '4px solid #d946a6',
-          }}>
-            <strong>💬 Tip:</strong> Speak clearly and naturally. Isabela will respond to help you learn conversational Portuguese.
-          </div>
-          <button
-            onClick={onPass}
-            style={{
-              width: '100%',
-              padding: '14px',
-              background: '#14532d',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              fontSize: '1rem',
-              fontWeight: 700,
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-            }}
-          >
-            Start Conversation →
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // ── Process a completed user utterance ──
+  const handleUserSpeech = async (userText: string) => {
+    if (!userText.trim()) { setStatus('idle'); return; }
 
-  // ── VOCABULARY ────────────────────────────────────
-  if (block.type === 'vocabulary' || block.type === 'mini_exercise') {
-    if (words.length === 0) { onPass(); return null; }
+    const newDisplay: DisplayMessage[] = [...displayMessages, { role: 'user', text: userText }];
+    const newApi: Message[]            = [...apiMessages,     { role: 'user', content: userText }];
+    setDisplayMessages(newDisplay);
+    setApiMessages(newApi);
+    setTranscript('');
+    setStatus('thinking');
 
-    if (phase === 'learn') {
-      const card   = words[cardIndex];
-      const isLast = cardIndex === words.length - 1;
-      return (
-        <div className="lp-wrapper">
-          <div className="lp-header">
-            <button className="lp-back-btn" onClick={onBack}>← Back</button>
-            <div className="lp-header-title">{block.title}</div>
-            <div className="lp-counter">{cardIndex + 1} / {words.length}</div>
-          </div>
-          <div className="lp-progress-track">
-            <div className="lp-progress-fill" style={{ width: `${((cardIndex + 1) / words.length) * 100}%` }} />
-          </div>
-          <div className="lp-phase-label">Learn the words</div>
-          <div className={`lp-flashcard ${flipped ? 'lp-flipped' : ''}`} onClick={() => setFlipped(!flipped)}>
-            <div className="lp-card-front">
-              <div className="lp-card-lang">Portuguese</div>
-              <div className="lp-card-word">{card.word}</div>
-              {card.example && <div className="lp-card-example">"{card.example}"</div>}
-              <div className="lp-card-hint">Tap to reveal translation</div>
-            </div>
-            <div className="lp-card-back">
-              <div className="lp-card-lang">English</div>
-              <div className="lp-card-word">{card.translation}</div>
-            </div>
-          </div>
-          <button
-            className="speak-btn speak-btn-large"
-            onClick={() => speak(card.word)}
-            style={{ marginTop: '16px' }}
-          >
-            🔊 Listen to pronunciation
-          </button>
-          <div className="lp-nav-row">
-            {cardIndex > 0 && (
-              <button className="lp-nav-btn lp-nav-prev" onClick={() => { setCardIndex(i => i - 1); setFlipped(false); }}>← Previous</button>
-            )}
-            {!isLast ? (
-              <button className="lp-nav-btn lp-nav-next" onClick={() => { setCardIndex(i => i + 1); setFlipped(false); }}>Next →</button>
-            ) : (
-              <button className="lp-nav-btn lp-nav-test" onClick={() => { setPhase('test'); setCurrentTestQ(0); setScore(0); setSelectedOption(null); setShowFeedback(false); }}>Take the test →</button>
-            )}
-          </div>
-        </div>
-      );
+    try {
+      const reply = await getIsabelaReply(newApi);
+      setDisplayMessages([...newDisplay, { role: 'isabela', text: reply }]);
+      setApiMessages([...newApi, { role: 'assistant', content: reply }]);
+      await speakText(reply);
+      setStatus('idle');
+    } catch (e) {
+      console.error(e);
+      setError('Could not connect. Check your internet connection and try again.');
+      setStatus('error');
+    }
+  };
+
+  // ── Start speech recognition ──
+  const startListening = () => {
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      setError('Voice recognition is not supported in this browser. Please use Chrome on Android or desktop.');
+      setStatus('error');
+      return;
     }
 
-    if (phase === 'test') {
-      // ── SAFETY CHECK: Prevent test from running with invalid state ──
-      if (testWords.length === 0 || currentTestQ >= testWords.length) {
-        setPhase('result');
-        return null;
+    audioRef.current?.pause();
+
+    const recognition        = new SpeechRecognition();
+    recognition.lang           = 'pt-BR';
+    recognition.continuous     = false;
+    recognition.interimResults = true;
+    recognitionRef.current     = recognition;
+    isListeningRef.current     = true;
+
+    recognition.onstart = () => {
+      setStatus('listening');
+      setTranscript('');
+      transcriptRef.current = '';
+    };
+
+    recognition.onresult = (e: any) => {
+      const current = Array.from(e.results as any[])
+        .map((r: any) => r[0].transcript)
+        .join('');
+      setTranscript(current);
+      transcriptRef.current = current;
+    };
+
+    recognition.onend = () => {
+      recognitionRef.current = null;
+      if (!isListeningRef.current) return;
+      isListeningRef.current = false;
+      const final = transcriptRef.current;
+      setTranscript('');
+      if (final.trim()) {
+        handleUserSpeech(final);
+      } else {
+        setStatus('idle');
       }
+    };
 
-      const q          = testWords[currentTestQ];
-      const allOptions = testOptions[currentTestQ] || [];
-      if (!q || !allOptions || allOptions.length === 0) {
-        setPhase('result');
-        return null;
+    recognition.onerror = (e: any) => {
+      isListeningRef.current = false;
+      recognitionRef.current = null;
+      if (e.error === 'no-speech')   { setStatus('idle'); return; }
+      if (e.error === 'not-allowed') {
+        setError('Microphone access denied. Please allow microphone permissions and try again.');
+        setStatus('error');
+        return;
       }
+      setStatus('idle');
+    };
 
-      const isAnswered = selectedOption !== null;
-      const isCorrect  = selectedOption === q.translation;
-      const isLastQ    = currentTestQ === testWords.length - 1;
+    recognition.start();
+  };
 
-      const handleSelect = (opt: string) => {
-        if (isAnswered) return;
-        setSelectedOption(opt);
-        setShowFeedback(true);
-        if (opt === q.translation) setScore(s => s + 1);
-      };
-
-      const handleNext = () => {
-        setSelectedOption(null);
-        setShowFeedback(false);
-        if (isLastQ) { setPhase('result'); } else { setCurrentTestQ(i => i + 1); }
-      };
-
-      return (
-        <div className="lp-wrapper">
-          <div className="lp-header">
-            <button className="lp-back-btn" onClick={() => { setPhase('learn'); setSelectedOption(null); setShowFeedback(false); }}>← Study</button>
-            <div className="lp-header-title">Quick test</div>
-            <div className="lp-counter">{currentTestQ + 1} / {testWords.length}</div>
-          </div>
-          <div className="lp-progress-track">
-            <div className="lp-progress-fill" style={{ width: `${((currentTestQ + 1) / testWords.length) * 100}%` }} />
-          </div>
-          <div className="lp-phase-label">What does this word mean?</div>
-          <div className="lp-test-question"><div className="lp-test-word">{q.word}</div></div>
-          <div className="lp-options">
-            {allOptions.map((opt, i) => {
-              let cls = 'lp-option';
-              if (isAnswered) {
-                if (opt === q.translation)       cls += ' lp-option-correct';
-                else if (opt === selectedOption) cls += ' lp-option-wrong';
-                else                             cls += ' lp-option-dim';
-              }
-              return (
-                <button key={i} className={cls} onClick={() => handleSelect(opt)} disabled={isAnswered}>
-                  <span className="lp-option-letter">{['A','B','C','D'][i]}</span>
-                  <span className="lp-option-text">{opt}</span>
-                  {isAnswered && opt === q.translation && <span className="lp-option-icon">✓</span>}
-                  {isAnswered && opt === selectedOption && opt !== q.translation && <span className="lp-option-icon lp-option-x">✗</span>}
-                </button>
-              );
-            })}
-          </div>
-          {showFeedback && (
-            <div className={`lp-feedback ${isCorrect ? 'lp-feedback-good' : 'lp-feedback-bad'}`}>
-              {isCorrect ? '✓ Correct!' : `Correct answer: ${q.translation}`}
-            </div>
-          )}
-          {isAnswered && (
-            <button className="lp-next-btn" onClick={handleNext}>
-              {isLastQ ? 'See result →' : 'Next →'}
-            </button>
-          )}
-        </div>
-      );
+  const handleMicPress = () => {
+    if (status === 'listening') {
+      stopListening();
+      const final = transcriptRef.current;
+      setTranscript('');
+      if (final.trim()) handleUserSpeech(final);
+      else setStatus('idle');
+    } else if (status === 'speaking') {
+      audioRef.current?.pause();
+      setStatus('idle');
+    } else if (status === 'idle') {
+      startListening();
     }
+  };
 
-    if (phase === 'result') {
-      const total     = testWords.length;
-      const passScore = Math.ceil(total * 0.8);
-      const passed    = score >= passScore;
-      return (
-        <div className="lp-wrapper">
-          <div className="lp-result-card">
-            <div className={`lp-result-circle ${passed ? 'lp-result-pass' : 'lp-result-fail'}`}>
-              <div className="lp-result-num">{score}/{total}</div>
-              <div className="lp-result-label">{passed ? 'Passed!' : 'Try again'}</div>
-            </div>
-            {passed ? (
-              <>
-                <div className="lp-result-title">Well done! 🎉</div>
-                <div className="lp-result-sub">You know these words. Block complete!</div>
-                <button className="lp-result-btn" onClick={onPass}>Continue →</button>
-              </>
-            ) : (
-              <>
-                <div className="lp-result-title">Not quite there yet</div>
-                <div className="lp-result-sub">You need {passScore}/{total} to pass. Study the words again and retry.</div>
-                <button className="lp-result-btn" onClick={() => { setPhase('learn'); setCardIndex(0); setFlipped(false); setScore(0); setSelectedOption(null); setShowFeedback(false); }}>Study again →</button>
-                <button className="lp-result-btn-sec" onClick={resetTest}>Retry test</button>
-              </>
-            )}
+  const handleStart = async () => {
+    setIsStarted(true);
+    setStatus('thinking');
+    const starter = CONVERSATION_STARTERS[Math.floor(Math.random() * CONVERSATION_STARTERS.length)];
+    setDisplayMessages([{ role: 'isabela', text: starter }]);
+    setApiMessages([{ role: 'assistant', content: starter }]);
+    await speakText(starter);
+    setStatus('idle');
+  };
+
+  const handleReset = () => {
+    stopListening();
+    audioRef.current?.pause();
+    setApiMessages([]);
+    setDisplayMessages([]);
+    setTranscript('');
+    setError('');
+    setIsStarted(false);
+    setStatus('idle');
+  };
+
+  // ── INTRO SCREEN ──────────────────────────────────
+  if (!isStarted) {
+    return (
+      <div style={{ maxWidth: '480px', margin: '0 auto', padding: '0 16px 40px' }}>
+        <button onClick={onBack} style={{ background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700, color: '#64748b', fontSize: '0.85rem', padding: '16px 0', display: 'flex', alignItems: 'center', gap: '4px', fontFamily: 'inherit' }}>
+          ← Back
+        </button>
+
+        <div style={{ textAlign: 'center', padding: '24px 0 20px' }}>
+          <div style={{ width: '100px', height: '100px', borderRadius: '50%', background: 'linear-gradient(135deg, #fce7f3, #fbcfe8)', margin: '0 auto 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 32px rgba(219,39,119,0.15)', overflow: 'hidden' }}>
+            <img src="/isabela.png" alt="Isabela" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
           </div>
+          <h1 style={{ fontWeight: 900, fontSize: '1.8rem', color: '#0f172a', margin: '0 0 6px' }}>Isabela</h1>
+          <p style={{ color: '#64748b', fontSize: '0.9rem', margin: 0 }}>Your AI Brazilian Portuguese conversation partner</p>
         </div>
-      );
-    }
+
+        <div style={{ background: '#f8fafc', borderRadius: '16px', padding: '20px', marginBottom: '16px' }}>
+          <h3 style={{ fontWeight: 800, fontSize: '0.9rem', color: '#0f172a', margin: '0 0 12px' }}>How it works</h3>
+          {[
+            ['🎙️', 'Tap the mic and speak in Portuguese (or try your best!)'],
+            ['🤖', 'Isabela replies in Portuguese, matched to your level'],
+            ['🔊', 'Her voice is powered by ElevenLabs — natural Brazilian sound'],
+            ['💬', "She'll gently correct mistakes and keep the chat going"],
+          ].map(([icon, text], i) => (
+            <div key={i} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', marginBottom: i < 3 ? '10px' : 0 }}>
+              <span style={{ fontSize: '1.1rem', flexShrink: 0 }}>{icon}</span>
+              <span style={{ fontSize: '0.85rem', color: '#475569', lineHeight: 1.5 }}>{text}</span>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ background: '#fce7f3', borderRadius: '12px', padding: '12px 16px', marginBottom: '24px', display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <span>📶</span>
+          <span style={{ fontSize: '0.8rem', color: '#9d174d', fontWeight: 600 }}>
+            Level <strong>{level}</strong> detected — Isabela will adapt to your pace.
+          </span>
+        </div>
+
+        <button
+          onClick={handleStart}
+          style={{ width: '100%', padding: '16px', background: 'linear-gradient(135deg, #14532d, #166534)', color: 'white', border: 'none', borderRadius: '14px', fontWeight: 800, fontSize: '1.05rem', cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 20px rgba(20,83,45,0.3)' }}
+        >
+          Start Conversation 🎙️
+        </button>
+      </div>
+    );
   }
 
-  // ── GRAMMAR BLOCK ─────────────────────────────────
-  if (block.type === 'grammar') {
-    const point       = block.content?.point       || '';
-    const explanation = block.content?.explanation || '';
-    const examples    = block.content?.examples    || [];
-    const items: { question: string; answer: string }[] = block.content?.items || [];
+  // ── CHAT SCREEN ───────────────────────────────────
+  const micColor =
+    status === 'listening' ? '#dc2626' :
+    status === 'thinking'  ? '#94a3b8' :
+    status === 'speaking'  ? '#7c3aed' : '#14532d';
 
-    const testItems = items.length > 0
-      ? items.slice(0, 3)
-      : examples.slice(0, 3).map((ex: string) => {
-          const ws = ex.split(' ');
-          const blankIdx = Math.floor(ws.length / 2);
-          const answer = ws[blankIdx];
-          ws[blankIdx] = '___';
-          return { question: ws.join(' '), answer };
-        });
+  const micLabel =
+    status === 'listening' ? 'Listening… tap to send' :
+    status === 'thinking'  ? 'Isabela is thinking…' :
+    status === 'speaking'  ? 'Tap to interrupt' :
+    'Tap to speak';
 
-    if (phase === 'learn') {
-      return (
-        <div className="lp-wrapper">
-          <div className="lp-header">
-            <button className="lp-back-btn" onClick={onBack}>← Back</button>
-            <div className="lp-header-title">{block.title}</div>
-            <div className="lp-counter">Grammar</div>
+  const micEmoji =
+    status === 'listening' ? '⏹️' :
+    status === 'thinking'  ? '⏳' :
+    status === 'speaking'  ? '🔊' : '🎙️';
+
+  return (
+    <div style={{ maxWidth: '480px', margin: '0 auto', display: 'flex', flexDirection: 'column', height: '100dvh' }}>
+
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderBottom: '1px solid #f1f5f9', background: 'white', flexShrink: 0 }}>
+        <button onClick={onBack} style={{ background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700, color: '#64748b', fontSize: '0.85rem', fontFamily: 'inherit' }}>← Back</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'linear-gradient(135deg, #fce7f3, #fbcfe8)', overflow: 'hidden', flexShrink: 0 }}>
+            <img src="/isabela.png" alt="Isabela" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
           </div>
-          <div className="lp-phase-label">Today's grammar point</div>
-          <div className="lp-grammar-card">
-            <div className="lp-grammar-point">{point}</div>
-            <div className="lp-grammar-explanation">{explanation}</div>
-          </div>
-          {examples.length > 0 && (
-            <div className="lp-grammar-examples">
-              <div className="lp-examples-label">Examples:</div>
-              {examples.map((ex: string, i: number) => (
-                <div key={i} className="lp-grammar-example">{ex}</div>
-              ))}
+          <div>
+            <div style={{ fontWeight: 800, fontSize: '0.9rem', color: '#0f172a', lineHeight: 1.1 }}>Isabela</div>
+            <div style={{ fontSize: '0.68rem', fontWeight: 700, color: status === 'speaking' ? '#7c3aed' : status === 'listening' ? '#dc2626' : status === 'thinking' ? '#f59e0b' : '#4ade80' }}>
+              {status === 'listening' ? '🔴 listening' : status === 'speaking' ? '🔊 speaking' : status === 'thinking' ? '⏳ thinking' : '● online'}
             </div>
-          )}
-          <button className="lp-next-btn" style={{ marginTop: '24px' }} onClick={() => { setPhase('test'); setCurrentTestQ(0); setScore(0); setTestAnswers([]); }}>
-            Take the test →
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: '6px' }}>
+          <button onClick={() => { setIsMuted(m => !m); audioRef.current?.pause(); }} style={{ background: isMuted ? '#fee2e2' : '#f1f5f9', border: 'none', borderRadius: '8px', padding: '6px 10px', cursor: 'pointer', fontSize: '0.9rem' }}>
+            {isMuted ? '🔇' : '🔊'}
+          </button>
+          <button onClick={handleReset} style={{ background: '#f1f5f9', border: 'none', borderRadius: '8px', padding: '6px 10px', cursor: 'pointer', fontSize: '0.9rem' }}>
+            🔄
           </button>
         </div>
-      );
-    }
+      </div>
 
-    if (phase === 'test') {
-      const q          = testItems[currentTestQ];
-      if (!q) { setPhase('result'); return null; }
-      const isAnswered = testAnswers[currentTestQ] !== undefined && testAnswers[currentTestQ] !== null;
-      // ── Accent-insensitive check ──
-      const isCorrect  = normalise(testAnswers[currentTestQ] || '') === normalise(q.answer);
-      const isLastQ    = currentTestQ === testItems.length - 1;
-
-      const checkAnswer = (val: string) => {
-        if (!val.trim() || isAnswered) return;
-        const newAnswers = [...testAnswers];
-        newAnswers[currentTestQ] = val;
-        setTestAnswers(newAnswers);
-        if (normalise(val) === normalise(q.answer)) setScore(s => s + 1);
-      };
-
-      return (
-        <div className="lp-wrapper">
-          <div className="lp-header">
-            <button className="lp-back-btn" onClick={() => { setPhase('learn'); setTestAnswers([]); setScore(0); }}>← Study</button>
-            <div className="lp-header-title">Fill in the blank</div>
-            <div className="lp-counter">{currentTestQ + 1} / {testItems.length}</div>
-          </div>
-          <div className="lp-progress-track">
-            <div className="lp-progress-fill" style={{ width: `${((currentTestQ + 1) / testItems.length) * 100}%` }} />
-          </div>
-          <div className="lp-phase-label">Complete the sentence</div>
-          <div className="lp-grammar-fill-q">{q.question}</div>
-          <div className="lp-accent-hint">Accents are optional 👍</div>
-          <input
-            key={currentTestQ}
-            className="lp-fill-input"
-            placeholder="Type your answer..."
-            disabled={isAnswered}
-            onKeyDown={(e) => { if (e.key === 'Enter') checkAnswer((e.target as HTMLInputElement).value); }}
-          />
-          {!isAnswered && (
-            <button className="lp-next-btn" onClick={(e) => {
-              const input = e.currentTarget.parentElement?.querySelector('.lp-fill-input') as HTMLInputElement;
-              checkAnswer(input?.value || '');
-            }}>Check answer</button>
-          )}
-          {isAnswered && (
-            <>
-              <div className={`lp-feedback ${isCorrect ? 'lp-feedback-good' : 'lp-feedback-bad'}`}>
-                {isCorrect ? '✓ Correct!' : `Correct answer: ${q.answer}`}
+      {/* Messages */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', background: '#f8fafc' }}>
+        {displayMessages.map((msg, i) => (
+          <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start', alignItems: 'flex-end', gap: '8px' }}>
+            {msg.role === 'isabela' && (
+              <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'linear-gradient(135deg, #fce7f3, #fbcfe8)', flexShrink: 0, overflow: 'hidden' }}>
+                <img src="/isabela.png" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
               </div>
-              <button className="lp-next-btn" onClick={() => {
-                if (isLastQ) { setPhase('result'); } else { setCurrentTestQ(i => i + 1); }
-              }}>
-                {isLastQ ? 'See result →' : 'Next →'}
-              </button>
-            </>
-          )}
-        </div>
-      );
-    }
-
-    if (phase === 'result') {
-      const total     = testItems.length;
-      const passScore = Math.ceil(total * 0.67);
-      const passed    = score >= passScore;
-      return (
-        <div className="lp-wrapper">
-          <div className="lp-result-card">
-            <div className={`lp-result-circle ${passed ? 'lp-result-pass' : 'lp-result-fail'}`}>
-              <div className="lp-result-num">{score}/{total}</div>
-              <div className="lp-result-label">{passed ? 'Passed!' : 'Try again'}</div>
-            </div>
-            {passed ? (
-              <>
-                <div className="lp-result-title">Grammar mastered! 🎉</div>
-                <div className="lp-result-sub">Block complete!</div>
-                <button className="lp-result-btn" onClick={onPass}>Continue →</button>
-              </>
-            ) : (
-              <>
-                <div className="lp-result-title">Keep practising</div>
-                <div className="lp-result-sub">You need {passScore}/{total} to pass. Review and try again.</div>
-                <button className="lp-result-btn" onClick={() => { setPhase('learn'); setScore(0); setTestAnswers([]); }}>Study again →</button>
-                <button className="lp-result-btn-sec" onClick={() => { setPhase('test'); setCurrentTestQ(0); setScore(0); setTestAnswers([]); }}>Retry test</button>
-              </>
             )}
-          </div>
-        </div>
-      );
-    }
-  }
-
-  // ── READING BLOCK ─────────────────────────────────
-  if (block.type === 'reading') {
-    const title     = block.content?.title     || 'Reading';
-    const text      = block.content?.text      || '';
-    const questions: string[] = block.content?.questions || [];
-
-    if (phase === 'learn') {
-      return (
-        <div className="lp-wrapper">
-          <div className="lp-header">
-            <button className="lp-back-btn" onClick={onBack}>← Back</button>
-            <div className="lp-header-title">Reading</div>
-            <div className="lp-counter">Read</div>
-          </div>
-          <div className="lp-phase-label">Read carefully</div>
-          <div className="lp-reading-card">
-            <div className="lp-reading-title">{title}</div>
-            <div className="lp-reading-text">{text}</div>
-          </div>
-          <button className="lp-next-btn" style={{ marginTop: '16px' }} onClick={() => { setPhase('test'); setCurrentTestQ(0); setScore(0); setTestAnswers([]); }}>
-            Answer questions →
-          </button>
-        </div>
-      );
-    }
-
-    if (phase === 'test' && questions.length > 0) {
-      const q          = questions[currentTestQ];
-      const isAnswered = testAnswers[currentTestQ] !== undefined && testAnswers[currentTestQ] !== null;
-      const isLastQ    = currentTestQ === questions.length - 1;
-
-      return (
-        <div className="lp-wrapper">
-          <div className="lp-header">
-            <button className="lp-back-btn" onClick={() => setPhase('learn')}>← Re-read</button>
-            <div className="lp-header-title">Comprehension</div>
-            <div className="lp-counter">{currentTestQ + 1} / {questions.length}</div>
-          </div>
-          <div className="lp-progress-track">
-            <div className="lp-progress-fill" style={{ width: `${((currentTestQ + 1) / questions.length) * 100}%` }} />
-          </div>
-          <div className="lp-phase-label">Answer in Portuguese or English</div>
-          <div className="lp-grammar-fill-q">{q}</div>
-          <textarea
-            key={currentTestQ}
-            className="lp-fill-textarea"
-            placeholder="Type your answer..."
-            rows={3}
-            disabled={isAnswered}
-          />
-          {!isAnswered && (
-            <button className="lp-next-btn" onClick={(e) => {
-              const ta = e.currentTarget.parentElement?.querySelector('.lp-fill-textarea') as HTMLTextAreaElement;
-              const val = ta?.value.trim();
-              if (!val) return;
-              const newAnswers = [...testAnswers];
-              newAnswers[currentTestQ] = val;
-              setTestAnswers(newAnswers);
-              setScore(s => s + 1);
-            }}>Submit answer</button>
-          )}
-          {isAnswered && (
-            <>
-              <div className="lp-feedback lp-feedback-good">✓ Answer recorded — keep going!</div>
-              <button className="lp-next-btn" onClick={() => {
-                if (isLastQ) { setPhase('result'); } else { setCurrentTestQ(i => i + 1); }
-              }}>
-                {isLastQ ? 'Finish →' : 'Next →'}
-              </button>
-            </>
-          )}
-        </div>
-      );
-    }
-
-    if (phase === 'result' || questions.length === 0) {
-      return (
-        <div className="lp-wrapper">
-          <div className="lp-result-card">
-            <div className="lp-result-circle lp-result-pass">
-              <div className="lp-result-num">✓</div>
-              <div className="lp-result-label">Done!</div>
+            <div style={{
+              maxWidth: '75%', padding: '10px 14px',
+              borderRadius: msg.role === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+              background: msg.role === 'user' ? '#14532d' : 'white',
+              color: msg.role === 'user' ? 'white' : '#0f172a',
+              fontSize: '0.9rem', lineHeight: 1.5, fontWeight: 500,
+              boxShadow: '0 1px 4px rgba(0,0,0,0.07)',
+            }}>
+              {msg.text}
             </div>
-            <div className="lp-result-title">Reading complete! 📰</div>
-            <div className="lp-result-sub">Great work — you answered all the questions.</div>
-            <button className="lp-result-btn" onClick={onPass}>Continue →</button>
           </div>
-        </div>
-      );
-    }
-  }
+        ))}
 
-  onPass();
-  return null;
+        {/* Live transcript */}
+        {transcript && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <div style={{ maxWidth: '75%', padding: '10px 14px', borderRadius: '18px 18px 4px 18px', background: '#dcfce7', color: '#14532d', fontSize: '0.9rem', lineHeight: 1.5, fontWeight: 500, border: '2px dashed #4ade80' }}>
+              {transcript}
+            </div>
+          </div>
+        )}
+
+        {/* Thinking dots */}
+        {status === 'thinking' && (
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px' }}>
+            <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'linear-gradient(135deg, #fce7f3, #fbcfe8)', flexShrink: 0 }} />
+            <div style={{ background: 'white', borderRadius: '18px 18px 18px 4px', padding: '12px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
+              <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
+                {[0, 1, 2].map(i => (
+                  <div key={i} style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#cbd5e1', animation: `dot 1.2s ${i * 0.2}s infinite` }} />
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {error && (
+          <div style={{ background: '#fee2e2', border: '1px solid #fecaca', borderRadius: '12px', padding: '12px 16px', color: '#991b1b', fontSize: '0.85rem', fontWeight: 600, textAlign: 'center' }}>
+            ⚠️ {error}
+            <button onClick={() => { setError(''); setStatus('idle'); }} style={{ display: 'block', margin: '8px auto 0', background: 'none', border: 'none', color: '#dc2626', fontWeight: 700, cursor: 'pointer', fontSize: '0.8rem', fontFamily: 'inherit' }}>
+              Dismiss
+            </button>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Mic */}
+      <div style={{ padding: '16px 16px 28px', background: 'white', borderTop: '1px solid #f1f5f9', flexShrink: 0, textAlign: 'center' }}>
+        <div style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 600, marginBottom: '14px', height: '16px' }}>{micLabel}</div>
+        <button
+          onClick={handleMicPress}
+          disabled={status === 'thinking'}
+          style={{
+            width: '76px', height: '76px', borderRadius: '50%',
+            background: status === 'thinking' ? '#f1f5f9' : micColor,
+            border: 'none', cursor: status === 'thinking' ? 'default' : 'pointer',
+            fontSize: '2rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: status === 'listening'
+              ? '0 0 0 10px rgba(220,38,38,0.12), 0 4px 20px rgba(220,38,38,0.25)'
+              : status === 'speaking'
+              ? '0 0 0 10px rgba(124,58,237,0.12), 0 4px 20px rgba(124,58,237,0.25)'
+              : '0 4px 20px rgba(0,0,0,0.12)',
+            transition: 'all 0.2s',
+          }}
+        >
+          {micEmoji}
+        </button>
+        <div style={{ marginTop: '10px', fontSize: '0.7rem', color: '#cbd5e1', fontWeight: 600 }}>
+          {displayMessages.filter(m => m.role === 'user').length > 0 &&
+            `${displayMessages.filter(m => m.role === 'user').length} message${displayMessages.filter(m => m.role === 'user').length !== 1 ? 's' : ''} sent`}
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes dot {
+          0%, 100% { opacity: 0.3; transform: scale(1); }
+          50% { opacity: 1; transform: scale(1.4); }
+        }
+      `}</style>
+    </div>
+  );
 }
