@@ -12,6 +12,15 @@ function shuffle<T>(arr: T[]): T[] {
   return [...arr].sort(() => Math.random() - 0.5);
 }
 
+// ── Accent-insensitive comparison ─────────────────────
+function normalise(str: string): string {
+  return str
+    .toLowerCase()
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
 function getWrongOptions(correctWord: string, allWords: { word: string; translation: string }[], count = 3): string[] {
   const others = allWords.filter(w => w.translation !== correctWord).map(w => w.translation);
   return shuffle(others).slice(0, count);
@@ -96,9 +105,18 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
     }
 
     if (phase === 'test') {
+      // ── SAFETY CHECK: Prevent test from running with invalid state ──
+      if (testWords.length === 0 || currentTestQ >= testWords.length) {
+        setPhase('result');
+        return null;
+      }
+
       const q          = testWords[currentTestQ];
       const allOptions = testOptions[currentTestQ] || [];
-      if (!q) return null;
+      if (!q || !allOptions || allOptions.length === 0) {
+        setPhase('result');
+        return null;
+      }
 
       const isAnswered = selectedOption !== null;
       const isCorrect  = selectedOption === q.translation;
@@ -244,12 +262,13 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
       const q           = testPronouns[currentTestQ];
       const correctForm = conjugation[q] || '';
       const isAnswered  = testAnswers[currentTestQ] !== undefined && testAnswers[currentTestQ] !== null;
-      const isCorrect   = testAnswers[currentTestQ]?.toLowerCase().trim() === correctForm.toLowerCase().trim();
+      // ── Accent-insensitive check ──
+      const isCorrect   = normalise(testAnswers[currentTestQ] || '') === normalise(correctForm);
       const isLastQ     = currentTestQ === testPronouns.length - 1;
 
       const checkAnswer = (val: string) => {
         if (!val.trim() || isAnswered) return;
-        const correct = val.toLowerCase().trim() === correctForm.toLowerCase().trim();
+        const correct = normalise(val) === normalise(correctForm);
         const newAnswers = [...testAnswers];
         newAnswers[currentTestQ] = val;
         setTestAnswers(newAnswers);
@@ -270,6 +289,7 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
           <div className="lp-grammar-fill-q">
             {verb} → <strong>{q}</strong> ___?
           </div>
+          <div className="lp-accent-hint">Accents are optional — type without them if easier 👍</div>
           <input
             key={currentTestQ}
             className="lp-fill-input"
@@ -379,7 +399,8 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
       const q          = testItems[currentTestQ];
       if (!q) { setPhase('result'); return null; }
       const isAnswered = testAnswers[currentTestQ] !== undefined && testAnswers[currentTestQ] !== null;
-      const isCorrect  = testAnswers[currentTestQ]?.toLowerCase().trim() === q.answer.toLowerCase().trim();
+      // ── Accent-insensitive check ──
+      const isCorrect  = normalise(testAnswers[currentTestQ] || '') === normalise(q.answer);
       const isLastQ    = currentTestQ === testItems.length - 1;
 
       const checkAnswer = (val: string) => {
@@ -387,7 +408,7 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
         const newAnswers = [...testAnswers];
         newAnswers[currentTestQ] = val;
         setTestAnswers(newAnswers);
-        if (val.toLowerCase().trim() === q.answer.toLowerCase().trim()) setScore(s => s + 1);
+        if (normalise(val) === normalise(q.answer)) setScore(s => s + 1);
       };
 
       return (
@@ -402,6 +423,7 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
           </div>
           <div className="lp-phase-label">Complete the sentence</div>
           <div className="lp-grammar-fill-q">{q.question}</div>
+          <div className="lp-accent-hint">Accents are optional 👍</div>
           <input
             key={currentTestQ}
             className="lp-fill-input"

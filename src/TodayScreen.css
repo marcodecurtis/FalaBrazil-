@@ -273,7 +273,7 @@
     background: white;
     border: 1px solid #e2e8f0;
     border-radius: 20px;
-    padding: 20px 16px 16px;
+    padding: 20px 56px 16px 16px; /* right padding clears menu button */
   }
   
   .ts-lesson-eyebrow {
@@ -291,6 +291,7 @@
     color: #0f172a;
     font-family: 'Playfair Display', Georgia, serif;
     margin-bottom: 4px;
+    padding-right: 8px; /* extra safety */
   }
   
   .ts-lesson-meta {

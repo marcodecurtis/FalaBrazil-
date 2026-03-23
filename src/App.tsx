@@ -174,9 +174,10 @@ export default function App() {
 
           {menuOpen && (
             <div style={{
-              position: 'fixed',
-              top: '64px',
-              right: '16px',
+              position: 'absolute',
+              top: '100%',
+              right: '0',
+              marginTop: '8px',
               background: 'white',
               border: '1px solid #e2e8f0',
               borderRadius: '14px',
@@ -265,13 +266,17 @@ export default function App() {
           />
         )}
 
-        {view === 'verbs'         && <VerbStudio onBack={() => navigateTo('home')} />}
+        {view === 'verbs'         && <VerbStudio onBack={() => navigateTo('home')} onGainXp={() => {}} />}
         {view === 'vocab'         && <VocabStudio onBack={() => navigateTo('home')} userLevel={userLevel} />}
         {view === 'grammar'       && <GrammarStudio onBack={() => navigateTo('home')} userLevel={userLevel} />}
         {view === 'reading'       && <ReadingStudio onBack={() => navigateTo('home')} userLevel={userLevel} />}
-        {view === 'pronunciation' && <PronunciationStudio onBack={() => navigateTo('home')} />}
+        {view === 'pronunciation' && <PronunciationStudio onBack={() => navigateTo('home')} onGainXp={() => {}} />}
         {view === 'video'         && <VideoStudio onBack={() => navigateTo('home')} userLevel={userLevel} />}
-        {view === 'isabela'       && <IsabelaStudio onBack={() => navigateTo('home')} userLevel={userLevel} />}
+        {view === 'isabela'       && <IsabelaStudio 
+          block={{ type: 'vocabulary', title: 'Isabela\'s Lessons', content: { words: [] } } as any}
+          onPass={() => navigateTo('home')} 
+          onBack={() => navigateTo('home')} 
+        />}
 
         <footer style={{ marginTop: 'auto', paddingTop: '60px', paddingBottom: '20px', textAlign: 'center', fontSize: '0.85rem', color: '#94a3b8' }}>
           Created by{' '}
