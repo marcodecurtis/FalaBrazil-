@@ -33,16 +33,6 @@ interface DailyContent {
   availableLessons: Lesson[];
 }
 
-const BLOCK_ICONS: Record<string, string> = {
-  vocabulary:    '📖',
-  grammar:       '✍️',
-  reading:       '📰',
-  isabela:       '🎙️',
-  exercise:      '⚡',
-  mini_exercise: '⚡',
-  verb:          '🔤',
-};
-
 const BLOCK_COLORS: Record<string, string> = {
   vocabulary:    '#dcfce7',
   grammar:       '#e0f2fe',
