@@ -2,7 +2,7 @@ import { useState } from 'react';
 import './OnboardingScreen.css';
 
 type Level = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
-type Screen = 'pick' | 'quiz' | 'result';
+type Screen = 'pick' | 'quiz' | 'result' | 'time' | 'goal';
 
 interface OnboardingScreenProps {
   onComplete: (level: Level) => void;
@@ -26,7 +26,6 @@ interface Question {
 }
 
 const QUESTIONS: Question[] = [
-  // ── Phase 1: A1 / A2 ──────────────────────────────────────────────
   { phase: 1, phaseLabel: 'Nível A1 · A2', q: 'Como se diz "hello" em português?',                                         opts: ['Obrigado', 'Tchau', 'Olá', 'Por favor'],                                                                             ans: 2 },
   { phase: 1, phaseLabel: 'Nível A1 · A2', q: 'Complete: "Eu ___ brasileiro."',                                            opts: ['és', 'é', 'sou', 'são'],                                                                                             ans: 2 },
   { phase: 1, phaseLabel: 'Nível A1 · A2', q: 'O que significa "Como vai você?"',                                          opts: ['Onde moras?', 'Como te chamas?', 'Para onde vais?', 'Como estás?'],                                                  ans: 3 },
@@ -34,7 +33,6 @@ const QUESTIONS: Question[] = [
   { phase: 1, phaseLabel: 'Nível A1 · A2', q: 'Complete: "Ela ___ no banco." (trabalhar)',                                  opts: ['trabalham', 'trabalho', 'trabalhamos', 'trabalha'],                                                                   ans: 3 },
   { phase: 1, phaseLabel: 'Nível A1 · A2', q: 'O que significa "ontem"?',                                                  opts: ['hoje', 'amanhã', 'agora', 'o dia antes de hoje'],                                                                     ans: 3 },
   { phase: 1, phaseLabel: 'Nível A1 · A2', q: 'Escolhe o artigo correto: "___ casa é bonita."',                            opts: ['O', 'Os', 'As', 'A'],                                                                                                ans: 3 },
-  // ── Phase 2: B1 / B2 ──────────────────────────────────────────────
   { phase: 2, phaseLabel: 'Nível B1 · B2', q: 'Pretérito perfeito: "Eu ___ ao mercado ontem."',                            opts: ['vou', 'ia', 'irei', 'fui'],                                                                                          ans: 3 },
   { phase: 2, phaseLabel: 'Nível B1 · B2', q: 'Qual frase usa o subjuntivo corretamente?',                                 opts: ['Espero que ele vem', 'Espero que ele vinha', 'Espero que ele veio', 'Espero que ele venha'],                          ans: 3 },
   { phase: 2, phaseLabel: 'Nível B1 · B2', q: 'Complete: "Se eu ___ rico, viajaria pelo mundo."',                          opts: ['sou', 'seria', 'estava', 'fosse'],                                                                                    ans: 3 },
@@ -45,7 +43,6 @@ const QUESTIONS: Question[] = [
   { phase: 2, phaseLabel: 'Nível B1 · B2', q: 'Complete: "Preciso que você me ___." (ajudar)',                             opts: ['ajuda', 'ajudará', 'ajudava', 'ajude'],                                                                               ans: 3 },
   { phase: 2, phaseLabel: 'Nível B1 · B2', q: 'Qual frase usa "ser" e "estar" corretamente?',                              opts: ['Ela é cansada hoje', 'O café está quente agora', 'A casa está bonita no campo', 'Ele é doente às vezes'],              ans: 1 },
   { phase: 2, phaseLabel: 'Nível B1 · B2', q: '"Embora estivesse cansado, ele ___ trabalhar." Qual forma é correta?',     opts: ['continuou a', 'continuava a', 'tinha continuado a', 'continue a'],                                                     ans: 0 },
-  // ── Phase 3: C1 / C2 ──────────────────────────────────────────────
   { phase: 3, phaseLabel: 'Nível C1 · C2', q: 'Qual é a diferença principal entre "por" e "para"?',                       opts: ['"Por" indica duração; "para" indica frequência', '"Por" indica causa/motivo; "para" indica finalidade/destino', '"Para" é mais formal que "por"', 'São completamente intercambiáveis'], ans: 1 },
   { phase: 3, phaseLabel: 'Nível C1 · C2', q: 'Qual frase usa o "futuro do pretérito" corretamente?',                      opts: ['Eu comerei amanhã', 'Ela comeria se pudesse', 'Nós comeremos logo', 'Eles comiam ontem'],                              ans: 1 },
   { phase: 3, phaseLabel: 'Nível C1 · C2', q: 'Qual frase usa "cujo" corretamente?',                                       opts: ['O professor cujo aluno ganhou o prémio está feliz', 'O professor que aluno ganhou o prémio', 'O professor o qual aluno ganhou', 'O professor quem aluno ganhou'], ans: 0 },
@@ -70,12 +67,28 @@ const RESULT_MESSAGES: Record<Level, { pt: string; en: string }> = {
   C2: { pt: 'Nível nativo. O teu português é uma obra de arte — e o Fala Brazil! vai mantê-la assim.', en: 'Native level. Your Portuguese is a work of art — and Fala Brazil! will keep it that way.' },
 };
 
+const TIME_OPTIONS = [
+  { value: '5',  label: '5 minutes',  sublabel: 'Quick daily habit', emoji: '⚡' },
+  { value: '15', label: '15 minutes', sublabel: 'Steady progress',   emoji: '🌿' },
+  { value: '30', label: '30 minutes', sublabel: 'Recommended',       emoji: '🏆', recommended: true },
+];
+
+const GOAL_OPTIONS = [
+  { value: 'conversation', label: 'Conversation',    sublabel: 'Speak with Brazilians confidently', emoji: '💬' },
+  { value: 'tv_movies',    label: 'TV & Movies',     sublabel: 'Understand shows without subtitles', emoji: '🎬' },
+  { value: 'travel',       label: 'Travel',          sublabel: 'Get around Brazil easily',           emoji: '✈️' },
+  { value: 'business',     label: 'Business',        sublabel: 'Professional Portuguese',            emoji: '💼' },
+];
+
 export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
   const [screen, setScreen]           = useState<Screen>('pick');
   const [currentQ, setCurrentQ]       = useState(0);
   const [answers, setAnswers]         = useState<(number | null)[]>(Array(QUESTIONS.length).fill(null));
   const [resultLevel, setResultLevel] = useState<Level | null>(null);
-  const [animating, setAnimating]     = useState(false);
+  const [selectedLevel, setSelectedLevel] = useState<Level | null>(null);
+  const [selectedTime, setSelectedTime]   = useState<string>('30');
+  const [selectedGoal, setSelectedGoal]   = useState<string>('conversation');
+  const [animating, setAnimating]         = useState(false);
 
   const currentAnswer = answers[currentQ];
   const hasAnswered   = currentAnswer !== null;
@@ -106,9 +119,23 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
     }
   };
 
-  const handleConfirm = (level: Level) => {
+  // After level is chosen — go to time screen
+  const handleLevelChosen = (level: Level) => {
+    setSelectedLevel(level);
     localStorage.setItem('userLevel', level);
-    onComplete(level);
+    setScreen('time');
+  };
+
+  // After time chosen — go to goal screen
+  const handleTimeChosen = () => {
+    localStorage.setItem('timePreference', selectedTime);
+    setScreen('goal');
+  };
+
+  // After goal chosen — complete onboarding
+  const handleGoalChosen = () => {
+    localStorage.setItem('learningGoal', selectedGoal);
+    onComplete(selectedLevel!);
   };
 
   const score = answers.reduce<number>((acc, a, i) => acc + (a === QUESTIONS[i].ans ? 1 : 0), 0);
@@ -138,7 +165,7 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
               key={level}
               className="ob-level-card"
               style={{ background: bg }}
-              onClick={() => handleConfirm(level)}
+              onClick={() => handleLevelChosen(level)}
             >
               <div className="ob-level-top">
                 <span className="ob-level-code" style={{ color }}>{level}</span>
@@ -246,7 +273,7 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
         </p>
 
         <div className="ob-result-actions">
-          <button className="ob-confirm-btn" onClick={() => handleConfirm(resultLevel)}>
+          <button className="ob-confirm-btn" onClick={() => handleLevelChosen(resultLevel)}>
             Start with {resultLevel} · {levelInfo.labelEn}
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
           </button>
@@ -254,6 +281,85 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
             I'd rather choose my level manually · Prefiro escolher manualmente
           </button>
         </div>
+      </div>
+    );
+  }
+
+  // ── TIME PREFERENCE ────────────────────────────────────────────────
+  if (screen === 'time') {
+    return (
+      <div className="ob-wrapper">
+        <div className="ob-flag-row">
+          <img src="https://flagcdn.com/w80/br.png" alt="Brazil" className="ob-flag" />
+        </div>
+        <h1 className="ob-title">
+          How much time<br /><em>per session?</em>
+        </h1>
+        <p className="ob-subtitle">
+          We'll build your daily lesson around this.<br />
+          <span style={{ fontSize: '0.88em', color: '#b0b8c8' }}>You can always change this later.</span>
+        </p>
+
+        <div className="ob-pref-grid">
+          {TIME_OPTIONS.map(opt => (
+            <button
+              key={opt.value}
+              className={`ob-pref-card ${selectedTime === opt.value ? 'ob-pref-selected' : ''}`}
+              onClick={() => setSelectedTime(opt.value)}
+            >
+              <span className="ob-pref-emoji">{opt.emoji}</span>
+              <div className="ob-pref-label">{opt.label}</div>
+              <div className="ob-pref-sub">{opt.sublabel}</div>
+              {opt.recommended && (
+                <div className="ob-pref-badge">Recommended</div>
+              )}
+            </button>
+          ))}
+        </div>
+
+        <button className="ob-confirm-btn" style={{ marginTop: '24px' }} onClick={handleTimeChosen}>
+          Continue →
+        </button>
+      </div>
+    );
+  }
+
+  // ── LEARNING GOAL ──────────────────────────────────────────────────
+  if (screen === 'goal') {
+    return (
+      <div className="ob-wrapper">
+        <div className="ob-flag-row">
+          <img src="https://flagcdn.com/w80/br.png" alt="Brazil" className="ob-flag" />
+        </div>
+        <h1 className="ob-title">
+          What's your<br /><em>main goal?</em>
+        </h1>
+        <p className="ob-subtitle">
+          We'll focus your lessons on what matters most to you.<br />
+          <span style={{ fontSize: '0.88em', color: '#b0b8c8' }}>You can always change this later.</span>
+        </p>
+
+        <div className="ob-pref-grid">
+          {GOAL_OPTIONS.map(opt => (
+            <button
+              key={opt.value}
+              className={`ob-pref-card ${selectedGoal === opt.value ? 'ob-pref-selected' : ''}`}
+              onClick={() => setSelectedGoal(opt.value)}
+            >
+              <span className="ob-pref-emoji">{opt.emoji}</span>
+              <div className="ob-pref-label">{opt.label}</div>
+              <div className="ob-pref-sub">{opt.sublabel}</div>
+            </button>
+          ))}
+        </div>
+
+        <button className="ob-confirm-btn" style={{ marginTop: '24px' }} onClick={handleGoalChosen}>
+          Start learning →
+        </button>
+
+        <button className="ob-change-btn" style={{ marginTop: '12px' }} onClick={() => setScreen('time')}>
+          ← Back
+        </button>
       </div>
     );
   }

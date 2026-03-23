@@ -13,6 +13,7 @@ import IsabelaStudio from './IsabelaStudio';
 import OnboardingScreen from './OnboardingScreen';
 import WelcomeScreen from './WelcomeScreen';
 import AuthScreen from './AuthScreen';
+import TodayScreen from './TodayScreen';
 import { stopSpeaking } from './speak';
 
 type Level = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
@@ -94,6 +95,11 @@ export default function App() {
     await auth.signOut();
     localStorage.removeItem('userLevel');
     localStorage.removeItem('hasSeenWelcome');
+    localStorage.removeItem('timePreference');
+    localStorage.removeItem('learningGoal');
+    localStorage.removeItem('currentDay');
+    localStorage.removeItem('streak');
+    localStorage.removeItem('totalXp');
     setUserData(null);
     setUserLevel(null);
     setView('welcome');
@@ -118,6 +124,10 @@ export default function App() {
 
   const handleOnboardingComplete = (level: Level) => {
     setUserLevel(level);
+    // Start from day 1 for new users
+    if (!localStorage.getItem('currentDay')) {
+      localStorage.setItem('currentDay', '1');
+    }
     setView('home');
   };
 
@@ -232,79 +242,15 @@ export default function App() {
         {view === 'auth'       && <AuthScreen onContinueWithoutAccount={handleContinueWithoutAccount} onAuthSuccess={handleAuthSuccess} />}
         {view === 'onboarding' && <OnboardingScreen onComplete={handleOnboardingComplete} />}
 
+        {/* ── NEW HOME — TodayScreen ── */}
         {view === 'home' && (
-          <div className="dashboard">
-            <header className="dashboard-header">
-              <div className="flag-circle">
-                <img src="https://flagcdn.com/w160/br.png" alt="Brazil" style={{ width: '60px', height: '42px', borderRadius: '4px', objectFit: 'cover' }} />
-              </div>
-              <h1 className="main-title">Fala Brazil!</h1>
-              {userData?.name
-                ? <p className="main-subtitle">Hey {userData.name.split(' ')[0]}! Ready to learn? 👋</p>
-                : <p className="main-subtitle">Learn Portuguese the right way</p>
-              }
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px', justifyContent: 'center' }}>
-                {userLevel && (
-                  <span style={{ background: 'var(--accent)', color: 'white', fontWeight: 800, fontSize: '0.78rem', padding: '4px 14px', borderRadius: '20px', letterSpacing: '0.5px' }}>
-                    Level {userLevel}
-                  </span>
-                )}
-                <button
-                  onClick={() => navigateTo('onboarding')}
-                  style={{ background: 'none', border: '1.5px solid var(--accent)', color: 'var(--accent)', fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer', padding: '4px 14px', borderRadius: '20px', fontFamily: 'inherit', letterSpacing: '0.5px' }}
-                >
-                  Review level →
-                </button>
-              </div>
-            </header>
-
-            <div className="grid-nav">
-              <div className="nav-card" onClick={() => navigateTo('verbs')}>
-                <div className="card-icon">📚</div>
-                <div className="card-content"><h3>Practise Verbs</h3><p>Master the 6 most important conjugations across 100 verbs.</p></div>
-                <div className="card-arrow">→</div>
-              </div>
-              <div className="nav-card" onClick={() => navigateTo('vocab')}>
-                <div className="card-icon">🗂️</div>
-                <div className="card-content"><h3>Learn Vocabulary</h3><p>Smart flashcards across 10 themed categories.</p></div>
-                <div className="card-arrow">→</div>
-              </div>
-              <div className="nav-card" onClick={() => navigateTo('grammar')}>
-                <div className="card-icon">✍️</div>
-                <div className="card-content"><h3>Master Grammar</h3><p>Essential rules with examples tailored to your level.</p></div>
-                <div className="card-arrow">→</div>
-              </div>
-              <div className="nav-card" onClick={() => navigateTo('reading')}>
-                <div className="card-icon">📰</div>
-                <div className="card-content"><h3>Read Articles</h3><p>Real Portuguese articles adapted to your CEFR level.</p></div>
-                <div className="card-arrow">→</div>
-              </div>
-              <div className="nav-card" onClick={() => navigateTo('pronunciation')}>
-                <div className="card-icon">🔊</div>
-                <div className="card-content"><h3>Perfect Pronunciation</h3><p>20 pronunciation rules with audio examples.</p></div>
-                <div className="card-arrow">→</div>
-              </div>
-              <div className="nav-card" onClick={() => navigateTo('video')}>
-                <div className="card-icon">🎬</div>
-                <div className="card-content"><h3>Watch & Learn</h3><p>Real Brazilian videos with vocabulary and AI Q&A.</p></div>
-                <div className="card-arrow">→</div>
-              </div>
-              <div className="nav-card" onClick={() => navigateTo('isabela')}>
-                <div className="card-icon" style={{ padding: 0, overflow: 'hidden', borderRadius: '14px' }}>
-                  <img
-                    src="/isabela.png"
-                    alt="Isabela"
-                    style={{ width: '56px', height: '56px', objectFit: 'cover', objectPosition: 'center top', display: 'block' }}
-                  />
-                </div>
-                <div className="card-content">
-                  <h3>Chat with Isabela</h3>
-                  <p>Practise speaking Portuguese with your AI conversation partner.</p>
-                </div>
-                <div className="card-arrow">→</div>
-              </div>
-            </div>
-          </div>
+          <TodayScreen
+            userLevel={userLevel}
+            onNavigate={(v) => navigateTo(v as View)}
+            onStartLesson={(block) => {
+              console.log('Starting block:', block);
+            }}
+          />
         )}
 
         {view === 'verbs'         && <VerbStudio onBack={() => navigateTo('home')} onGainXp={() => {}} />}

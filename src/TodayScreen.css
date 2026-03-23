@@ -1,0 +1,439 @@
+/* ── TODAY SCREEN ─────────────────────────────────── */
+
+.ts-wrapper {
+    width: 100%;
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 0 0 80px;
+    animation: ts-enter 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  
+  @keyframes ts-enter {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  
+  /* ── TOP BAR ──────────────────────────────────────── */
+  .ts-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 16px 12px;
+  }
+  
+  .ts-streak {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  
+  .ts-streak-icon {
+    font-size: 1.2rem;
+    line-height: 1;
+  }
+  
+  .ts-streak-num {
+    font-size: 1rem;
+    font-weight: 900;
+    color: #ea580c;
+    line-height: 1;
+  }
+  
+  .ts-streak-label {
+    font-size: 0.65rem;
+    color: #94a3b8;
+    font-weight: 600;
+  }
+  
+  .ts-header-center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  
+  .ts-flag {
+    width: 28px;
+    border-radius: 3px;
+  }
+  
+  .ts-app-name {
+    font-size: 0.8rem;
+    font-weight: 900;
+    color: #14532d;
+    font-family: 'Playfair Display', Georgia, serif;
+    letter-spacing: -0.3px;
+  }
+  
+  .ts-xp-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+  }
+  
+  .ts-xp-num {
+    font-size: 1rem;
+    font-weight: 900;
+    color: #14532d;
+    line-height: 1;
+  }
+  
+  .ts-xp-label {
+    font-size: 0.65rem;
+    color: #94a3b8;
+    font-weight: 600;
+  }
+  
+  /* ── LEVEL BAR ────────────────────────────────────── */
+  .ts-level-bar {
+    margin: 0 16px 16px;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 12px 14px;
+  }
+  
+  .ts-level-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  
+  .ts-level-pill {
+    background: #14532d;
+    color: white;
+    font-size: 0.72rem;
+    font-weight: 800;
+    padding: 3px 12px;
+    border-radius: 20px;
+    letter-spacing: 0.3px;
+  }
+  
+  .ts-level-next {
+    font-size: 0.75rem;
+    color: #64748b;
+    font-weight: 600;
+  }
+  
+  .ts-level-track {
+    height: 6px;
+    background: #f1f5f9;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  
+  .ts-level-fill {
+    height: 6px;
+    background: linear-gradient(90deg, #16a34a, #14532d);
+    border-radius: 3px;
+    transition: width 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  
+  /* ── LOADING ──────────────────────────────────────── */
+  .ts-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 16px;
+    gap: 12px;
+  }
+  
+  .ts-loading-dots {
+    display: flex;
+    gap: 6px;
+  }
+  
+  .ts-loading-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #16a34a;
+    animation: ts-bounce 0.8s infinite;
+  }
+  
+  .ts-loading-dot:nth-child(2) { animation-delay: 0.15s; }
+  .ts-loading-dot:nth-child(3) { animation-delay: 0.30s; }
+  
+  @keyframes ts-bounce {
+    0%, 80%, 100% { transform: translateY(0); opacity: 0.6; }
+    40%           { transform: translateY(-8px); opacity: 1; }
+  }
+  
+  .ts-loading-text {
+    font-size: 0.85rem;
+    color: #94a3b8;
+    font-weight: 600;
+  }
+  
+  /* ── ERROR ────────────────────────────────────────── */
+  .ts-error {
+    margin: 0 16px;
+    background: #fef2f2;
+    border: 1px solid #fca5a5;
+    border-radius: 14px;
+    padding: 16px;
+    text-align: center;
+  }
+  
+  .ts-error-text {
+    font-size: 0.85rem;
+    color: #b91c1c;
+    margin-bottom: 10px;
+  }
+  
+  .ts-retry-btn {
+    background: #14532d;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 20px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  
+  /* ── LESSON CARD ──────────────────────────────────── */
+  .ts-lesson-card {
+    margin: 0 16px 16px;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 20px;
+    padding: 20px 16px 16px;
+  }
+  
+  .ts-lesson-eyebrow {
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #16a34a;
+    margin-bottom: 4px;
+  }
+  
+  .ts-lesson-title {
+    font-size: 1.2rem;
+    font-weight: 900;
+    color: #0f172a;
+    font-family: 'Playfair Display', Georgia, serif;
+    margin-bottom: 4px;
+  }
+  
+  .ts-lesson-meta {
+    font-size: 0.78rem;
+    color: #64748b;
+    margin-bottom: 14px;
+  }
+  
+  .ts-progress-track {
+    height: 5px;
+    background: #f1f5f9;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 6px;
+  }
+  
+  .ts-progress-fill {
+    height: 5px;
+    background: linear-gradient(90deg, #16a34a, #14532d);
+    border-radius: 3px;
+    transition: width 0.6s ease;
+  }
+  
+  .ts-progress-label {
+    font-size: 0.72rem;
+    color: #94a3b8;
+    font-weight: 600;
+    margin-bottom: 16px;
+  }
+  
+  /* ── BLOCKS ───────────────────────────────────────── */
+  .ts-blocks {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .ts-block {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 12px;
+    transition: all 0.2s;
+  }
+  
+  .ts-block-active {
+    border-color: #16a34a;
+    background: #f0fdf4;
+  }
+  
+  .ts-block-done {
+    opacity: 0.55;
+  }
+  
+  .ts-block-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+  }
+  
+  .ts-block-content {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .ts-block-title {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 2px;
+  }
+  
+  .ts-block-desc {
+    font-size: 0.75rem;
+    color: #64748b;
+    line-height: 1.4;
+    margin-bottom: 3px;
+  }
+  
+  .ts-block-meta {
+    font-size: 0.68rem;
+    color: #94a3b8;
+    font-weight: 600;
+  }
+  
+  .ts-block-right {
+    flex-shrink: 0;
+  }
+  
+  .ts-block-check {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #16a34a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .ts-block-btn {
+    background: #14532d;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 6px 14px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    transition: 0.2s;
+    white-space: nowrap;
+  }
+  
+  .ts-block-btn:hover {
+    background: #052e16;
+    transform: translateY(-1px);
+  }
+  
+  .ts-block-dot {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid #e2e8f0;
+  }
+  
+  /* ── ALL DONE ─────────────────────────────────────── */
+  .ts-all-done {
+    margin-top: 16px;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 12px;
+    padding: 14px;
+    text-align: center;
+  }
+  
+  .ts-all-done-title {
+    font-size: 1rem;
+    font-weight: 800;
+    color: #14532d;
+    font-family: 'Playfair Display', Georgia, serif;
+    margin-bottom: 4px;
+  }
+  
+  .ts-all-done-xp {
+    font-size: 0.82rem;
+    color: #16a34a;
+    font-weight: 700;
+  }
+  
+  /* ── FREE PRACTICE ────────────────────────────────── */
+  .ts-divider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 16px;
+    margin-bottom: 14px;
+  }
+  
+  .ts-divider-line {
+    flex: 1;
+    height: 1px;
+    background: #e2e8f0;
+  }
+  
+  .ts-divider-text {
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #94a3b8;
+    white-space: nowrap;
+  }
+  
+  .ts-free-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    padding: 0 16px;
+  }
+  
+  .ts-free-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 12px 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+    text-align: left;
+  }
+  
+  .ts-free-card:hover {
+    border-color: #14532d;
+    background: #f0fdf4;
+    transform: translateY(-2px);
+  }
+  
+  .ts-free-icon {
+    font-size: 1.2rem;
+    line-height: 1;
+  }
+  
+  .ts-free-label {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #0f172a;
+  }
+  
