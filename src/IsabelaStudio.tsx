@@ -46,8 +46,8 @@ export default function IsabelaStudio({ block, onPass, onBack }: Props) {
     [testWords]
   );
 
-  const pronouns = ['eu', 'você', 'ele/ela', 'nós', 'vocês', 'eles/elas'];
-  const testPronouns = useMemo(() => shuffle(pronouns).slice(0, 4), [block]);
+  // Note: pronouns array kept for potential future use with verb conjugation in isabela mode
+  // const testPronouns = useMemo(() => shuffle(pronouns).slice(0, 4), [block]);
 
   // ── Check for microphone availability on mount ──
   useEffect(() => {
