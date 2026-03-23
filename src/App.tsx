@@ -245,12 +245,9 @@ export default function App() {
         {/* ── NEW HOME — TodayScreen ── */}
         {view === 'home' && (
           <TodayScreen
-            userLevel={userLevel}
-            onNavigate={(v) => navigateTo(v as View)}
-            onStartLesson={(block) => {
-              console.log('Starting block:', block);
-            }}
-          />
+          userLevel={userLevel}
+          onNavigate={(v) => navigateTo(v as View)}
+        />
         )}
 
         {view === 'verbs'         && <VerbStudio onBack={() => navigateTo('home')} onGainXp={() => {}} />}

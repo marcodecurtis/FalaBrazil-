@@ -4,7 +4,7 @@
     width: 100%;
     max-width: 480px;
     margin: 0 auto;
-    padding: 0 0 80px;
+    padding: 60px 0 80px; /* top padding pushes content below fixed menu */
     animation: ts-enter 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
   
@@ -18,7 +18,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 16px 16px 12px;
+    padding: 0 16px 12px;
   }
   
   .ts-streak {
@@ -27,10 +27,7 @@
     gap: 6px;
   }
   
-  .ts-streak-icon {
-    font-size: 1.2rem;
-    line-height: 1;
-  }
+  .ts-streak-icon { font-size: 1.2rem; line-height: 1; }
   
   .ts-streak-num {
     font-size: 1rem;
@@ -52,10 +49,7 @@
     gap: 4px;
   }
   
-  .ts-flag {
-    width: 28px;
-    border-radius: 3px;
-  }
+  .ts-flag { width: 28px; border-radius: 3px; }
   
   .ts-app-name {
     font-size: 0.8rem;
@@ -139,10 +133,7 @@
     gap: 12px;
   }
   
-  .ts-loading-dots {
-    display: flex;
-    gap: 6px;
-  }
+  .ts-loading-dots { display: flex; gap: 6px; }
   
   .ts-loading-dot {
     width: 8px;
@@ -193,6 +184,85 @@
     cursor: pointer;
     font-family: inherit;
   }
+  
+  /* ── CELEBRATION ──────────────────────────────────── */
+  .ts-celebration {
+    margin: 0 16px 16px;
+    background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+    border: 1.5px solid #86efac;
+    border-radius: 20px;
+    padding: 24px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 6px;
+  }
+  
+  .ts-celebration-emoji {
+    font-size: 2.5rem;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  
+  .ts-celebration-title {
+    font-size: 1.3rem;
+    font-weight: 900;
+    color: #14532d;
+    font-family: 'Playfair Display', Georgia, serif;
+  }
+  
+  .ts-celebration-pts {
+    font-size: 1rem;
+    font-weight: 800;
+    color: #16a34a;
+  }
+  
+  .ts-celebration-streak {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: #ea580c;
+  }
+  
+  .ts-celebration-next {
+    font-size: 0.78rem;
+    color: #64748b;
+    line-height: 1.5;
+    max-width: 280px;
+    margin: 4px 0 8px;
+  }
+  
+  .ts-celebration-btn {
+    width: 100%;
+    padding: 12px;
+    background: #14532d;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    font-weight: 800;
+    cursor: pointer;
+    font-family: inherit;
+    transition: 0.2s;
+  }
+  
+  .ts-celebration-btn:hover { background: #052e16; }
+  
+  .ts-celebration-btn-sec {
+    width: 100%;
+    padding: 11px;
+    background: white;
+    color: #14532d;
+    border: 1.5px solid #16a34a;
+    border-radius: 12px;
+    font-size: 0.88rem;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    transition: 0.2s;
+  }
+  
+  .ts-celebration-btn-sec:hover { background: #f0fdf4; }
   
   /* ── LESSON CARD ──────────────────────────────────── */
   .ts-lesson-card {
@@ -266,14 +336,8 @@
     transition: all 0.2s;
   }
   
-  .ts-block-active {
-    border-color: #16a34a;
-    background: #f0fdf4;
-  }
-  
-  .ts-block-done {
-    opacity: 0.55;
-  }
+  .ts-block-active { border-color: #16a34a; background: #f0fdf4; }
+  .ts-block-done   { opacity: 0.55; }
   
   .ts-block-icon {
     width: 36px;
@@ -286,10 +350,7 @@
     flex-shrink: 0;
   }
   
-  .ts-block-content {
-    flex: 1;
-    min-width: 0;
-  }
+  .ts-block-content { flex: 1; min-width: 0; }
   
   .ts-block-title {
     font-size: 0.88rem;
@@ -311,9 +372,7 @@
     font-weight: 600;
   }
   
-  .ts-block-right {
-    flex-shrink: 0;
-  }
+  .ts-block-right { flex-shrink: 0; }
   
   .ts-block-check {
     width: 22px;
@@ -339,10 +398,7 @@
     white-space: nowrap;
   }
   
-  .ts-block-btn:hover {
-    background: #052e16;
-    transform: translateY(-1px);
-  }
+  .ts-block-btn:hover { background: #052e16; transform: translateY(-1px); }
   
   .ts-block-dot {
     width: 22px;
@@ -351,31 +407,7 @@
     border: 2px solid #e2e8f0;
   }
   
-  /* ── ALL DONE ─────────────────────────────────────── */
-  .ts-all-done {
-    margin-top: 16px;
-    background: #f0fdf4;
-    border: 1px solid #bbf7d0;
-    border-radius: 12px;
-    padding: 14px;
-    text-align: center;
-  }
-  
-  .ts-all-done-title {
-    font-size: 1rem;
-    font-weight: 800;
-    color: #14532d;
-    font-family: 'Playfair Display', Georgia, serif;
-    margin-bottom: 4px;
-  }
-  
-  .ts-all-done-xp {
-    font-size: 0.82rem;
-    color: #16a34a;
-    font-weight: 700;
-  }
-  
-  /* ── FREE PRACTICE ────────────────────────────────── */
+  /* ── DIVIDER ──────────────────────────────────────── */
   .ts-divider {
     display: flex;
     align-items: center;
@@ -384,11 +416,7 @@
     margin-bottom: 14px;
   }
   
-  .ts-divider-line {
-    flex: 1;
-    height: 1px;
-    background: #e2e8f0;
-  }
+  .ts-divider-line { flex: 1; height: 1px; background: #e2e8f0; }
   
   .ts-divider-text {
     font-size: 0.68rem;
@@ -399,9 +427,10 @@
     white-space: nowrap;
   }
   
-  .ts-free-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
+  /* ── FREE PRACTICE ────────────────────────────────── */
+  .ts-free-list {
+    display: flex;
+    flex-direction: column;
     gap: 8px;
     padding: 0 16px;
   }
@@ -409,31 +438,122 @@
   .ts-free-card {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 14px;
     background: white;
     border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 12px 14px;
+    border-radius: 16px;
+    padding: 14px 16px;
     cursor: pointer;
     transition: all 0.2s;
     font-family: inherit;
     text-align: left;
+    width: 100%;
   }
   
   .ts-free-card:hover {
     border-color: #14532d;
     background: #f0fdf4;
     transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(20,83,45,0.08);
   }
   
-  .ts-free-icon {
-    font-size: 1.2rem;
-    line-height: 1;
+  .ts-free-icon-wrap {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    border-radius: 12px;
+    background: #f0fdf4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    flex-shrink: 0;
   }
+  
+  .ts-free-icon { font-size: 1.4rem; line-height: 1; }
+  
+  .ts-free-isabela-img {
+    width: 44px;
+    height: 44px;
+    object-fit: cover;
+    object-position: center top;
+  }
+  
+  .ts-free-content { flex: 1; min-width: 0; }
   
   .ts-free-label {
+    font-size: 0.9rem;
+    font-weight: 800;
+    color: #14532d;
+    margin-bottom: 2px;
+  }
+  
+  .ts-free-desc {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    font-weight: 500;
+  }
+  
+  .ts-free-arrow {
+    font-size: 1rem;
+    color: #cbd5e1;
+    transition: 0.2s;
+    flex-shrink: 0;
+  }
+  
+  .ts-free-card:hover .ts-free-arrow { color: #14532d; transform: translateX(3px); }
+  
+  /* ── SAVE BANNER ──────────────────────────────────── */
+  .ts-save-banner {
+    margin: 0 16px 12px;
+    background: #fffbeb;
+    border: 1px solid #fcd34d;
+    border-radius: 14px;
+    padding: 12px 14px;
+  }
+  
+  .ts-save-banner-text {
     font-size: 0.82rem;
+    color: #92400e;
+    font-weight: 600;
+    margin-bottom: 8px;
+    line-height: 1.4;
+  }
+  
+  .ts-save-banner-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .ts-save-banner-btn {
+    background: #14532d;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 6px 16px;
+    font-size: 0.78rem;
     font-weight: 700;
-    color: #0f172a;
+    cursor: pointer;
+    font-family: inherit;
+    transition: 0.2s;
+  }
+  
+  .ts-save-banner-btn:hover { background: #052e16; }
+  
+  .ts-save-banner-dismiss {
+    background: none;
+    border: none;
+    color: #94a3b8;
+    font-size: 0.85rem;
+    cursor: pointer;
+    padding: 4px;
+    font-family: inherit;
+  }
+  
+  .ts-all-done-pts {
+    font-size: 0.82rem;
+    color: #16a34a;
+    font-weight: 700;
   }
   
