@@ -82,12 +82,12 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
             <div className="lp-card-front">
               <div className="lp-card-lang">Portuguese</div>
               <div className="lp-card-word">{card.word}</div>
+              {card.example && <div className="lp-card-example">"{card.example}"</div>}
               <div className="lp-card-hint">Tap to reveal translation</div>
             </div>
             <div className="lp-card-back">
               <div className="lp-card-lang">English</div>
               <div className="lp-card-word">{card.translation}</div>
-              {card.example && <div className="lp-card-example">"{card.example}"</div>}
             </div>
           </div>
           <div className="lp-nav-row">

@@ -106,6 +106,7 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
   const [isLoggedIn, setIsLoggedIn]   = useState(false);
   const [showSaveBanner, setShowSaveBanner] = useState(false);
   const [activeBlock, setActiveBlock] = useState<LessonBlock | null>(null);
+  const [activeBlockIndex, setActiveBlockIndex] = useState<number | null>(null);
   const [showCelebration, setShowCelebration] = useState(false);
 
   const level          = userLevel || 'A1';
@@ -247,11 +248,12 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
     }
   };
 
-  const markBlockComplete = async (blockType: string, pts: number) => {
-    const newCompleted  = [...completed, blockType];
+  const markBlockComplete = async (blockIndex: number, blockTitle: string, pts: number) => {
+    const blockId = `${blockIndex}-${blockTitle}`;
+    const newCompleted  = [...completed, blockId];
     const newPts        = totalPts + pts;
-    // ── OPTION 1: Only increment streak if ALL blocks are completed ──
-    const allBlocksDone = lesson ? lesson.blocks.every(b => newCompleted.includes(b.type)) : false;
+    // ── Only increment streak if ALL blocks are completed ──
+    const allBlocksDone = lesson ? lesson.blocks.every((b, idx) => newCompleted.includes(`${idx}-${b.title}`)) : false;
     const newStreak     = allBlocksDone ? streak + 1 : streak;
     
     setCompleted(newCompleted);
@@ -260,7 +262,7 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
     if (allBlocksDone) {
       setStreak(newStreak);
       setShowCelebration(true);
-      // ── OPTION 1: Only advance to next day when current day is fully complete ──
+      // ── Only advance to next day when current day is fully complete ──
       const nextDay = dayNumber + 1;
       setDayNumber(nextDay);
       localStorage.setItem('currentDay', nextDay.toString());
@@ -272,14 +274,16 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
     }
   };
 
-  const handleBlockStart = (block: LessonBlock) => {
+  const handleBlockStart = (block: LessonBlock, index: number) => {
     setActiveBlock(block);
+    setActiveBlockIndex(index);
   };
 
   const handlePlayerPass = async () => {
-    if (!activeBlock) return;
-    await markBlockComplete(activeBlock.type, activeBlock.xp);
+    if (!activeBlock || activeBlockIndex === null) return;
+    await markBlockComplete(activeBlockIndex, activeBlock.title, activeBlock.xp);
     setActiveBlock(null);
+    setActiveBlockIndex(null);
   };
 
   const handlePlayerBack = () => setActiveBlock(null);
@@ -372,9 +376,6 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
               <button className="ts-celebration-btn" onClick={() => setShowCelebration(false)}>
                 Keep practising ↓
               </button>
-              <button className="ts-celebration-btn-sec" onClick={() => onNavigate('isabela')}>
-                Talk to Isabela →
-              </button>
             </div>
           )}
 
@@ -395,8 +396,10 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
 
             <div className="ts-blocks">
               {lesson.blocks.map((block, i) => {
-                const isDone = completed.includes(block.type);
-                const isNext = !isDone && lesson.blocks.slice(0, i).every(b => completed.includes(b.type));
+                // Check if this specific block index is completed by checking title (unique identifier)
+                const isDone = completed.includes(`${i}-${block.title}`);
+                // Next block is available when all previous blocks are done
+                const isNext = !isDone && (i === 0 || lesson.blocks.slice(0, i).every((b, idx) => completed.includes(`${idx}-${b.title}`)));
                 return (
                   <div key={i} className={`ts-block ${isDone ? 'ts-block-done' : ''} ${isNext ? 'ts-block-active' : ''}`}>
                     <div className="ts-block-icon" style={{ background: BLOCK_COLORS[block.type] }}>
@@ -415,7 +418,7 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
                           </svg>
                         </div>
                       ) : isNext ? (
-                        <button className="ts-block-btn" onClick={() => handleBlockStart(block)}>Start</button>
+                        <button className="ts-block-btn" onClick={() => handleBlockStart(block, i)}>Start</button>
                       ) : (
                         <div className="ts-block-dot" />
                       )}
