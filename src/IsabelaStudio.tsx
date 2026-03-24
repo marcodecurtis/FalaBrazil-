@@ -200,24 +200,29 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
     const { token } = await tokenRes.json();
     if (!token) throw new Error('No Deepgram token');
 
-    // Connect directly to Deepgram with the token
-    const url = `wss://api.deepgram.com/v1/listen?` + new URLSearchParams({
-      model: 'nova-2',          // Nova-2 has best pt-BR support; Flux for turn detection
+    // Connect directly to Deepgram — JWT token passed as query param
+    // This is the correct approach for browser WebSocket connections
+    const params = new URLSearchParams({
+      model: 'nova-2',
       language: 'pt-BR',
       punctuate: 'true',
       interim_results: 'true',
-      utterance_end_ms: '1500', // 1.5s silence = turn ended
+      utterance_end_ms: '2500',
       vad_events: 'true',
     });
 
+    const url = `wss://api.deepgram.com/v1/listen?${params.toString()}`;
+    // Deepgram's supported browser auth: ['token', yourToken] as subprotocols
     const ws = new WebSocket(url, ['token', token]);
     deepgramWsRef.current = ws;
+    (ws as any)._transcriptBuffer = []; // accumulate all final chunks
 
     ws.onopen = () => {
-      // Start streaming mic audio to Deepgram
       const stream = micStreamRef.current;
       if (!stream) return;
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      // Safari doesn't support audio/webm — fall back to audio/mp4
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
       mediaRecorder.addEventListener('dataavailable', (e) => {
         if (ws.readyState === WebSocket.OPEN && e.data.size > 0) {
           ws.send(e.data);
@@ -230,32 +235,31 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
 
-      // Live transcript — interim results
       if (data.type === 'Results' && data.channel?.alternatives?.[0]) {
         const text = data.channel.alternatives[0].transcript;
         const isFinal = data.is_final;
 
         if (text) {
-          setLiveTranscript(text);
-          if (isFinal) {
-            setLiveTranscript('');
+          if (!isFinal) {
+            // Show interim words live as user speaks
+            setLiveTranscript(text);
+          } else {
+            // Accumulate final chunks — don't overwrite, append
+            (ws as any)._transcriptBuffer.push(text);
+            setLiveTranscript((ws as any)._transcriptBuffer.join(' '));
           }
         }
       }
 
-      // End of utterance — user finished speaking
+      // UtteranceEnd fires after silence — send full accumulated transcript
       if (data.type === 'UtteranceEnd') {
-        const lastFinal = (ws as any)._lastFinalTranscript;
-        if (lastFinal?.trim()) {
-          (ws as any)._lastFinalTranscript = '';
-          handleUserSpeech(lastFinal.trim());
+        const buffer: string[] = (ws as any)._transcriptBuffer || [];
+        const fullTranscript = buffer.join(' ').trim();
+        (ws as any)._transcriptBuffer = []; // reset for next turn
+        setLiveTranscript('');
+        if (fullTranscript) {
+          handleUserSpeech(fullTranscript);
         }
-      }
-
-      // Store last final transcript
-      if (data.type === 'Results' && data.is_final) {
-        const text = data.channel?.alternatives?.[0]?.transcript || '';
-        if (text) (ws as any)._lastFinalTranscript = text;
       }
     };
 
@@ -715,14 +719,30 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Status bar */}
+      {/* Status bar — with interrupt button when Isabela is speaking */}
       <div style={styles.statusBar}>
-        <div style={{ fontSize: '0.75rem', color: isabelaSpeaking ? '#7c3aed' : isabelaThinking ? '#f59e0b' : '#4ade80', fontWeight: 600 }}>
-          {isabelaSpeaking ? '🔊 Isabela is speaking...' :
-           isabelaThinking ? '⏳ Isabela is thinking...' :
-           sessionEndingRef.current ? '⏱️ Finishing up...' :
-           '🎙️ Listening — just speak naturally'}
-        </div>
+        {isabelaSpeaking ? (
+          <button
+            onClick={() => {
+              audioRef.current?.pause();
+              setIsabelaSpeaking(false);
+              resumeDeepgram();
+            }}
+            style={{
+              background: '#7c3aed', color: 'white', border: 'none',
+              borderRadius: 20, padding: '8px 20px', fontWeight: 700,
+              fontSize: '0.85rem', cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            ⏸️ Tap to interrupt
+          </button>
+        ) : (
+          <div style={{ fontSize: '0.75rem', color: isabelaThinking ? '#f59e0b' : '#4ade80', fontWeight: 600 }}>
+            {isabelaThinking ? '⏳ Isabela is thinking...' :
+             sessionEndingRef.current ? '⏱️ Finishing up...' :
+             '🎙️ Listening — just speak naturally'}
+          </div>
+        )}
       </div>
 
       <style>{`
