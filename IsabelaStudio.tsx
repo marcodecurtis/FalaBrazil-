@@ -272,19 +272,25 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
       pc.ontrack = (e) => {
         audioEl.srcObject = e.streams[0];
 
-        // iOS Safari ignores audioEl.volume on WebRTC streams
-        // Use AudioContext GainNode instead — this works on iOS
+        // Use the pre-unlocked AudioContext from handleStart
+        // Creating a new one here would fail on iOS (not inside user gesture)
         try {
-          const ctx = new AudioContext();
-          audioCtxRef.current = ctx;
-          const source = ctx.createMediaElementSource(audioEl);
-          const gain = ctx.createGain();
-          gain.gain.value = defaultVolume; // 0.5 on mobile, 1.0 on desktop
-          source.connect(gain);
-          gain.connect(ctx.destination);
-          gainNodeRef.current = gain;
-        } catch (e) {
-          // Fallback — try setting volume directly
+          const ctx = audioCtxRef.current;
+          if (ctx) {
+            if (ctx.state === 'suspended') ctx.resume();
+            const source = ctx.createMediaStreamSource(e.streams[0]);
+            const gain = ctx.createGain();
+            gain.gain.value = defaultVolume;
+            source.connect(gain);
+            gain.connect(ctx.destination);
+            gainNodeRef.current = gain;
+            // Don't set srcObject — we're routing through AudioContext directly
+            audioEl.srcObject = null;
+          } else {
+            audioEl.volume = defaultVolume;
+          }
+        } catch (err) {
+          console.warn('GainNode setup failed:', err);
           audioEl.volume = defaultVolume;
         }
       };
@@ -471,9 +477,19 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
 
   // ── Start session ─────────────────────────────────────────────
   const handleStart = async () => {
-    // Resume AudioContext on iOS — must happen inside user gesture
-    if (audioCtxRef.current?.state === 'suspended') {
-      await audioCtxRef.current.resume();
+    // Create and unlock AudioContext during user gesture — iOS requires this
+    // Must happen here (inside tap handler), not later in ontrack
+    try {
+      const ctx = new AudioContext();
+      // Play silent buffer to unlock audio on iOS
+      const buf = ctx.createBuffer(1, 1, 22050);
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(ctx.destination);
+      src.start(0);
+      audioCtxRef.current = ctx;
+    } catch(e) {
+      console.warn('AudioContext init failed:', e);
     }
     setScreen('conversation');
     setDisplayMessages([]);
