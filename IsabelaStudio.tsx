@@ -293,7 +293,7 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
             voice: 'shimmer',
             input_audio_format: 'pcm16',
             output_audio_format: 'pcm16',
-            input_audio_transcription: { model: 'whisper-1' },
+            input_audio_transcription: { model: 'whisper-1', language: 'pt' },
             turn_detection: {
               type: 'server_vad',
               threshold: 0.5,
@@ -395,18 +395,10 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
             closingLinePlayedRef.current = true;
             sendGoodbye();
           } else {
-            // Goodbye text is done — but audio may still be playing
-            // Wait for audio element to actually finish before going to feedback
-            const audioEl = audioElRef.current;
-            if (audioEl && !audioEl.paused) {
-              // Audio still playing — wait for it to end
-              audioEl.addEventListener('ended', () => {
-                setTimeout(() => generateFeedback(), 800);
-              }, { once: true });
-            } else {
-              // Audio already done or not playing — safe to go
-              setTimeout(() => generateFeedback(), 800);
-            }
+            // Goodbye text is done — wait generously for audio to finish
+            // iOS Safari 'ended' event is unreliable so we use a safe timeout
+            // 4 seconds is enough for a 2-sentence goodbye at normal speech rate
+            setTimeout(() => generateFeedback(), 4000);
           }
         }
         break;
