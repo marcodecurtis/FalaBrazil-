@@ -391,10 +391,18 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
             closingLinePlayedRef.current = true;
             sendGoodbye();
           } else {
-            // Goodbye is done — wait a beat then go to feedback
-            setTimeout(() => {
-              generateFeedback();
-            }, 1500);
+            // Goodbye text is done — but audio may still be playing
+            // Wait for audio element to actually finish before going to feedback
+            const audioEl = audioElRef.current;
+            if (audioEl && !audioEl.paused) {
+              // Audio still playing — wait for it to end
+              audioEl.addEventListener('ended', () => {
+                setTimeout(() => generateFeedback(), 800);
+              }, { once: true });
+            } else {
+              // Audio already done or not playing — safe to go
+              setTimeout(() => generateFeedback(), 800);
+            }
           }
         }
         break;
