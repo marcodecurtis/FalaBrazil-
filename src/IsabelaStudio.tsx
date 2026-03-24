@@ -1,6 +1,7 @@
 // src/components/IsabelaStudio.tsx
-// Full rewrite — Deepgram Flux STT, mic setup screen, 3-min timer,
-// live transcript, graceful ending, Claude Sonnet feedback screen
+// Rewritten to use OpenAI Realtime API
+// STT + AI + TTS all in one WebSocket — works natively on iOS Safari + Android
+// Post-session feedback still uses Claude Sonnet
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Level } from './App';
@@ -10,98 +11,101 @@ interface Props {
   userLevel: Level | null;
 }
 
-// ── Screen states ─────────────────────────────────────────────────
 type Screen = 'intro' | 'mic-setup' | 'conversation' | 'feedback';
-
-interface Message {
-  role: 'user' | 'assistant';
-  content: string;
-}
 
 interface DisplayMessage {
   role: 'user' | 'isabela';
   text: string;
 }
 
-// ── Constants ─────────────────────────────────────────────────────
-const SESSION_DURATION_SECONDS = 180; // 3 minutes
+interface TranscriptEntry {
+  role: 'user' | 'assistant';
+  content: string;
+}
 
-const OPENING_LINES = [
-  'Oi! Tudo bem? Que bom te ver por aqui! Me conta, o que você fez hoje?',
-  'Olá! Estou tão feliz em praticar com você! Vamos conversar! Como foi o seu dia?',
-  'Oi! Que ótimo que você veio! Me fala, você gosta de morar onde você mora?',
-];
+const SESSION_DURATION_SECONDS = 180;
 
-const CLOSING_LINE = 'Que sessão incrível! O tempo acabou por hoje, mas você foi muito bem! Vou preparar um resumo do que praticamos...';
+const DAILY_INSTRUCTION = "Today's focus: try to use past tense — fui, fiz, estava, tive. Tell Isabela about something you did recently.";
 
-const DAILY_INSTRUCTION = 'Today\'s focus: try to use past tense — fui, fiz, estava, tive. Tell Isabela about something you did recently.';
+const ISABELA_SYSTEM_PROMPT = `You are Isabela, a warm, encouraging, and playful Brazilian Portuguese conversation partner. 
 
-// ── Main component ────────────────────────────────────────────────
+CRITICAL RULES:
+- Speak ONLY in Brazilian Portuguese at all times — never switch to English
+- Keep every response to 2-3 short sentences maximum
+- Always end with a question to keep the conversation going
+- Gently and naturally correct mistakes by repeating the correct form in your reply (don't explicitly say "you made a mistake")
+- Be warm, enthusiastic, and encouraging — like a friendly Brazilian friend
+- Use natural Brazilian expressions (né, tá, que legal, que bacana, etc.)
+- Adapt vocabulary complexity to the student's level
+
+The student is at level STUDENT_LEVEL. Start by greeting them warmly and asking about their day or something they did recently.`;
+
 export default function IsabelaStudio({ onBack, userLevel }: Props) {
   const level = userLevel || 'B1';
 
-  // Screen
   const [screen, setScreen] = useState<Screen>('intro');
 
   // Mic setup
-  const [micStatus, setMicStatus]         = useState<'idle' | 'requesting' | 'granted' | 'denied' | 'error'>('idle');
-  const [micVolume, setMicVolume]         = useState(0);
-  const [micEverSpoke, setMicEverSpoke]   = useState(false);
-  const [micDevices, setMicDevices]       = useState<MediaDeviceInfo[]>([]);
+  const [micStatus, setMicStatus] = useState<'idle' | 'requesting' | 'granted' | 'denied' | 'error'>('idle');
+  const [micVolume, setMicVolume] = useState(0);
+  const [micEverSpoke, setMicEverSpoke] = useState(false);
+  const [micDevices, setMicDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedDevice, setSelectedDevice] = useState<string>('');
 
   // Conversation
-  const [apiMessages, setApiMessages]         = useState<Message[]>([]);
   const [displayMessages, setDisplayMessages] = useState<DisplayMessage[]>([]);
-  const [liveTranscript, setLiveTranscript]   = useState('');
-  const [isabelaThinking, setIsabelaThinking] = useState(false);
+  const [liveUserTranscript, setLiveUserTranscript] = useState('');
+  const [liveIsabelaText, setLiveIsabelaText] = useState('');
   const [isabelaSpeaking, setIsabelaSpeaking] = useState(false);
-  const [isMuted, setIsMuted]                 = useState(false);
+  const [isabelaThinking, setIsabelaThinking] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
 
   // Timer
-  const [timeLeft, setTimeLeft]       = useState(SESSION_DURATION_SECONDS);
+  const [timeLeft, setTimeLeft] = useState(SESSION_DURATION_SECONDS);
   const [timerActive, setTimerActive] = useState(false);
 
-  // Session ending (graceful)
+  // Session ending
   const sessionEndingRef = useRef(false);
   const closingLinePlayedRef = useRef(false);
 
   // Feedback
-  const [feedback, setFeedback]           = useState('');
+  const [feedback, setFeedback] = useState('');
   const [feedbackLoading, setFeedbackLoading] = useState(false);
 
+  // Transcript log for feedback
+  const transcriptLogRef = useRef<TranscriptEntry[]>([]);
+
   // Refs
-  const deepgramWsRef     = useRef<WebSocket | null>(null);
-  const audioRef          = useRef<HTMLAudioElement | null>(null);
-  const analyserRef       = useRef<AnalyserNode | null>(null);
-  const micStreamRef      = useRef<MediaStream | null>(null);
-  const volumeTimerRef    = useRef<number | null>(null);
-  const timerIntervalRef  = useRef<number | null>(null);
-  const messagesEndRef    = useRef<HTMLDivElement>(null);
-  const apiMessagesRef    = useRef<Message[]>([]);
+  const pcRef = useRef<RTCPeerConnection | null>(null);
+  const dcRef = useRef<RTCDataChannel | null>(null);
+  const micStreamRef = useRef<MediaStream | null>(null);
+  const audioElRef = useRef<HTMLAudioElement | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const volumeTimerRef = useRef<number | null>(null);
+  const timerIntervalRef = useRef<number | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const displayMessagesRef = useRef<DisplayMessage[]>([]);
+  const isMutedRef = useRef(false);
 
-  // Keep refs in sync with state
-  useEffect(() => { apiMessagesRef.current = apiMessages; }, [apiMessages]);
+  // Accumulate streaming text
+  const isabelaStreamRef = useRef('');
+  const userStreamRef = useRef('');
+
   useEffect(() => { displayMessagesRef.current = displayMessages; }, [displayMessages]);
+  useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
 
-  // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [displayMessages, liveTranscript, isabelaThinking]);
+  }, [displayMessages, liveUserTranscript, liveIsabelaText, isabelaThinking]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      stopMicStream();
-      stopDeepgram();
-      audioRef.current?.pause();
-      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-      if (volumeTimerRef.current) clearInterval(volumeTimerRef.current);
+      cleanup();
     };
   }, []);
 
-  // ── Timer ──────────────────────────────────────────────────────
+  // ── Timer ─────────────────────────────────────────────────────
   useEffect(() => {
     if (!timerActive) return;
     timerIntervalRef.current = window.setInterval(() => {
@@ -119,10 +123,20 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
   }, [timerActive]);
 
   const handleTimerEnd = () => {
-    // Set the flag — don't hard-stop anything
-    // The conversation finishes its current exchange naturally
-    // then triggers the closing line
     sessionEndingRef.current = true;
+    // Send a system nudge to Isabela to wrap up
+    sendDataChannelMessage({
+      type: 'conversation.item.create',
+      item: {
+        type: 'message',
+        role: 'user',
+        content: [{
+          type: 'input_text',
+          text: '[SYSTEM: The 3-minute session is ending. Say a warm goodbye in 2 sentences, tell the student they did great, and wish them good luck with their Portuguese practice. Then stop.]'
+        }]
+      }
+    });
+    sendDataChannelMessage({ type: 'response.create' });
   };
 
   const formatTime = (s: number) => {
@@ -131,7 +145,21 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
     return `${m}:${sec.toString().padStart(2, '0')}`;
   };
 
-  // ── Mic stream helpers ─────────────────────────────────────────
+  // ── Cleanup ───────────────────────────────────────────────────
+  const cleanup = () => {
+    stopMicStream();
+    if (pcRef.current) {
+      pcRef.current.close();
+      pcRef.current = null;
+    }
+    dcRef.current = null;
+    if (audioElRef.current) {
+      audioElRef.current.srcObject = null;
+    }
+    if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+  };
+
+  // ── Mic helpers ───────────────────────────────────────────────
   const stopMicStream = () => {
     if (volumeTimerRef.current) {
       clearInterval(volumeTimerRef.current);
@@ -173,8 +201,6 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
       micStreamRef.current = stream;
       startVolumeMonitor(stream);
       setMicStatus('granted');
-
-      // Get list of audio devices for "try different mic" option
       const devices = await navigator.mediaDevices.enumerateDevices();
       setMicDevices(devices.filter(d => d.kind === 'audioinput'));
     } catch (err: any) {
@@ -186,228 +212,220 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
     }
   };
 
-  // ── Deepgram ───────────────────────────────────────────────────
-  const stopDeepgram = () => {
-    if (deepgramWsRef.current) {
-      deepgramWsRef.current.close();
-      deepgramWsRef.current = null;
+  // ── OpenAI Realtime via WebRTC ────────────────────────────────
+  const sendDataChannelMessage = (msg: object) => {
+    if (dcRef.current?.readyState === 'open') {
+      dcRef.current.send(JSON.stringify(msg));
     }
   };
 
-  const startDeepgram = useCallback(async () => {
-    // Get short-lived token from our backend
-    const tokenRes = await fetch('/api/deepgram-token', { method: 'POST' });
-    const { token } = await tokenRes.json();
-    if (!token) throw new Error('No Deepgram token');
+  const startRealtimeSession = useCallback(async () => {
+    try {
+      setConnectionStatus('connecting');
 
-    // Connect directly to Deepgram — JWT token passed as query param
-    // This is the correct approach for browser WebSocket connections
-    const params = new URLSearchParams({
-      model: 'nova-2',
-      language: 'pt-BR',
-      punctuate: 'true',
-      interim_results: 'true',
-      utterance_end_ms: '2500',
-      vad_events: 'true',
-    });
+      // Get ephemeral token from your backend
+      const tokenRes = await fetch('/api/realtime-token', { method: 'POST' });
+      const { client_secret } = await tokenRes.json();
+      if (!client_secret?.value) throw new Error('No realtime token');
 
-    const url = `wss://api.deepgram.com/v1/listen?${params.toString()}`;
-    // Deepgram's supported browser auth: ['token', yourToken] as subprotocols
-    const ws = new WebSocket(url, ['token', token]);
-    deepgramWsRef.current = ws;
-    (ws as any)._transcriptBuffer = []; // accumulate all final chunks
+      const pc = new RTCPeerConnection();
+      pcRef.current = pc;
 
-    ws.onopen = () => {
+      // Audio output element — WebRTC handles iOS audio natively
+      const audioEl = document.createElement('audio');
+      audioEl.autoplay = true;
+      audioEl.style.display = 'none';
+      document.body.appendChild(audioEl);
+      audioElRef.current = audioEl;
+
+      pc.ontrack = (e) => {
+        audioEl.srcObject = e.streams[0];
+      };
+
+      // Add mic track
       const stream = micStreamRef.current;
-      if (!stream) return;
-      // Safari doesn't support audio/webm — fall back to audio/mp4
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
-      const mediaRecorder = new MediaRecorder(stream, { mimeType });
-      mediaRecorder.addEventListener('dataavailable', (e) => {
-        if (ws.readyState === WebSocket.OPEN && e.data.size > 0) {
-          ws.send(e.data);
-        }
-      });
-      mediaRecorder.start(250); // send chunks every 250ms
-      (ws as any)._recorder = mediaRecorder;
-    };
+      if (!stream) throw new Error('No mic stream');
+      stream.getAudioTracks().forEach(track => pc.addTrack(track, stream));
 
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
+      // Data channel for events
+      const dc = pc.createDataChannel('oai-events');
+      dcRef.current = dc;
 
-      if (data.type === 'Results' && data.channel?.alternatives?.[0]) {
-        // Ignore transcripts while Isabela is speaking
-        if (isabelaSpeakingRef.current) return;
-        const text = data.channel.alternatives[0].transcript;
-        const isFinal = data.is_final;
+      dc.onopen = () => {
+        setConnectionStatus('connected');
 
-        if (text) {
-          if (!isFinal) {
-            // Show interim words live as user speaks
-            setLiveTranscript(text);
-          } else {
-            // Accumulate final chunks — don't overwrite, append
-            (ws as any)._transcriptBuffer.push(text);
-            setLiveTranscript((ws as any)._transcriptBuffer.join(' '));
+        // Configure the session
+        sendDataChannelMessage({
+          type: 'session.update',
+          session: {
+            modalities: ['audio', 'text'],
+            voice: 'shimmer',
+            input_audio_format: 'pcm16',
+            output_audio_format: 'pcm16',
+            input_audio_transcription: { model: 'whisper-1' },
+            turn_detection: {
+              type: 'server_vad',
+              threshold: 0.5,
+              prefix_padding_ms: 300,
+              silence_duration_ms: 700,
+            },
+            instructions: ISABELA_SYSTEM_PROMPT.replace('STUDENT_LEVEL', level),
           }
-        }
-      }
-
-      // UtteranceEnd fires after silence — send full accumulated transcript
-      if (data.type === 'UtteranceEnd') {
-        // Ignore if Isabela is currently speaking
-        if (isabelaSpeakingRef.current) return;
-        const buffer: string[] = (ws as any)._transcriptBuffer || [];
-        const fullTranscript = buffer.join(' ').trim();
-        (ws as any)._transcriptBuffer = []; // reset for next turn
-        setLiveTranscript('');
-        if (fullTranscript) {
-          handleUserSpeech(fullTranscript);
-        }
-      }
-    };
-
-    ws.onerror = (e) => console.error('Deepgram WS error:', e);
-    ws.onclose = (e: CloseEvent) => {
-      console.log('Deepgram WS closed — code:', e.code, 'reason:', e.reason, 'clean:', e.wasClean);
-      // Code 1008 = policy violation (bad auth)
-      // Code 1011 = server error
-      // Code 1000 = normal closure
-    };
-  }, []);
-
-  // Instead of pausing MediaRecorder (unreliable), use a flag to ignore
-  // audio while Isabela is speaking. MediaRecorder keeps running continuously.
-  const isabelaSpeakingRef = useRef(false);
-
-  const pauseDeepgram = () => {
-    isabelaSpeakingRef.current = true; // ignore transcripts while Isabela speaks
-  };
-
-  const resumeDeepgram = () => {
-    isabelaSpeakingRef.current = false; // start processing transcripts again
-    // Also reset the transcript buffer so old audio doesn't leak through
-    const ws = deepgramWsRef.current as any;
-    if (ws) ws._transcriptBuffer = [];
-    setLiveTranscript('');
-  };
-
-  // ── TTS ────────────────────────────────────────────────────────
-  const speakText = async (text: string): Promise<void> => {
-    if (isMuted) return;
-    setIsabelaSpeaking(true);
-    pauseDeepgram(); // Don't let Deepgram hear Isabela's voice
-
-    try {
-      const res = await fetch('/api/elevenlabs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text }),
-      });
-      if (!res.ok) throw new Error('TTS failed');
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-
-      return new Promise((resolve) => {
-        const audio = new Audio(url);
-        audioRef.current = audio;
-        audio.onended = () => {
-          URL.revokeObjectURL(url);
-          setIsabelaSpeaking(false);
-          resolve();
-        };
-        audio.onerror = () => {
-          URL.revokeObjectURL(url);
-          setIsabelaSpeaking(false);
-          resolve();
-        };
-        audio.play().catch(() => {
-          setIsabelaSpeaking(false);
-          resolve();
         });
-      });
-    } catch {
-      setIsabelaSpeaking(false);
-    }
-  };
 
-  // ── Conversation turn ──────────────────────────────────────────
-  const handleUserSpeech = async (userText: string) => {
-    if (!userText.trim()) return;
+        // Trigger Isabela's opening line
+        sendDataChannelMessage({ type: 'response.create' });
+      };
 
-    const newDisplay: DisplayMessage[] = [
-      ...displayMessagesRef.current,
-      { role: 'user', text: userText },
-    ];
-    const newApi: Message[] = [
-      ...apiMessagesRef.current,
-      { role: 'user', content: userText },
-    ];
+      dc.onmessage = (e) => {
+        handleRealtimeEvent(JSON.parse(e.data));
+      };
 
-    setDisplayMessages(newDisplay);
-    setApiMessages(newApi);
-    setLiveTranscript('');
-    setIsabelaThinking(true);
+      dc.onerror = () => setConnectionStatus('error');
 
-    try {
-      const res = await fetch('/api/isabela', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: newApi, level }),
-      });
-      const data = await res.json();
-      const reply = data.text || 'Desculpa, pode repetir?';
+      // WebRTC offer/answer
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
 
-      const finalDisplay: DisplayMessage[] = [
-        ...newDisplay,
-        { role: 'isabela', text: reply },
-      ];
-      const finalApi: Message[] = [
-        ...newApi,
-        { role: 'assistant', content: reply },
-      ];
+      const sdpRes = await fetch(
+        `https://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${client_secret.value}`,
+            'Content-Type': 'application/sdp',
+          },
+          body: offer.sdp,
+        }
+      );
 
-      setDisplayMessages(finalDisplay);
-      setApiMessages(finalApi);
-      setIsabelaThinking(false);
-
-      await speakText(reply);
-
-      // After Isabela finishes speaking — check if session should end
-      if (sessionEndingRef.current && !closingLinePlayedRef.current) {
-        closingLinePlayedRef.current = true;
-        await triggerClosingSequence(finalApi);
-      } else if (!sessionEndingRef.current) {
-        resumeDeepgram(); // Back to listening
-      }
+      const answerSdp = await sdpRes.text();
+      await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp });
 
     } catch (err) {
-      console.error('Conversation error:', err);
-      setIsabelaThinking(false);
-      resumeDeepgram();
+      console.error('Realtime session error:', err);
+      setConnectionStatus('error');
+    }
+  }, [level]);
+
+  // ── Handle Realtime events ────────────────────────────────────
+  const handleRealtimeEvent = (event: any) => {
+    switch (event.type) {
+
+      // Isabela starts speaking
+      case 'response.audio.delta':
+        setIsabelaThinking(false);
+        setIsabelaSpeaking(true);
+        // Mute: disconnect audio if muted
+        if (isMutedRef.current && audioElRef.current) {
+          audioElRef.current.volume = 0;
+        } else if (audioElRef.current) {
+          audioElRef.current.volume = 1;
+        }
+        break;
+
+      // Isabela's text streaming
+      case 'response.audio_transcript.delta':
+        isabelaStreamRef.current += event.delta || '';
+        setLiveIsabelaText(isabelaStreamRef.current);
+        setIsabelaThinking(false);
+        setIsabelaSpeaking(true);
+        break;
+
+      // Isabela finished one response
+      case 'response.audio_transcript.done':
+      case 'response.text.done': {
+        const fullText = event.transcript || event.text || isabelaStreamRef.current;
+        if (fullText.trim()) {
+          // Add to display messages
+          setDisplayMessages(prev => [
+            ...prev,
+            { role: 'isabela', text: fullText.trim() }
+          ]);
+          // Add to transcript log for feedback
+          transcriptLogRef.current.push({ role: 'assistant', content: fullText.trim() });
+        }
+        isabelaStreamRef.current = '';
+        setLiveIsabelaText('');
+        break;
+      }
+
+      // Isabela fully done speaking
+      case 'response.done':
+        setIsabelaSpeaking(false);
+        setIsabelaThinking(false);
+
+        // If session is ending, go to feedback after closing line
+        if (sessionEndingRef.current && !closingLinePlayedRef.current) {
+          closingLinePlayedRef.current = true;
+          setTimeout(() => {
+            generateFeedback();
+          }, 2000);
+        }
+        break;
+
+      // User started speaking
+      case 'input_audio_buffer.speech_started':
+        setLiveUserTranscript('...');
+        userStreamRef.current = '';
+        // Interrupt Isabela if she's speaking
+        setIsabelaSpeaking(false);
+        setLiveIsabelaText('');
+        isabelaStreamRef.current = '';
+        break;
+
+      // User transcript streaming
+      case 'conversation.item.input_audio_transcription.delta':
+        userStreamRef.current += event.delta || '';
+        setLiveUserTranscript(userStreamRef.current);
+        break;
+
+      // User finished speaking — transcript complete
+      case 'conversation.item.input_audio_transcription.completed': {
+        const userText = event.transcript?.trim();
+        if (userText) {
+          setDisplayMessages(prev => [
+            ...prev,
+            { role: 'user', text: userText }
+          ]);
+          transcriptLogRef.current.push({ role: 'user', content: userText });
+        }
+        userStreamRef.current = '';
+        setLiveUserTranscript('');
+        setIsabelaThinking(true);
+        break;
+      }
+
+      // Isabela is generating a response
+      case 'response.created':
+        setIsabelaThinking(true);
+        break;
+
+      case 'error':
+        console.error('Realtime error:', event.error);
+        setConnectionStatus('error');
+        break;
     }
   };
 
-  // ── Graceful session end ───────────────────────────────────────
-  const triggerClosingSequence = async (finalMessages: Message[]) => {
-    stopDeepgram(); // Stop listening for new input
+  // ── Start session ─────────────────────────────────────────────
+  const handleStart = async () => {
+    setScreen('conversation');
+    setDisplayMessages([]);
+    setTimeLeft(SESSION_DURATION_SECONDS);
+    sessionEndingRef.current = false;
+    closingLinePlayedRef.current = false;
+    transcriptLogRef.current = [];
+    isabelaStreamRef.current = '';
+    userStreamRef.current = '';
 
-    // Add closing line to chat
-    const closingDisplay: DisplayMessage[] = [
-      ...displayMessagesRef.current,
-      { role: 'isabela', text: CLOSING_LINE },
-    ];
-    setDisplayMessages(closingDisplay);
-    setIsabelaThinking(false);
-
-    await speakText(CLOSING_LINE);
-
-    // Now generate feedback
-    await generateFeedback(finalMessages);
+    setTimerActive(true);
+    await startRealtimeSession();
   };
 
-  // ── Feedback ───────────────────────────────────────────────────
-  const generateFeedback = async (messages: Message[]) => {
+  // ── Feedback ──────────────────────────────────────────────────
+  const generateFeedback = async () => {
+    cleanup();
     setFeedbackLoading(true);
     setScreen('feedback');
 
@@ -415,10 +433,13 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
       const res = await fetch('/api/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages, level }),
+        body: JSON.stringify({
+          messages: transcriptLogRef.current,
+          level,
+        }),
       });
       const data = await res.json();
-      setFeedback(data.feedback || 'Unable to generate feedback.');
+      setFeedback(data.feedback || 'Great session!');
     } catch {
       setFeedback('Unable to generate feedback. But great session!');
     } finally {
@@ -426,48 +447,46 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
     }
   };
 
-  // ── Start session ──────────────────────────────────────────────
-  const handleStart = async () => {
-    setScreen('conversation');
-    setApiMessages([]);
-    setDisplayMessages([]);
-    setTimeLeft(SESSION_DURATION_SECONDS);
-    sessionEndingRef.current = false;
-    closingLinePlayedRef.current = false;
-
-    const opener = OPENING_LINES[Math.floor(Math.random() * OPENING_LINES.length)];
-    const initialDisplay: DisplayMessage[] = [{ role: 'isabela', text: opener }];
-    const initialApi: Message[] = [{ role: 'assistant', content: opener }];
-    setDisplayMessages(initialDisplay);
-    setApiMessages(initialApi);
-    setIsabelaThinking(false);
-
-    // Start timer
-    setTimerActive(true);
-
-    // Speak opener, then connect Deepgram
-    await speakText(opener);
-    await startDeepgram();
-    resumeDeepgram();
-  };
-
   const handleReset = () => {
-    stopDeepgram();
-    stopMicStream();
-    audioRef.current?.pause();
-    if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-    setApiMessages([]);
+    cleanup();
     setDisplayMessages([]);
-    setLiveTranscript('');
+    setLiveUserTranscript('');
+    setLiveIsabelaText('');
     setFeedback('');
     setTimeLeft(SESSION_DURATION_SECONDS);
     setTimerActive(false);
+    setIsabelaSpeaking(false);
+    setIsabelaThinking(false);
     setScreen('intro');
     sessionEndingRef.current = false;
     closingLinePlayedRef.current = false;
+    transcriptLogRef.current = [];
   };
 
-  // ── SCREEN: INTRO ──────────────────────────────────────────────
+  // ── Mute toggle ───────────────────────────────────────────────
+  const handleMuteToggle = () => {
+    setIsMuted(m => {
+      const nowMuted = !m;
+      if (audioElRef.current) {
+        audioElRef.current.volume = nowMuted ? 0 : 1;
+      }
+      return nowMuted;
+    });
+  };
+
+  // ── Interrupt ─────────────────────────────────────────────────
+  const handleInterrupt = () => {
+    sendDataChannelMessage({ type: 'response.cancel' });
+    setIsabelaSpeaking(false);
+    setLiveIsabelaText('');
+    isabelaStreamRef.current = '';
+  };
+
+  // ─────────────────────────────────────────────────────────────
+  // SCREENS
+  // ─────────────────────────────────────────────────────────────
+
+  // ── INTRO ─────────────────────────────────────────────────────
   if (screen === 'intro') {
     return (
       <div style={{ maxWidth: 480, margin: '0 auto', padding: '0 16px 40px' }}>
@@ -490,19 +509,21 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
 
         <div style={{ ...styles.infoBox, background: '#fce7f3', marginTop: 10 }}>
           <p style={{ fontSize: '0.85rem', color: '#9d174d', fontWeight: 600, margin: 0 }}>
-            ⏱️ Session length: <strong>3 minutes</strong> — Isabela will always finish her sentence before ending.
+            ⏱️ Session length: <strong>3 minutes</strong> — Isabela will wrap up naturally when time is up.
           </p>
         </div>
 
-        <button onClick={() => requestMic().then(() => setScreen('mic-setup'))}
-          style={styles.primaryBtn}>
+        <button
+          onClick={() => requestMic().then(() => setScreen('mic-setup'))}
+          style={styles.primaryBtn}
+        >
           Speak with Isabela 🎙️
         </button>
       </div>
     );
   }
 
-  // ── SCREEN: MIC SETUP ─────────────────────────────────────────
+  // ── MIC SETUP ─────────────────────────────────────────────────
   if (screen === 'mic-setup') {
     const canStart = micStatus === 'granted' && micEverSpoke;
 
@@ -520,7 +541,6 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
           </p>
         </div>
 
-        {/* Status indicator */}
         {micStatus === 'requesting' && (
           <div style={styles.statusBox('#f1f5f9', '#475569')}>
             ⏳ Waiting for microphone permission — click <strong>Allow</strong> in the browser popup.
@@ -531,11 +551,12 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
           <div style={styles.statusBox('#fee2e2', '#991b1b')}>
             <strong>🚫 Microphone access was denied.</strong>
             <div style={{ marginTop: 8, fontSize: '0.8rem', lineHeight: 1.6 }}>
-              <strong>Chrome:</strong> Click the 🔒 icon in the address bar → Microphone → Allow → Refresh.<br />
+              <strong>Chrome:</strong> Click the 🔒 icon → Microphone → Allow → Refresh.<br />
               <strong>iPhone/Safari:</strong> Settings → Safari → Microphone → Allow → Come back here.<br />
               <strong>Android:</strong> Tap the 🔒 icon → Permissions → Microphone → Allow.
             </div>
-            <button onClick={() => requestMic()} style={{ ...styles.primaryBtn, marginTop: 12, padding: '10px 20px', width: 'auto' }}>
+            <button onClick={() => requestMic()}
+              style={{ ...styles.primaryBtn, marginTop: 12, padding: '10px 20px', width: 'auto' }}>
               Try again
             </button>
           </div>
@@ -543,13 +564,11 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
 
         {micStatus === 'granted' && (
           <>
-            {/* Status row */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, justifyContent: 'center' }}>
               <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#4ade80' }} />
               <span style={{ fontSize: '0.85rem', color: '#475569' }}>Microphone connected</span>
             </div>
 
-            {/* Volume meter */}
             <div style={{ marginBottom: 8 }}>
               <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: 6 }}>Volume level</div>
               <div style={{ background: '#f1f5f9', borderRadius: 8, height: 14, overflow: 'hidden' }}>
@@ -566,12 +585,15 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
               </div>
             </div>
 
-            {/* Device switcher */}
             {micDevices.length > 1 && (
               <div style={{ marginBottom: 16 }}>
                 <select
                   value={selectedDevice}
-                  onChange={e => { setSelectedDevice(e.target.value); requestMic(e.target.value); setMicEverSpoke(false); }}
+                  onChange={e => {
+                    setSelectedDevice(e.target.value);
+                    requestMic(e.target.value);
+                    setMicEverSpoke(false);
+                  }}
                   style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: '0.85rem', background: 'white' }}
                 >
                   {micDevices.map(d => (
@@ -588,7 +610,6 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
           </>
         )}
 
-        {/* Start button — only enabled when mic confirmed working */}
         <button
           onClick={handleStart}
           disabled={!canStart}
@@ -605,7 +626,7 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
     );
   }
 
-  // ── SCREEN: FEEDBACK ──────────────────────────────────────────
+  // ── FEEDBACK ──────────────────────────────────────────────────
   if (screen === 'feedback') {
     return (
       <div style={{ maxWidth: 480, margin: '0 auto', padding: '0 16px 40px' }}>
@@ -639,7 +660,7 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
     );
   }
 
-  // ── SCREEN: CONVERSATION ──────────────────────────────────────
+  // ── CONVERSATION ──────────────────────────────────────────────
   const timerColor = timeLeft <= 30 ? '#dc2626' : timeLeft <= 60 ? '#f59e0b' : '#14532d';
 
   return (
@@ -656,18 +677,30 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
           </div>
           <div>
             <div style={{ fontWeight: 800, fontSize: '0.9rem', color: '#0f172a' }}>Isabela</div>
-            <div style={{ fontSize: '0.68rem', fontWeight: 700, color: isabelaSpeaking ? '#7c3aed' : isabelaThinking ? '#f59e0b' : '#4ade80' }}>
-              {isabelaSpeaking ? '🔊 speaking' : isabelaThinking ? '⏳ thinking' : '● listening'}
+            <div style={{
+              fontSize: '0.68rem', fontWeight: 700,
+              color: connectionStatus === 'error' ? '#dc2626'
+                : isabelaSpeaking ? '#7c3aed'
+                : isabelaThinking ? '#f59e0b'
+                : connectionStatus === 'connecting' ? '#94a3b8'
+                : '#4ade80'
+            }}>
+              {connectionStatus === 'error' ? '⚠️ connection error'
+                : connectionStatus === 'connecting' ? '⏳ connecting...'
+                : isabelaSpeaking ? '🔊 speaking'
+                : isabelaThinking ? '⏳ thinking'
+                : '● listening'}
             </div>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {/* Timer */}
           <div style={{ fontWeight: 800, fontSize: '1rem', color: timerColor, minWidth: 48, textAlign: 'center' }}>
             {formatTime(timeLeft)}
           </div>
-          <button onClick={() => { setIsMuted(m => !m); audioRef.current?.pause(); }}
-            style={{ background: isMuted ? '#fee2e2' : '#f1f5f9', border: 'none', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: '0.9rem' }}>
+          <button
+            onClick={handleMuteToggle}
+            style={{ background: isMuted ? '#fee2e2' : '#f1f5f9', border: 'none', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: '0.9rem' }}
+          >
             {isMuted ? '🔇' : '🔊'}
           </button>
         </div>
@@ -675,8 +708,31 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
 
       {/* Messages */}
       <div style={styles.messages}>
+
+        {connectionStatus === 'connecting' && (
+          <div style={{ textAlign: 'center', padding: '32px 0', color: '#94a3b8' }}>
+            <div style={{ fontSize: '1.5rem', marginBottom: 8 }}>⏳</div>
+            <div style={{ fontSize: '0.85rem' }}>Connecting to Isabela...</div>
+          </div>
+        )}
+
+        {connectionStatus === 'error' && (
+          <div style={{ background: '#fee2e2', borderRadius: 12, padding: 16, margin: '16px 0', textAlign: 'center' }}>
+            <div style={{ fontSize: '0.85rem', color: '#991b1b', fontWeight: 600 }}>
+              ⚠️ Connection failed. Please check your internet and try again.
+            </div>
+            <button onClick={handleReset} style={{ ...styles.primaryBtn, marginTop: 12, fontSize: '0.85rem', padding: '10px' }}>
+              Try again
+            </button>
+          </div>
+        )}
+
         {displayMessages.map((msg, i) => (
-          <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start', alignItems: 'flex-end', gap: 8 }}>
+          <div key={i} style={{
+            display: 'flex',
+            justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
+            alignItems: 'flex-end', gap: 8
+          }}>
             {msg.role === 'isabela' && <div style={styles.avatarTiny} />}
             <div style={{
               maxWidth: '75%', padding: '10px 14px',
@@ -691,8 +747,25 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
           </div>
         ))}
 
-        {/* Live transcript */}
-        {liveTranscript && (
+        {/* Live Isabela text streaming */}
+        {liveIsabelaText && (
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
+            <div style={styles.avatarTiny} />
+            <div style={{
+              maxWidth: '75%', padding: '10px 14px',
+              borderRadius: '18px 18px 18px 4px',
+              background: 'white', color: '#0f172a',
+              fontSize: '0.9rem', lineHeight: 1.5, fontWeight: 500,
+              boxShadow: '0 1px 4px rgba(0,0,0,0.07)',
+              border: '2px solid #e9d5ff',
+            }}>
+              {liveIsabelaText}
+            </div>
+          </div>
+        )}
+
+        {/* Live user transcript */}
+        {liveUserTranscript && liveUserTranscript !== '...' && (
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <div style={{
               maxWidth: '75%', padding: '10px 14px',
@@ -701,26 +774,25 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
               fontSize: '0.9rem', lineHeight: 1.5, fontWeight: 500,
               border: '2px dashed #4ade80',
             }}>
-              {liveTranscript}
+              {liveUserTranscript}
             </div>
           </div>
         )}
 
         {/* Thinking dots */}
-        {isabelaThinking && (
+        {isabelaThinking && !liveIsabelaText && (
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
             <div style={styles.avatarTiny} />
             <div style={{ background: 'white', borderRadius: '18px 18px 18px 4px', padding: '12px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
               <div style={{ display: 'flex', gap: 5 }}>
-                {[0,1,2].map(i => (
-                  <div key={i} style={{ width: 7, height: 7, borderRadius: '50%', background: '#cbd5e1', animation: `dot 1.2s ${i*0.2}s infinite` }} />
+                {[0, 1, 2].map(i => (
+                  <div key={i} style={{ width: 7, height: 7, borderRadius: '50%', background: '#cbd5e1', animation: `dot 1.2s ${i * 0.2}s infinite` }} />
                 ))}
               </div>
             </div>
           </div>
         )}
 
-        {/* Session ending notice */}
         {sessionEndingRef.current && (
           <div style={{ textAlign: 'center', fontSize: '0.8rem', color: '#94a3b8', padding: '8px 0' }}>
             Time's up — Isabela is wrapping up...
@@ -730,15 +802,11 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Status bar — with interrupt button when Isabela is speaking */}
+      {/* Status bar */}
       <div style={styles.statusBar}>
         {isabelaSpeaking ? (
           <button
-            onClick={() => {
-              audioRef.current?.pause();
-              setIsabelaSpeaking(false);
-              resumeDeepgram();
-            }}
+            onClick={handleInterrupt}
             style={{
               background: '#7c3aed', color: 'white', border: 'none',
               borderRadius: 20, padding: '8px 20px', fontWeight: 700,
@@ -749,9 +817,10 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
           </button>
         ) : (
           <div style={{ fontSize: '0.75rem', color: isabelaThinking ? '#f59e0b' : '#4ade80', fontWeight: 600 }}>
-            {isabelaThinking ? '⏳ Isabela is thinking...' :
-             sessionEndingRef.current ? '⏱️ Finishing up...' :
-             '🎙️ Listening — just speak naturally'}
+            {isabelaThinking ? '⏳ Isabela is thinking...'
+              : sessionEndingRef.current ? '⏱️ Finishing up...'
+              : connectionStatus === 'connecting' ? '⏳ Connecting...'
+              : '🎙️ Listening — just speak naturally'}
           </div>
         )}
       </div>
@@ -766,7 +835,7 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
   );
 }
 
-// ── Shared styles ─────────────────────────────────────────────────
+// ── Styles ────────────────────────────────────────────────────────
 const styles = {
   backBtn: {
     background: 'none', border: 'none', cursor: 'pointer',
