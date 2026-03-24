@@ -83,6 +83,8 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
   const dcRef = useRef<RTCDataChannel | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
   const audioElRef = useRef<HTMLAudioElement | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const gainNodeRef = useRef<GainNode | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const volumeTimerRef = useRef<number | null>(null);
   const timerIntervalRef = useRef<number | null>(null);
@@ -269,8 +271,22 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
 
       pc.ontrack = (e) => {
         audioEl.srcObject = e.streams[0];
-        // On mobile, start at 50% volume to prevent mic echo from speaker bleed
-        audioEl.volume = defaultVolume;
+
+        // iOS Safari ignores audioEl.volume on WebRTC streams
+        // Use AudioContext GainNode instead — this works on iOS
+        try {
+          const ctx = new AudioContext();
+          audioCtxRef.current = ctx;
+          const source = ctx.createMediaElementSource(audioEl);
+          const gain = ctx.createGain();
+          gain.gain.value = defaultVolume; // 0.5 on mobile, 1.0 on desktop
+          source.connect(gain);
+          gain.connect(ctx.destination);
+          gainNodeRef.current = gain;
+        } catch (e) {
+          // Fallback — try setting volume directly
+          audioEl.volume = defaultVolume;
+        }
       };
 
       // Add mic track
@@ -347,10 +363,10 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
       case 'response.audio.delta':
         setIsabelaThinking(false);
         setIsabelaSpeaking(true);
-        if (isMutedRef.current && audioElRef.current) {
-          audioElRef.current.volume = 0;
+        if (gainNodeRef.current) {
+          gainNodeRef.current.gain.value = isMutedRef.current ? 0 : defaultVolume;
         } else if (audioElRef.current) {
-          audioElRef.current.volume = defaultVolume;
+          audioElRef.current.volume = isMutedRef.current ? 0 : defaultVolume;
         }
         break;
 
@@ -455,6 +471,10 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
 
   // ── Start session ─────────────────────────────────────────────
   const handleStart = async () => {
+    // Resume AudioContext on iOS — must happen inside user gesture
+    if (audioCtxRef.current?.state === 'suspended') {
+      await audioCtxRef.current.resume();
+    }
     setScreen('conversation');
     setDisplayMessages([]);
     setTimeLeft(SESSION_DURATION_SECONDS);
@@ -512,7 +532,9 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
   const handleMuteToggle = () => {
     setIsMuted(m => {
       const nowMuted = !m;
-      if (audioElRef.current) {
+      if (gainNodeRef.current) {
+        gainNodeRef.current.gain.value = nowMuted ? 0 : defaultVolume;
+      } else if (audioElRef.current) {
         audioElRef.current.volume = nowMuted ? 0 : defaultVolume;
       }
       return nowMuted;
