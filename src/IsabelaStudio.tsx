@@ -95,8 +95,16 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
   useEffect(() => { displayMessagesRef.current = displayMessages; }, [displayMessages]);
   useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
 
+  // Only auto-scroll if user is already near the bottom
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    // Only auto-scroll if within 100px of bottom — don't fight the user scrolling up
+    if (distanceFromBottom < 100) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [displayMessages, liveUserTranscript, liveIsabelaText, isabelaThinking]);
 
   useEffect(() => {
@@ -195,7 +203,9 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
     stopMicStream();
     try {
       const constraints: MediaStreamConstraints = {
-        audio: deviceId ? { deviceId: { exact: deviceId } } : true,
+        audio: deviceId
+          ? { deviceId: { exact: deviceId }, echoCancellation: true, noiseSuppression: true }
+          : { echoCancellation: true, noiseSuppression: true },
       };
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       micStreamRef.current = stream;
@@ -312,11 +322,14 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
   const handleRealtimeEvent = (event: any) => {
     switch (event.type) {
 
-      // Isabela starts speaking
+      // Isabela starts speaking — mute mic to prevent echo
       case 'response.audio.delta':
         setIsabelaThinking(false);
         setIsabelaSpeaking(true);
-        // Mute: disconnect audio if muted
+        // Disable mic track while Isabela speaks — stops her voice being picked up
+        if (micStreamRef.current) {
+          micStreamRef.current.getAudioTracks().forEach(t => { t.enabled = false; });
+        }
         if (isMutedRef.current && audioElRef.current) {
           audioElRef.current.volume = 0;
         } else if (audioElRef.current) {
@@ -350,10 +363,14 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
         break;
       }
 
-      // Isabela fully done speaking
+      // Isabela fully done speaking — re-enable mic
       case 'response.done':
         setIsabelaSpeaking(false);
         setIsabelaThinking(false);
+        // Re-enable mic so user can speak
+        if (micStreamRef.current) {
+          micStreamRef.current.getAudioTracks().forEach(t => { t.enabled = true; });
+        }
 
         // If session is ending, go to feedback after closing line
         if (sessionEndingRef.current && !closingLinePlayedRef.current) {
@@ -364,11 +381,14 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
         }
         break;
 
-      // User started speaking
+      // User started speaking — re-enable mic
       case 'input_audio_buffer.speech_started':
         setLiveUserTranscript('...');
         userStreamRef.current = '';
-        // Interrupt Isabela if she's speaking
+        // Re-enable mic track
+        if (micStreamRef.current) {
+          micStreamRef.current.getAudioTracks().forEach(t => { t.enabled = true; });
+        }
         setIsabelaSpeaking(false);
         setLiveIsabelaText('');
         isabelaStreamRef.current = '';
@@ -707,7 +727,7 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
       </div>
 
       {/* Messages */}
-      <div style={styles.messages}>
+      <div ref={messagesContainerRef} style={styles.messages}>
 
         {connectionStatus === 'connecting' && (
           <div style={{ textAlign: 'center', padding: '32px 0', color: '#94a3b8' }}>
