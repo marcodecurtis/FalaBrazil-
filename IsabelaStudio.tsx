@@ -61,6 +61,8 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
   const [isMuted, setIsMuted] = useState(false);
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
   const defaultVolume = isMobile ? 0.5 : 1.0;
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
+  const addLog = (msg: string) => setDebugLogs(prev => [`${new Date().toISOString().slice(11,19)} ${msg}`, ...prev].slice(0, 20));
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
 
   // Timer
@@ -271,26 +273,30 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
 
       pc.ontrack = (e) => {
         audioEl.srcObject = e.streams[0];
+        addLog(`🎵 ontrack fired, streams: ${e.streams.length}`);
 
-        // Use the pre-unlocked AudioContext from handleStart
-        // Creating a new one here would fail on iOS (not inside user gesture)
         try {
           const ctx = audioCtxRef.current;
+          addLog(`🔊 AudioContext: ${ctx ? ctx.state : 'NULL'}`);
           if (ctx) {
-            if (ctx.state === 'suspended') ctx.resume();
+            if (ctx.state === 'suspended') {
+              ctx.resume();
+              addLog('▶️ AudioContext resumed');
+            }
             const source = ctx.createMediaStreamSource(e.streams[0]);
             const gain = ctx.createGain();
             gain.gain.value = defaultVolume;
             source.connect(gain);
             gain.connect(ctx.destination);
             gainNodeRef.current = gain;
-            // Don't set srcObject — we're routing through AudioContext directly
             audioEl.srcObject = null;
+            addLog(`✅ GainNode set to ${defaultVolume} (mobile: ${isMobile})`);
           } else {
             audioEl.volume = defaultVolume;
+            addLog(`⚠️ No AudioContext — set volume to ${defaultVolume}`);
           }
-        } catch (err) {
-          console.warn('GainNode setup failed:', err);
+        } catch (err: any) {
+          addLog(`❌ GainNode error: ${err.message}`);
           audioEl.volume = defaultVolume;
         }
       };
@@ -478,18 +484,17 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
   // ── Start session ─────────────────────────────────────────────
   const handleStart = async () => {
     // Create and unlock AudioContext during user gesture — iOS requires this
-    // Must happen here (inside tap handler), not later in ontrack
     try {
       const ctx = new AudioContext();
-      // Play silent buffer to unlock audio on iOS
       const buf = ctx.createBuffer(1, 1, 22050);
       const src = ctx.createBufferSource();
       src.buffer = buf;
       src.connect(ctx.destination);
       src.start(0);
       audioCtxRef.current = ctx;
-    } catch(e) {
-      console.warn('AudioContext init failed:', e);
+      addLog(`✅ AudioContext created: ${ctx.state}`);
+    } catch(e: any) {
+      addLog(`❌ AudioContext failed: ${e.message}`);
     }
     setScreen('conversation');
     setDisplayMessages([]);
@@ -891,6 +896,17 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
         )}
 
         <div ref={messagesEndRef} />
+      </div>
+
+      {/* Debug panel — remove after debugging */}
+      <div style={{ background: '#0f172a', padding: '8px 12px', maxHeight: 140, overflowY: 'auto' as const, flexShrink: 0 }}>
+        <div style={{ fontSize: '0.65rem', color: '#4ade80', fontWeight: 700, marginBottom: 4 }}>
+          DEBUG — isMobile: {String(isMobile)} | defaultVol: {defaultVolume}
+        </div>
+        {debugLogs.map((log, i) => (
+          <div key={i} style={{ fontSize: '0.6rem', color: '#94a3b8', lineHeight: 1.4 }}>{log}</div>
+        ))}
+        {debugLogs.length === 0 && <div style={{ fontSize: '0.6rem', color: '#475569' }}>No logs yet...</div>}
       </div>
 
       {/* Status bar */}
