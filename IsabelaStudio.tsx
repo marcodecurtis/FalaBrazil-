@@ -59,6 +59,8 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
   const [isabelaSpeaking, setIsabelaSpeaking] = useState(false);
   const [isabelaThinking, setIsabelaThinking] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  const defaultVolume = isMobile ? 0.5 : 1.0;
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
 
   // Timer
@@ -95,16 +97,25 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
   useEffect(() => { displayMessagesRef.current = displayMessages; }, [displayMessages]);
   useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
 
-  // Only auto-scroll if user is already near the bottom
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
+  const userScrolledUpRef = useRef(false);
+
+  // Track if user has scrolled up manually
   useEffect(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
-    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
-    // Only auto-scroll if within 100px of bottom — don't fight the user scrolling up
-    if (distanceFromBottom < 100) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
+    const handleScroll = () => {
+      const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+      userScrolledUpRef.current = distanceFromBottom > 80;
+    };
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [screen]);
+
+  // Only auto-scroll if user hasn't scrolled up
+  useEffect(() => {
+    if (userScrolledUpRef.current) return;
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [displayMessages, liveUserTranscript, liveIsabelaText, isabelaThinking]);
 
   useEffect(() => {
@@ -132,19 +143,27 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
 
   const handleTimerEnd = () => {
     sessionEndingRef.current = true;
-    // Send a system nudge to Isabela to wrap up
-    sendDataChannelMessage({
-      type: 'conversation.item.create',
-      item: {
-        type: 'message',
-        role: 'user',
-        content: [{
-          type: 'input_text',
-          text: '[SYSTEM: The 3-minute session is ending. Say a warm goodbye in 2 sentences, tell the student they did great, and wish them good luck with their Portuguese practice. Then stop.]'
-        }]
-      }
-    });
-    sendDataChannelMessage({ type: 'response.create' });
+    // Don't interrupt if Isabela is mid-sentence
+    // The goodbye will be triggered in response.done once she finishes
+  };
+
+  const sendGoodbye = () => {
+    // Cancel any ongoing response first
+    sendDataChannelMessage({ type: 'response.cancel' });
+    setTimeout(() => {
+      sendDataChannelMessage({
+        type: 'conversation.item.create',
+        item: {
+          type: 'message',
+          role: 'user',
+          content: [{
+            type: 'input_text',
+            text: '[SYSTEM: The 3-minute session has ended. Say a warm, natural goodbye in 2 short sentences. Tell the student they did really well today. Do not ask any more questions.]'
+          }]
+        }
+      });
+      sendDataChannelMessage({ type: 'response.create' });
+    }, 300);
   };
 
   const formatTime = (s: number) => {
@@ -250,6 +269,8 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
 
       pc.ontrack = (e) => {
         audioEl.srcObject = e.streams[0];
+        // On mobile, start at 50% volume to prevent mic echo from speaker bleed
+        audioEl.volume = defaultVolume;
       };
 
       // Add mic track
@@ -322,18 +343,14 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
   const handleRealtimeEvent = (event: any) => {
     switch (event.type) {
 
-      // Isabela starts speaking — mute mic to prevent echo
+      // Isabela starts speaking
       case 'response.audio.delta':
         setIsabelaThinking(false);
         setIsabelaSpeaking(true);
-        // Disable mic track while Isabela speaks — stops her voice being picked up
-        if (micStreamRef.current) {
-          micStreamRef.current.getAudioTracks().forEach(t => { t.enabled = false; });
-        }
         if (isMutedRef.current && audioElRef.current) {
           audioElRef.current.volume = 0;
         } else if (audioElRef.current) {
-          audioElRef.current.volume = 1;
+          audioElRef.current.volume = defaultVolume;
         }
         break;
 
@@ -372,12 +389,25 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
           micStreamRef.current.getAudioTracks().forEach(t => { t.enabled = true; });
         }
 
-        // If session is ending, go to feedback after closing line
-        if (sessionEndingRef.current && !closingLinePlayedRef.current) {
-          closingLinePlayedRef.current = true;
-          setTimeout(() => {
-            generateFeedback();
-          }, 2000);
+        if (sessionEndingRef.current) {
+          if (!closingLinePlayedRef.current) {
+            // Isabela just finished her current sentence — now send goodbye
+            closingLinePlayedRef.current = true;
+            sendGoodbye();
+          } else {
+            // Goodbye text is done — but audio may still be playing
+            // Wait for audio element to actually finish before going to feedback
+            const audioEl = audioElRef.current;
+            if (audioEl && !audioEl.paused) {
+              // Audio still playing — wait for it to end
+              audioEl.addEventListener('ended', () => {
+                setTimeout(() => generateFeedback(), 800);
+              }, { once: true });
+            } else {
+              // Audio already done or not playing — safe to go
+              setTimeout(() => generateFeedback(), 800);
+            }
+          }
         }
         break;
 
@@ -416,9 +446,12 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
         break;
       }
 
-      // Isabela is generating a response
+      // Isabela is generating a response — mute mic immediately
       case 'response.created':
         setIsabelaThinking(true);
+        if (micStreamRef.current) {
+          micStreamRef.current.getAudioTracks().forEach(t => { t.enabled = false; });
+        }
         break;
 
       case 'error':
@@ -488,7 +521,7 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
     setIsMuted(m => {
       const nowMuted = !m;
       if (audioElRef.current) {
-        audioElRef.current.volume = nowMuted ? 0 : 1;
+        audioElRef.current.volume = nowMuted ? 0 : defaultVolume;
       }
       return nowMuted;
     });
@@ -559,6 +592,14 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
           <p style={{ color: '#64748b', fontSize: '0.9rem', margin: 0 }}>
             Say something in Portuguese — or anything — to test your microphone.
           </p>
+        </div>
+
+        {/* Earphones notice */}
+        <div style={{ background: '#fef9c3', borderRadius: 12, padding: '12px 16px', marginBottom: 16, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+          <span style={{ fontSize: '1.2rem' }}>🎧</span>
+          <div style={{ fontSize: '0.82rem', color: '#854d0e', lineHeight: 1.6 }}>
+            <strong>Use earphones for best results.</strong> Without them, Isabela's voice may be picked up by the mic and appear as random words.
+          </div>
         </div>
 
         {micStatus === 'requesting' && (
@@ -721,7 +762,7 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
             onClick={handleMuteToggle}
             style={{ background: isMuted ? '#fee2e2' : '#f1f5f9', border: 'none', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: '0.9rem' }}
           >
-            {isMuted ? '🔇' : '🔊'}
+            {isMuted ? '🔇' : isMobile ? '🔉' : '🔊'}
           </button>
         </div>
       </div>
@@ -843,6 +884,18 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
               : '🎙️ Listening — just speak naturally'}
           </div>
         )}
+        {/* End button always visible at bottom — no need to scroll up */}
+        <button
+          onClick={handleReset}
+          style={{
+            marginTop: 10, background: 'none', border: '1px solid #e2e8f0',
+            borderRadius: 20, padding: '6px 18px', color: '#94a3b8',
+            fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer',
+            fontFamily: 'inherit',
+          }}
+        >
+          ✕ End session
+        </button>
       </div>
 
       <style>{`
@@ -913,6 +966,7 @@ const styles = {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
     padding: '10px 16px', borderBottom: '1px solid #f1f5f9',
     background: 'white', flexShrink: 0,
+    position: 'sticky' as const, top: 0, zIndex: 10,
   } as React.CSSProperties,
 
   messages: {
