@@ -236,6 +236,8 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
       const data = JSON.parse(event.data);
 
       if (data.type === 'Results' && data.channel?.alternatives?.[0]) {
+        // Ignore transcripts while Isabela is speaking
+        if (isabelaSpeakingRef.current) return;
         const text = data.channel.alternatives[0].transcript;
         const isFinal = data.is_final;
 
@@ -253,6 +255,8 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
 
       // UtteranceEnd fires after silence — send full accumulated transcript
       if (data.type === 'UtteranceEnd') {
+        // Ignore if Isabela is currently speaking
+        if (isabelaSpeakingRef.current) return;
         const buffer: string[] = (ws as any)._transcriptBuffer || [];
         const fullTranscript = buffer.join(' ').trim();
         (ws as any)._transcriptBuffer = []; // reset for next turn
@@ -264,21 +268,28 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
     };
 
     ws.onerror = (e) => console.error('Deepgram WS error:', e);
-    ws.onclose = () => console.log('Deepgram WS closed');
+    ws.onclose = (e: CloseEvent) => {
+      console.log('Deepgram WS closed — code:', e.code, 'reason:', e.reason, 'clean:', e.wasClean);
+      // Code 1008 = policy violation (bad auth)
+      // Code 1011 = server error
+      // Code 1000 = normal closure
+    };
   }, []);
 
+  // Instead of pausing MediaRecorder (unreliable), use a flag to ignore
+  // audio while Isabela is speaking. MediaRecorder keeps running continuously.
+  const isabelaSpeakingRef = useRef(false);
+
   const pauseDeepgram = () => {
-    const ws = deepgramWsRef.current as any;
-    if (ws?._recorder && ws._recorder.state === 'recording') {
-      ws._recorder.pause();
-    }
+    isabelaSpeakingRef.current = true; // ignore transcripts while Isabela speaks
   };
 
   const resumeDeepgram = () => {
+    isabelaSpeakingRef.current = false; // start processing transcripts again
+    // Also reset the transcript buffer so old audio doesn't leak through
     const ws = deepgramWsRef.current as any;
-    if (ws?._recorder && ws._recorder.state === 'paused') {
-      ws._recorder.resume();
-    }
+    if (ws) ws._transcriptBuffer = [];
+    setLiveTranscript('');
   };
 
   // ── TTS ────────────────────────────────────────────────────────
