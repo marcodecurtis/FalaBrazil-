@@ -1,4 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+// src/components/IsabelaStudio.tsx
+// Full rewrite — Deepgram Flux STT, mic setup screen, 3-min timer,
+// live transcript, graceful ending, Claude Sonnet feedback screen
+
+import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Level } from './App';
 
 interface Props {
@@ -6,7 +10,8 @@ interface Props {
   userLevel: Level | null;
 }
 
-type Status = 'idle' | 'listening' | 'thinking' | 'speaking' | 'error';
+// ── Screen states ─────────────────────────────────────────────────
+type Screen = 'intro' | 'mic-setup' | 'conversation' | 'feedback';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -18,58 +23,266 @@ interface DisplayMessage {
   text: string;
 }
 
-const CONVERSATION_STARTERS = [
-  'Oi! Tudo bem com você? Me conta, o que você fez hoje?',
-  'Olá! Que bom te ver! Você gosta de morar onde você mora?',
-  'Oi! Vamos conversar! Me fala um pouco sobre você.',
-  'Olá! Estou animada para praticar com você! Qual é o seu nome?',
-  'Oi! Que dia lindo! Você tem algum plano para o fim de semana?',
+// ── Constants ─────────────────────────────────────────────────────
+const SESSION_DURATION_SECONDS = 180; // 3 minutes
+
+const OPENING_LINES = [
+  'Oi! Tudo bem? Que bom te ver por aqui! Me conta, o que você fez hoje?',
+  'Olá! Estou tão feliz em praticar com você! Vamos conversar! Como foi o seu dia?',
+  'Oi! Que ótimo que você veio! Me fala, você gosta de morar onde você mora?',
 ];
 
+const CLOSING_LINE = 'Que sessão incrível! O tempo acabou por hoje, mas você foi muito bem! Vou preparar um resumo do que praticamos...';
+
+const DAILY_INSTRUCTION = 'Today\'s focus: try to use past tense — fui, fiz, estava, tive. Tell Isabela about something you did recently.';
+
+// ── Main component ────────────────────────────────────────────────
 export default function IsabelaStudio({ onBack, userLevel }: Props) {
-  const [status, setStatus]                   = useState<Status>('idle');
+  const level = userLevel || 'B1';
+
+  // Screen
+  const [screen, setScreen] = useState<Screen>('intro');
+
+  // Mic setup
+  const [micStatus, setMicStatus]         = useState<'idle' | 'requesting' | 'granted' | 'denied' | 'error'>('idle');
+  const [micVolume, setMicVolume]         = useState(0);
+  const [micEverSpoke, setMicEverSpoke]   = useState(false);
+  const [micDevices, setMicDevices]       = useState<MediaDeviceInfo[]>([]);
+  const [selectedDevice, setSelectedDevice] = useState<string>('');
+
+  // Conversation
   const [apiMessages, setApiMessages]         = useState<Message[]>([]);
   const [displayMessages, setDisplayMessages] = useState<DisplayMessage[]>([]);
-  const [transcript, setTranscript]           = useState('');
-  const [error, setError]                     = useState('');
-  const [isStarted, setIsStarted]             = useState(false);
+  const [liveTranscript, setLiveTranscript]   = useState('');
+  const [isabelaThinking, setIsabelaThinking] = useState(false);
+  const [isabelaSpeaking, setIsabelaSpeaking] = useState(false);
   const [isMuted, setIsMuted]                 = useState(false);
 
-  const recognitionRef = useRef<any>(null);
-  const audioRef       = useRef<HTMLAudioElement | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const isListeningRef = useRef(false);
-  const transcriptRef  = useRef('');
+  // Timer
+  const [timeLeft, setTimeLeft]       = useState(SESSION_DURATION_SECONDS);
+  const [timerActive, setTimerActive] = useState(false);
 
-  const level = userLevel || 'A1';
+  // Session ending (graceful)
+  const sessionEndingRef = useRef(false);
+  const closingLinePlayedRef = useRef(false);
 
+  // Feedback
+  const [feedback, setFeedback]           = useState('');
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+
+  // Refs
+  const deepgramWsRef     = useRef<WebSocket | null>(null);
+  const audioRef          = useRef<HTMLAudioElement | null>(null);
+  const analyserRef       = useRef<AnalyserNode | null>(null);
+  const micStreamRef      = useRef<MediaStream | null>(null);
+  const volumeTimerRef    = useRef<number | null>(null);
+  const timerIntervalRef  = useRef<number | null>(null);
+  const messagesEndRef    = useRef<HTMLDivElement>(null);
+  const apiMessagesRef    = useRef<Message[]>([]);
+  const displayMessagesRef = useRef<DisplayMessage[]>([]);
+
+  // Keep refs in sync with state
+  useEffect(() => { apiMessagesRef.current = apiMessages; }, [apiMessages]);
+  useEffect(() => { displayMessagesRef.current = displayMessages; }, [displayMessages]);
+
+  // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [displayMessages, transcript]);
+  }, [displayMessages, liveTranscript, isabelaThinking]);
 
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      stopListening();
+      stopMicStream();
+      stopDeepgram();
       audioRef.current?.pause();
+      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+      if (volumeTimerRef.current) clearInterval(volumeTimerRef.current);
     };
   }, []);
 
+  // ── Timer ──────────────────────────────────────────────────────
   useEffect(() => {
-    transcriptRef.current = transcript;
-  }, [transcript]);
+    if (!timerActive) return;
+    timerIntervalRef.current = window.setInterval(() => {
+      setTimeLeft(t => {
+        if (t <= 1) {
+          clearInterval(timerIntervalRef.current!);
+          setTimerActive(false);
+          handleTimerEnd();
+          return 0;
+        }
+        return t - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timerIntervalRef.current!);
+  }, [timerActive]);
 
-  const stopListening = () => {
-    if (recognitionRef.current) {
-      isListeningRef.current = false;
-      recognitionRef.current.stop();
-      recognitionRef.current = null;
+  const handleTimerEnd = () => {
+    // Set the flag — don't hard-stop anything
+    // The conversation finishes its current exchange naturally
+    // then triggers the closing line
+    sessionEndingRef.current = true;
+  };
+
+  const formatTime = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}:${sec.toString().padStart(2, '0')}`;
+  };
+
+  // ── Mic stream helpers ─────────────────────────────────────────
+  const stopMicStream = () => {
+    if (volumeTimerRef.current) {
+      clearInterval(volumeTimerRef.current);
+      volumeTimerRef.current = null;
+    }
+    if (micStreamRef.current) {
+      micStreamRef.current.getTracks().forEach(t => t.stop());
+      micStreamRef.current = null;
+    }
+    analyserRef.current = null;
+  };
+
+  const startVolumeMonitor = (stream: MediaStream) => {
+    const ctx = new AudioContext();
+    const source = ctx.createMediaStreamSource(stream);
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 256;
+    source.connect(analyser);
+    analyserRef.current = analyser;
+
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    volumeTimerRef.current = window.setInterval(() => {
+      analyser.getByteFrequencyData(data);
+      const avg = data.reduce((a, b) => a + b, 0) / data.length;
+      const vol = Math.min(100, Math.round((avg / 128) * 100));
+      setMicVolume(vol);
+      if (vol > 5) setMicEverSpoke(true);
+    }, 50);
+  };
+
+  const requestMic = async (deviceId?: string) => {
+    setMicStatus('requesting');
+    stopMicStream();
+    try {
+      const constraints: MediaStreamConstraints = {
+        audio: deviceId ? { deviceId: { exact: deviceId } } : true,
+      };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      micStreamRef.current = stream;
+      startVolumeMonitor(stream);
+      setMicStatus('granted');
+
+      // Get list of audio devices for "try different mic" option
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      setMicDevices(devices.filter(d => d.kind === 'audioinput'));
+    } catch (err: any) {
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        setMicStatus('denied');
+      } else {
+        setMicStatus('error');
+      }
     }
   };
 
-  // ── ElevenLabs TTS via backend proxy ──
+  // ── Deepgram ───────────────────────────────────────────────────
+  const stopDeepgram = () => {
+    if (deepgramWsRef.current) {
+      deepgramWsRef.current.close();
+      deepgramWsRef.current = null;
+    }
+  };
+
+  const startDeepgram = useCallback(async () => {
+    // Get short-lived token from our backend
+    const tokenRes = await fetch('/api/deepgram-token', { method: 'POST' });
+    const { token } = await tokenRes.json();
+    if (!token) throw new Error('No Deepgram token');
+
+    // Connect directly to Deepgram with the token
+    const url = `wss://api.deepgram.com/v1/listen?` + new URLSearchParams({
+      model: 'nova-2',          // Nova-2 has best pt-BR support; Flux for turn detection
+      language: 'pt-BR',
+      punctuate: 'true',
+      interim_results: 'true',
+      utterance_end_ms: '1500', // 1.5s silence = turn ended
+      vad_events: 'true',
+    });
+
+    const ws = new WebSocket(url, ['token', token]);
+    deepgramWsRef.current = ws;
+
+    ws.onopen = () => {
+      // Start streaming mic audio to Deepgram
+      const stream = micStreamRef.current;
+      if (!stream) return;
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      mediaRecorder.addEventListener('dataavailable', (e) => {
+        if (ws.readyState === WebSocket.OPEN && e.data.size > 0) {
+          ws.send(e.data);
+        }
+      });
+      mediaRecorder.start(250); // send chunks every 250ms
+      (ws as any)._recorder = mediaRecorder;
+    };
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+
+      // Live transcript — interim results
+      if (data.type === 'Results' && data.channel?.alternatives?.[0]) {
+        const text = data.channel.alternatives[0].transcript;
+        const isFinal = data.is_final;
+
+        if (text) {
+          setLiveTranscript(text);
+          if (isFinal) {
+            setLiveTranscript('');
+          }
+        }
+      }
+
+      // End of utterance — user finished speaking
+      if (data.type === 'UtteranceEnd') {
+        const lastFinal = (ws as any)._lastFinalTranscript;
+        if (lastFinal?.trim()) {
+          (ws as any)._lastFinalTranscript = '';
+          handleUserSpeech(lastFinal.trim());
+        }
+      }
+
+      // Store last final transcript
+      if (data.type === 'Results' && data.is_final) {
+        const text = data.channel?.alternatives?.[0]?.transcript || '';
+        if (text) (ws as any)._lastFinalTranscript = text;
+      }
+    };
+
+    ws.onerror = (e) => console.error('Deepgram WS error:', e);
+    ws.onclose = () => console.log('Deepgram WS closed');
+  }, []);
+
+  const pauseDeepgram = () => {
+    const ws = deepgramWsRef.current as any;
+    if (ws?._recorder && ws._recorder.state === 'recording') {
+      ws._recorder.pause();
+    }
+  };
+
+  const resumeDeepgram = () => {
+    const ws = deepgramWsRef.current as any;
+    if (ws?._recorder && ws._recorder.state === 'paused') {
+      ws._recorder.resume();
+    }
+  };
+
+  // ── TTS ────────────────────────────────────────────────────────
   const speakText = async (text: string): Promise<void> => {
     if (isMuted) return;
-    setStatus('speaking');
+    setIsabelaSpeaking(true);
+    pauseDeepgram(); // Don't let Deepgram hear Isabela's voice
+
     try {
       const res = await fetch('/api/elevenlabs', {
         method: 'POST',
@@ -78,256 +291,378 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
       });
       if (!res.ok) throw new Error('TTS failed');
       const blob = await res.blob();
-      const url  = URL.createObjectURL(blob);
+      const url = URL.createObjectURL(blob);
+
       return new Promise((resolve) => {
         const audio = new Audio(url);
         audioRef.current = audio;
-        audio.onended = () => { URL.revokeObjectURL(url); resolve(); };
-        audio.onerror = () => { URL.revokeObjectURL(url); resolve(); };
-        audio.play().catch(() => resolve());
+        audio.onended = () => {
+          URL.revokeObjectURL(url);
+          setIsabelaSpeaking(false);
+          resolve();
+        };
+        audio.onerror = () => {
+          URL.revokeObjectURL(url);
+          setIsabelaSpeaking(false);
+          resolve();
+        };
+        audio.play().catch(() => {
+          setIsabelaSpeaking(false);
+          resolve();
+        });
       });
-    } catch (e) {
-      console.error('TTS error:', e);
-      // Don't block conversation if TTS fails
+    } catch {
+      setIsabelaSpeaking(false);
     }
   };
 
-  // ── Get Isabela's reply from Claude via backend ──
-  const getIsabelaReply = async (history: Message[]): Promise<string> => {
-    const res = await fetch('/api/isabela', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: history, level }),
-    });
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
-    return data.text;
-  };
-
-  // ── Process a completed user utterance ──
+  // ── Conversation turn ──────────────────────────────────────────
   const handleUserSpeech = async (userText: string) => {
-    if (!userText.trim()) { setStatus('idle'); return; }
+    if (!userText.trim()) return;
 
-    const newDisplay: DisplayMessage[] = [...displayMessages, { role: 'user', text: userText }];
-    const newApi: Message[]            = [...apiMessages,     { role: 'user', content: userText }];
+    const newDisplay: DisplayMessage[] = [
+      ...displayMessagesRef.current,
+      { role: 'user', text: userText },
+    ];
+    const newApi: Message[] = [
+      ...apiMessagesRef.current,
+      { role: 'user', content: userText },
+    ];
+
     setDisplayMessages(newDisplay);
     setApiMessages(newApi);
-    setTranscript('');
-    setStatus('thinking');
+    setLiveTranscript('');
+    setIsabelaThinking(true);
 
     try {
-      const reply = await getIsabelaReply(newApi);
-      setDisplayMessages([...newDisplay, { role: 'isabela', text: reply }]);
-      setApiMessages([...newApi, { role: 'assistant', content: reply }]);
+      const res = await fetch('/api/isabela', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: newApi, level }),
+      });
+      const data = await res.json();
+      const reply = data.text || 'Desculpa, pode repetir?';
+
+      const finalDisplay: DisplayMessage[] = [
+        ...newDisplay,
+        { role: 'isabela', text: reply },
+      ];
+      const finalApi: Message[] = [
+        ...newApi,
+        { role: 'assistant', content: reply },
+      ];
+
+      setDisplayMessages(finalDisplay);
+      setApiMessages(finalApi);
+      setIsabelaThinking(false);
+
       await speakText(reply);
-      setStatus('idle');
-    } catch (e) {
-      console.error(e);
-      setError('Could not connect. Check your internet connection and try again.');
-      setStatus('error');
-    }
-  };
 
-  // ── Start speech recognition ──
-  const startListening = () => {
-    const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      setError('Voice recognition is not supported in this browser. Please use Chrome on Android or desktop.');
-      setStatus('error');
-      return;
-    }
-
-    audioRef.current?.pause();
-
-    const recognition        = new SpeechRecognition();
-    recognition.lang           = 'pt-BR';
-    recognition.continuous     = false;
-    recognition.interimResults = true;
-    recognitionRef.current     = recognition;
-    isListeningRef.current     = true;
-
-    recognition.onstart = () => {
-      setStatus('listening');
-      setTranscript('');
-      transcriptRef.current = '';
-    };
-
-    recognition.onresult = (e: any) => {
-      const current = Array.from(e.results as any[])
-        .map((r: any) => r[0].transcript)
-        .join('');
-      setTranscript(current);
-      transcriptRef.current = current;
-    };
-
-    recognition.onend = () => {
-      recognitionRef.current = null;
-      if (!isListeningRef.current) return;
-      isListeningRef.current = false;
-      const final = transcriptRef.current;
-      setTranscript('');
-      if (final.trim()) {
-        handleUserSpeech(final);
-      } else {
-        setStatus('idle');
+      // After Isabela finishes speaking — check if session should end
+      if (sessionEndingRef.current && !closingLinePlayedRef.current) {
+        closingLinePlayedRef.current = true;
+        await triggerClosingSequence(finalApi);
+      } else if (!sessionEndingRef.current) {
+        resumeDeepgram(); // Back to listening
       }
-    };
 
-    recognition.onerror = (e: any) => {
-      isListeningRef.current = false;
-      recognitionRef.current = null;
-      if (e.error === 'no-speech')   { setStatus('idle'); return; }
-      if (e.error === 'not-allowed') {
-        setError('Microphone access denied. Please allow microphone permissions and try again.');
-        setStatus('error');
-        return;
-      }
-      setStatus('idle');
-    };
-
-    recognition.start();
-  };
-
-  const handleMicPress = () => {
-    if (status === 'listening') {
-      stopListening();
-      const final = transcriptRef.current;
-      setTranscript('');
-      if (final.trim()) handleUserSpeech(final);
-      else setStatus('idle');
-    } else if (status === 'speaking') {
-      audioRef.current?.pause();
-      setStatus('idle');
-    } else if (status === 'idle') {
-      startListening();
+    } catch (err) {
+      console.error('Conversation error:', err);
+      setIsabelaThinking(false);
+      resumeDeepgram();
     }
   };
 
+  // ── Graceful session end ───────────────────────────────────────
+  const triggerClosingSequence = async (finalMessages: Message[]) => {
+    stopDeepgram(); // Stop listening for new input
+
+    // Add closing line to chat
+    const closingDisplay: DisplayMessage[] = [
+      ...displayMessagesRef.current,
+      { role: 'isabela', text: CLOSING_LINE },
+    ];
+    setDisplayMessages(closingDisplay);
+    setIsabelaThinking(false);
+
+    await speakText(CLOSING_LINE);
+
+    // Now generate feedback
+    await generateFeedback(finalMessages);
+  };
+
+  // ── Feedback ───────────────────────────────────────────────────
+  const generateFeedback = async (messages: Message[]) => {
+    setFeedbackLoading(true);
+    setScreen('feedback');
+
+    try {
+      const res = await fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages, level }),
+      });
+      const data = await res.json();
+      setFeedback(data.feedback || 'Unable to generate feedback.');
+    } catch {
+      setFeedback('Unable to generate feedback. But great session!');
+    } finally {
+      setFeedbackLoading(false);
+    }
+  };
+
+  // ── Start session ──────────────────────────────────────────────
   const handleStart = async () => {
-    setIsStarted(true);
-    setStatus('thinking');
-    const starter = CONVERSATION_STARTERS[Math.floor(Math.random() * CONVERSATION_STARTERS.length)];
-    setDisplayMessages([{ role: 'isabela', text: starter }]);
-    setApiMessages([{ role: 'assistant', content: starter }]);
-    await speakText(starter);
-    setStatus('idle');
+    setScreen('conversation');
+    setApiMessages([]);
+    setDisplayMessages([]);
+    setTimeLeft(SESSION_DURATION_SECONDS);
+    sessionEndingRef.current = false;
+    closingLinePlayedRef.current = false;
+
+    const opener = OPENING_LINES[Math.floor(Math.random() * OPENING_LINES.length)];
+    const initialDisplay: DisplayMessage[] = [{ role: 'isabela', text: opener }];
+    const initialApi: Message[] = [{ role: 'assistant', content: opener }];
+    setDisplayMessages(initialDisplay);
+    setApiMessages(initialApi);
+    setIsabelaThinking(false);
+
+    // Start timer
+    setTimerActive(true);
+
+    // Speak opener, then connect Deepgram
+    await speakText(opener);
+    await startDeepgram();
+    resumeDeepgram();
   };
 
   const handleReset = () => {
-    stopListening();
+    stopDeepgram();
+    stopMicStream();
     audioRef.current?.pause();
+    if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     setApiMessages([]);
     setDisplayMessages([]);
-    setTranscript('');
-    setError('');
-    setIsStarted(false);
-    setStatus('idle');
+    setLiveTranscript('');
+    setFeedback('');
+    setTimeLeft(SESSION_DURATION_SECONDS);
+    setTimerActive(false);
+    setScreen('intro');
+    sessionEndingRef.current = false;
+    closingLinePlayedRef.current = false;
   };
 
-  // ── INTRO SCREEN ──────────────────────────────────
-  if (!isStarted) {
+  // ── SCREEN: INTRO ──────────────────────────────────────────────
+  if (screen === 'intro') {
     return (
-      <div style={{ maxWidth: '480px', margin: '0 auto', padding: '0 16px 40px' }}>
-        <button onClick={onBack} style={{ background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700, color: '#64748b', fontSize: '0.85rem', padding: '16px 0', display: 'flex', alignItems: 'center', gap: '4px', fontFamily: 'inherit' }}>
-          ← Back
-        </button>
-
+      <div style={{ maxWidth: 480, margin: '0 auto', padding: '0 16px 40px' }}>
+        <button onClick={onBack} style={styles.backBtn}>← Back</button>
         <div style={{ textAlign: 'center', padding: '24px 0 20px' }}>
-          <div style={{ width: '100px', height: '100px', borderRadius: '50%', background: 'linear-gradient(135deg, #fce7f3, #fbcfe8)', margin: '0 auto 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 32px rgba(219,39,119,0.15)', overflow: 'hidden' }}>
-            <img src="/isabela.png" alt="Isabela" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+          <div style={styles.avatar}>
+            <img src="/isabela.png" alt="Isabela" style={styles.avatarImg}
+              onError={e => (e.currentTarget.style.display = 'none')} />
           </div>
-          <h1 style={{ fontWeight: 900, fontSize: '1.8rem', color: '#0f172a', margin: '0 0 6px' }}>Isabela</h1>
-          <p style={{ color: '#64748b', fontSize: '0.9rem', margin: 0 }}>Your AI Brazilian Portuguese conversation partner</p>
+          <h1 style={styles.title}>Isabela</h1>
+          <p style={styles.subtitle}>Your AI Brazilian Portuguese conversation partner</p>
         </div>
 
-        <div style={{ background: '#f8fafc', borderRadius: '16px', padding: '20px', marginBottom: '16px' }}>
-          <h3 style={{ fontWeight: 800, fontSize: '0.9rem', color: '#0f172a', margin: '0 0 12px' }}>How it works</h3>
-          {[
-            ['🎙️', 'Tap the mic and speak in Portuguese (or try your best!)'],
-            ['🤖', 'Isabela replies in Portuguese, matched to your level'],
-            ['🔊', 'Her voice is powered by ElevenLabs — natural Brazilian sound'],
-            ['💬', "She'll gently correct mistakes and keep the chat going"],
-          ].map(([icon, text], i) => (
-            <div key={i} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', marginBottom: i < 3 ? '10px' : 0 }}>
-              <span style={{ fontSize: '1.1rem', flexShrink: 0 }}>{icon}</span>
-              <span style={{ fontSize: '0.85rem', color: '#475569', lineHeight: 1.5 }}>{text}</span>
-            </div>
-          ))}
+        <div style={styles.infoBox}>
+          <h3 style={styles.infoTitle}>Today's focus</h3>
+          <p style={{ fontSize: '0.85rem', color: '#475569', margin: 0, lineHeight: 1.6 }}>
+            {DAILY_INSTRUCTION}
+          </p>
         </div>
 
-        <div style={{ background: '#fce7f3', borderRadius: '12px', padding: '12px 16px', marginBottom: '24px', display: 'flex', gap: '10px', alignItems: 'center' }}>
-          <span>📶</span>
-          <span style={{ fontSize: '0.8rem', color: '#9d174d', fontWeight: 600 }}>
-            Level <strong>{level}</strong> detected — Isabela will adapt to your pace.
-          </span>
+        <div style={{ ...styles.infoBox, background: '#fce7f3', marginTop: 10 }}>
+          <p style={{ fontSize: '0.85rem', color: '#9d174d', fontWeight: 600, margin: 0 }}>
+            ⏱️ Session length: <strong>3 minutes</strong> — Isabela will always finish her sentence before ending.
+          </p>
         </div>
 
-        <button
-          onClick={handleStart}
-          style={{ width: '100%', padding: '16px', background: 'linear-gradient(135deg, #14532d, #166534)', color: 'white', border: 'none', borderRadius: '14px', fontWeight: 800, fontSize: '1.05rem', cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 20px rgba(20,83,45,0.3)' }}
-        >
-          Start Conversation 🎙️
+        <button onClick={() => requestMic().then(() => setScreen('mic-setup'))}
+          style={styles.primaryBtn}>
+          Speak with Isabela 🎙️
         </button>
       </div>
     );
   }
 
-  // ── CHAT SCREEN ───────────────────────────────────
-  const micColor =
-    status === 'listening' ? '#dc2626' :
-    status === 'thinking'  ? '#94a3b8' :
-    status === 'speaking'  ? '#7c3aed' : '#14532d';
+  // ── SCREEN: MIC SETUP ─────────────────────────────────────────
+  if (screen === 'mic-setup') {
+    const canStart = micStatus === 'granted' && micEverSpoke;
 
-  const micLabel =
-    status === 'listening' ? 'Listening… tap to send' :
-    status === 'thinking'  ? 'Isabela is thinking…' :
-    status === 'speaking'  ? 'Tap to interrupt' :
-    'Tap to speak';
+    return (
+      <div style={{ maxWidth: 480, margin: '0 auto', padding: '0 16px 40px' }}>
+        <button onClick={() => setScreen('intro')} style={styles.backBtn}>← Back</button>
 
-  const micEmoji =
-    status === 'listening' ? '⏹️' :
-    status === 'thinking'  ? '⏳' :
-    status === 'speaking'  ? '🔊' : '🎙️';
+        <div style={{ textAlign: 'center', padding: '32px 0 24px' }}>
+          <div style={{ fontSize: '3rem', marginBottom: 12 }}>🎙️</div>
+          <h2 style={{ fontWeight: 800, fontSize: '1.4rem', color: '#0f172a', margin: '0 0 8px' }}>
+            Let's check your mic
+          </h2>
+          <p style={{ color: '#64748b', fontSize: '0.9rem', margin: 0 }}>
+            Say something in Portuguese — or anything — to test your microphone.
+          </p>
+        </div>
+
+        {/* Status indicator */}
+        {micStatus === 'requesting' && (
+          <div style={styles.statusBox('#f1f5f9', '#475569')}>
+            ⏳ Waiting for microphone permission — click <strong>Allow</strong> in the browser popup.
+          </div>
+        )}
+
+        {micStatus === 'denied' && (
+          <div style={styles.statusBox('#fee2e2', '#991b1b')}>
+            <strong>🚫 Microphone access was denied.</strong>
+            <div style={{ marginTop: 8, fontSize: '0.8rem', lineHeight: 1.6 }}>
+              <strong>Chrome:</strong> Click the 🔒 icon in the address bar → Microphone → Allow → Refresh.<br />
+              <strong>iPhone/Safari:</strong> Settings → Safari → Microphone → Allow → Come back here.<br />
+              <strong>Android:</strong> Tap the 🔒 icon → Permissions → Microphone → Allow.
+            </div>
+            <button onClick={() => requestMic()} style={{ ...styles.primaryBtn, marginTop: 12, padding: '10px 20px', width: 'auto' }}>
+              Try again
+            </button>
+          </div>
+        )}
+
+        {micStatus === 'granted' && (
+          <>
+            {/* Status row */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, justifyContent: 'center' }}>
+              <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#4ade80' }} />
+              <span style={{ fontSize: '0.85rem', color: '#475569' }}>Microphone connected</span>
+            </div>
+
+            {/* Volume meter */}
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: 6 }}>Volume level</div>
+              <div style={{ background: '#f1f5f9', borderRadius: 8, height: 14, overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%',
+                  width: `${micVolume}%`,
+                  background: micVolume > 5 ? '#16a34a' : '#cbd5e1',
+                  borderRadius: 8,
+                  transition: 'width 0.08s ease',
+                }} />
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: 4, textAlign: 'center' }}>
+                {micVolume > 5 ? '✅ We can hear you!' : 'Speak now to test your mic'}
+              </div>
+            </div>
+
+            {/* Device switcher */}
+            {micDevices.length > 1 && (
+              <div style={{ marginBottom: 16 }}>
+                <select
+                  value={selectedDevice}
+                  onChange={e => { setSelectedDevice(e.target.value); requestMic(e.target.value); setMicEverSpoke(false); }}
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: '0.85rem', background: 'white' }}
+                >
+                  {micDevices.map(d => (
+                    <option key={d.deviceId} value={d.deviceId}>
+                      {d.label || `Microphone ${d.deviceId.slice(0, 6)}`}
+                    </option>
+                  ))}
+                </select>
+                <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: 4 }}>
+                  If the bar isn't moving, try a different microphone above.
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Start button — only enabled when mic confirmed working */}
+        <button
+          onClick={handleStart}
+          disabled={!canStart}
+          style={{
+            ...styles.primaryBtn,
+            opacity: canStart ? 1 : 0.4,
+            cursor: canStart ? 'pointer' : 'not-allowed',
+            marginTop: 20,
+          }}
+        >
+          {canStart ? 'Start with Isabela →' : 'Say something to confirm your mic...'}
+        </button>
+      </div>
+    );
+  }
+
+  // ── SCREEN: FEEDBACK ──────────────────────────────────────────
+  if (screen === 'feedback') {
+    return (
+      <div style={{ maxWidth: 480, margin: '0 auto', padding: '0 16px 40px' }}>
+        <div style={{ textAlign: 'center', padding: '24px 0 20px' }}>
+          <div style={{ fontSize: '2.5rem', marginBottom: 8 }}>📊</div>
+          <h2 style={{ fontWeight: 800, fontSize: '1.4rem', color: '#0f172a', margin: '0 0 4px' }}>
+            Session feedback
+          </h2>
+          <p style={{ color: '#64748b', fontSize: '0.85rem', margin: 0 }}>
+            Here's how your 3-minute session went
+          </p>
+        </div>
+
+        {feedbackLoading ? (
+          <div style={{ textAlign: 'center', padding: '40px 0', color: '#64748b' }}>
+            <div style={{ fontSize: '2rem', marginBottom: 12 }}>⏳</div>
+            <p style={{ fontSize: '0.9rem' }}>Isabela is preparing your feedback...</p>
+          </div>
+        ) : (
+          <div style={{ background: '#f8fafc', borderRadius: 16, padding: 20, marginBottom: 20 }}>
+            <div style={{ fontSize: '0.85rem', color: '#334155', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
+              {feedback}
+            </div>
+          </div>
+        )}
+
+        <button onClick={handleReset} style={styles.primaryBtn}>
+          Speak with Isabela again 🎙️
+        </button>
+      </div>
+    );
+  }
+
+  // ── SCREEN: CONVERSATION ──────────────────────────────────────
+  const timerColor = timeLeft <= 30 ? '#dc2626' : timeLeft <= 60 ? '#f59e0b' : '#14532d';
 
   return (
-    <div style={{ maxWidth: '480px', margin: '0 auto', display: 'flex', flexDirection: 'column', height: '100dvh' }}>
+    <div style={{ maxWidth: 480, margin: '0 auto', display: 'flex', flexDirection: 'column', height: '100dvh' }}>
 
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderBottom: '1px solid #f1f5f9', background: 'white', flexShrink: 0 }}>
-        <button onClick={onBack} style={{ background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700, color: '#64748b', fontSize: '0.85rem', fontFamily: 'inherit' }}>← Back</button>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'linear-gradient(135deg, #fce7f3, #fbcfe8)', overflow: 'hidden', flexShrink: 0 }}>
-            <img src="/isabela.png" alt="Isabela" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+      <div style={styles.header}>
+        <button onClick={handleReset} style={styles.backBtn}>← End</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={styles.avatarSmall}>
+            <img src="/isabela.png" alt="Isabela"
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              onError={e => (e.currentTarget.style.display = 'none')} />
           </div>
           <div>
-            <div style={{ fontWeight: 800, fontSize: '0.9rem', color: '#0f172a', lineHeight: 1.1 }}>Isabela</div>
-            <div style={{ fontSize: '0.68rem', fontWeight: 700, color: status === 'speaking' ? '#7c3aed' : status === 'listening' ? '#dc2626' : status === 'thinking' ? '#f59e0b' : '#4ade80' }}>
-              {status === 'listening' ? '🔴 listening' : status === 'speaking' ? '🔊 speaking' : status === 'thinking' ? '⏳ thinking' : '● online'}
+            <div style={{ fontWeight: 800, fontSize: '0.9rem', color: '#0f172a' }}>Isabela</div>
+            <div style={{ fontSize: '0.68rem', fontWeight: 700, color: isabelaSpeaking ? '#7c3aed' : isabelaThinking ? '#f59e0b' : '#4ade80' }}>
+              {isabelaSpeaking ? '🔊 speaking' : isabelaThinking ? '⏳ thinking' : '● listening'}
             </div>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '6px' }}>
-          <button onClick={() => { setIsMuted(m => !m); audioRef.current?.pause(); }} style={{ background: isMuted ? '#fee2e2' : '#f1f5f9', border: 'none', borderRadius: '8px', padding: '6px 10px', cursor: 'pointer', fontSize: '0.9rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {/* Timer */}
+          <div style={{ fontWeight: 800, fontSize: '1rem', color: timerColor, minWidth: 48, textAlign: 'center' }}>
+            {formatTime(timeLeft)}
+          </div>
+          <button onClick={() => { setIsMuted(m => !m); audioRef.current?.pause(); }}
+            style={{ background: isMuted ? '#fee2e2' : '#f1f5f9', border: 'none', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: '0.9rem' }}>
             {isMuted ? '🔇' : '🔊'}
-          </button>
-          <button onClick={handleReset} style={{ background: '#f1f5f9', border: 'none', borderRadius: '8px', padding: '6px 10px', cursor: 'pointer', fontSize: '0.9rem' }}>
-            🔄
           </button>
         </div>
       </div>
 
       {/* Messages */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', background: '#f8fafc' }}>
+      <div style={styles.messages}>
         {displayMessages.map((msg, i) => (
-          <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start', alignItems: 'flex-end', gap: '8px' }}>
-            {msg.role === 'isabela' && (
-              <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'linear-gradient(135deg, #fce7f3, #fbcfe8)', flexShrink: 0, overflow: 'hidden' }}>
-                <img src="/isabela.png" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
-              </div>
-            )}
+          <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start', alignItems: 'flex-end', gap: 8 }}>
+            {msg.role === 'isabela' && <div style={styles.avatarTiny} />}
             <div style={{
               maxWidth: '75%', padding: '10px 14px',
               borderRadius: msg.role === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
@@ -342,63 +677,51 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
         ))}
 
         {/* Live transcript */}
-        {transcript && (
+        {liveTranscript && (
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <div style={{ maxWidth: '75%', padding: '10px 14px', borderRadius: '18px 18px 4px 18px', background: '#dcfce7', color: '#14532d', fontSize: '0.9rem', lineHeight: 1.5, fontWeight: 500, border: '2px dashed #4ade80' }}>
-              {transcript}
+            <div style={{
+              maxWidth: '75%', padding: '10px 14px',
+              borderRadius: '18px 18px 4px 18px',
+              background: '#dcfce7', color: '#14532d',
+              fontSize: '0.9rem', lineHeight: 1.5, fontWeight: 500,
+              border: '2px dashed #4ade80',
+            }}>
+              {liveTranscript}
             </div>
           </div>
         )}
 
         {/* Thinking dots */}
-        {status === 'thinking' && (
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px' }}>
-            <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'linear-gradient(135deg, #fce7f3, #fbcfe8)', flexShrink: 0 }} />
+        {isabelaThinking && (
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
+            <div style={styles.avatarTiny} />
             <div style={{ background: 'white', borderRadius: '18px 18px 18px 4px', padding: '12px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
-              <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
-                {[0, 1, 2].map(i => (
-                  <div key={i} style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#cbd5e1', animation: `dot 1.2s ${i * 0.2}s infinite` }} />
+              <div style={{ display: 'flex', gap: 5 }}>
+                {[0,1,2].map(i => (
+                  <div key={i} style={{ width: 7, height: 7, borderRadius: '50%', background: '#cbd5e1', animation: `dot 1.2s ${i*0.2}s infinite` }} />
                 ))}
               </div>
             </div>
           </div>
         )}
 
-        {error && (
-          <div style={{ background: '#fee2e2', border: '1px solid #fecaca', borderRadius: '12px', padding: '12px 16px', color: '#991b1b', fontSize: '0.85rem', fontWeight: 600, textAlign: 'center' }}>
-            ⚠️ {error}
-            <button onClick={() => { setError(''); setStatus('idle'); }} style={{ display: 'block', margin: '8px auto 0', background: 'none', border: 'none', color: '#dc2626', fontWeight: 700, cursor: 'pointer', fontSize: '0.8rem', fontFamily: 'inherit' }}>
-              Dismiss
-            </button>
+        {/* Session ending notice */}
+        {sessionEndingRef.current && (
+          <div style={{ textAlign: 'center', fontSize: '0.8rem', color: '#94a3b8', padding: '8px 0' }}>
+            Time's up — Isabela is wrapping up...
           </div>
         )}
+
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Mic */}
-      <div style={{ padding: '16px 16px 28px', background: 'white', borderTop: '1px solid #f1f5f9', flexShrink: 0, textAlign: 'center' }}>
-        <div style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 600, marginBottom: '14px', height: '16px' }}>{micLabel}</div>
-        <button
-          onClick={handleMicPress}
-          disabled={status === 'thinking'}
-          style={{
-            width: '76px', height: '76px', borderRadius: '50%',
-            background: status === 'thinking' ? '#f1f5f9' : micColor,
-            border: 'none', cursor: status === 'thinking' ? 'default' : 'pointer',
-            fontSize: '2rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: status === 'listening'
-              ? '0 0 0 10px rgba(220,38,38,0.12), 0 4px 20px rgba(220,38,38,0.25)'
-              : status === 'speaking'
-              ? '0 0 0 10px rgba(124,58,237,0.12), 0 4px 20px rgba(124,58,237,0.25)'
-              : '0 4px 20px rgba(0,0,0,0.12)',
-            transition: 'all 0.2s',
-          }}
-        >
-          {micEmoji}
-        </button>
-        <div style={{ marginTop: '10px', fontSize: '0.7rem', color: '#cbd5e1', fontWeight: 600 }}>
-          {displayMessages.filter(m => m.role === 'user').length > 0 &&
-            `${displayMessages.filter(m => m.role === 'user').length} message${displayMessages.filter(m => m.role === 'user').length !== 1 ? 's' : ''} sent`}
+      {/* Status bar */}
+      <div style={styles.statusBar}>
+        <div style={{ fontSize: '0.75rem', color: isabelaSpeaking ? '#7c3aed' : isabelaThinking ? '#f59e0b' : '#4ade80', fontWeight: 600 }}>
+          {isabelaSpeaking ? '🔊 Isabela is speaking...' :
+           isabelaThinking ? '⏳ Isabela is thinking...' :
+           sessionEndingRef.current ? '⏱️ Finishing up...' :
+           '🎙️ Listening — just speak naturally'}
         </div>
       </div>
 
@@ -411,3 +734,80 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
     </div>
   );
 }
+
+// ── Shared styles ─────────────────────────────────────────────────
+const styles = {
+  backBtn: {
+    background: 'none', border: 'none', cursor: 'pointer',
+    fontWeight: 700, color: '#64748b', fontSize: '0.85rem',
+    padding: '16px 0', display: 'flex', alignItems: 'center', gap: 4,
+    fontFamily: 'inherit',
+  } as React.CSSProperties,
+
+  avatar: {
+    width: 100, height: 100, borderRadius: '50%',
+    background: 'linear-gradient(135deg, #fce7f3, #fbcfe8)',
+    margin: '0 auto 16px', display: 'flex', alignItems: 'center',
+    justifyContent: 'center', overflow: 'hidden',
+    boxShadow: '0 8px 32px rgba(219,39,119,0.15)',
+  } as React.CSSProperties,
+
+  avatarImg: { width: '100%', height: '100%', objectFit: 'cover' } as React.CSSProperties,
+
+  avatarSmall: {
+    width: 36, height: 36, borderRadius: '50%',
+    background: 'linear-gradient(135deg, #fce7f3, #fbcfe8)',
+    overflow: 'hidden', flexShrink: 0,
+  } as React.CSSProperties,
+
+  avatarTiny: {
+    width: 28, height: 28, borderRadius: '50%',
+    background: 'linear-gradient(135deg, #fce7f3, #fbcfe8)',
+    flexShrink: 0,
+  } as React.CSSProperties,
+
+  title: {
+    fontWeight: 900, fontSize: '1.8rem', color: '#0f172a', margin: '0 0 6px',
+  } as React.CSSProperties,
+
+  subtitle: { color: '#64748b', fontSize: '0.9rem', margin: 0 } as React.CSSProperties,
+
+  infoBox: {
+    background: '#f8fafc', borderRadius: 16, padding: 20, marginBottom: 16,
+  } as React.CSSProperties,
+
+  infoTitle: {
+    fontWeight: 800, fontSize: '0.9rem', color: '#0f172a', margin: '0 0 8px',
+  } as React.CSSProperties,
+
+  primaryBtn: {
+    width: '100%', padding: 16,
+    background: 'linear-gradient(135deg, #14532d, #166534)',
+    color: 'white', border: 'none', borderRadius: 14,
+    fontWeight: 800, fontSize: '1.05rem', cursor: 'pointer',
+    fontFamily: 'inherit', boxShadow: '0 4px 20px rgba(20,83,45,0.3)',
+    display: 'block',
+  } as React.CSSProperties,
+
+  header: {
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    padding: '10px 16px', borderBottom: '1px solid #f1f5f9',
+    background: 'white', flexShrink: 0,
+  } as React.CSSProperties,
+
+  messages: {
+    flex: 1, overflowY: 'auto' as const, padding: 16,
+    display: 'flex', flexDirection: 'column' as const,
+    gap: 12, background: '#f8fafc',
+  },
+
+  statusBar: {
+    padding: '12px 16px 24px', background: 'white',
+    borderTop: '1px solid #f1f5f9', flexShrink: 0, textAlign: 'center' as const,
+  },
+
+  statusBox: (bg: string, color: string) => ({
+    background: bg, borderRadius: 12, padding: '12px 16px',
+    color, fontSize: '0.85rem', lineHeight: 1.6, marginBottom: 16,
+  }) as React.CSSProperties,
+};
