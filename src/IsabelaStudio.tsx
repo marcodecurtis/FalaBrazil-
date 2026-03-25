@@ -44,8 +44,6 @@ The student is at level STUDENT_LEVEL. Start by greeting them warmly and asking 
 const IS_MOBILE = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 const MAX_VOLUME = IS_MOBILE ? 0.5 : 1.0;
 
-/** Clamp any volume value to [0, MAX_VOLUME]. Every code path that touches
- *  audioEl.volume or the volume state MUST go through this. */
 function clampVolume(v: number): number {
   return Math.max(0, Math.min(MAX_VOLUME, v));
 }
@@ -73,7 +71,6 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
   const [volume, setVolume] = useState(clampVolume(IS_MOBILE ? 0.35 : 0.8));
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
 
-  // Keep a ref so closures (ontrack, event handlers) always read current volume
   const volumeRef = useRef(volume);
   useEffect(() => { volumeRef.current = volume; }, [volume]);
 
@@ -108,8 +105,6 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
   const displayMessagesRef = useRef<DisplayMessage[]>([]);
 
   // Web Audio API GainNode for REAL volume control on iOS
-  // iOS Safari ignores audioEl.volume — it's always 1.0
-  // GainNode actually attenuates the audio signal before it hits the speaker
   const gainNodeRef = useRef<GainNode | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
 
@@ -122,30 +117,26 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   const userScrolledUpRef = useRef(false);
 
-  // ── Safe volume setter — applies clamp + syncs GainNode ────────
+  // ── Safe volume setter ──────────────────────────────────────
   const safeSetVolume = useCallback((v: number) => {
     const clamped = clampVolume(v);
     setVolume(clamped);
     volumeRef.current = clamped;
-    // Use GainNode for actual volume control (works on iOS)
     if (gainNodeRef.current) {
       gainNodeRef.current.gain.value = isMutedRef.current ? 0 : clamped;
     }
-    // Also set audioEl.volume as fallback for non-iOS
     if (audioElRef.current) {
       audioElRef.current.volume = isMutedRef.current ? 0 : clamped;
     }
   }, []);
 
-  /** Apply current volume/mute state via GainNode.
-   *  This actually works on iOS unlike audioEl.volume. */
   const syncAudioVolume = useCallback(() => {
     const val = isMutedRef.current ? 0 : volumeRef.current;
     if (gainNodeRef.current) {
       gainNodeRef.current.gain.value = val;
     }
     if (audioElRef.current) {
-      audioElRef.current.volume = val; // fallback, no-op on iOS
+      audioElRef.current.volume = val;
     }
   }, []);
 
@@ -168,9 +159,7 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
   }, [displayMessages, liveUserTranscript, liveIsabelaText, isabelaThinking]);
 
   useEffect(() => {
-    return () => {
-      cleanup();
-    };
+    return () => { cleanup(); };
   }, []);
 
   // ── Timer ─────────────────────────────────────────────────────
@@ -226,7 +215,6 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
       pcRef.current = null;
     }
     dcRef.current = null;
-    // Clean up GainNode audio context
     if (audioCtxRef.current) {
       audioCtxRef.current.close().catch(() => {});
       audioCtxRef.current = null;
@@ -320,6 +308,16 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
       pc.ontrack = (e) => {
         const remoteStream = e.streams[0];
 
+        // ── iOS voice-call audio routing ──────────────────────
+        // Routes audio through the earpiece (top speaker) instead of
+        // the loud bottom speaker — exactly like a phone call.
+        // Earpiece is quiet and directional so the mic can't pick it up.
+        // This eliminates echo on iPhone without earphones.
+        // Supported on iOS 16.4+ Safari. Gracefully ignored elsewhere.
+        if (IS_MOBILE && (navigator as any).audioSession) {
+          (navigator as any).audioSession.type = 'voice-call';
+        }
+
         // Route through Web Audio API GainNode for REAL volume control.
         // iOS Safari ignores audioEl.volume (always 1.0), but GainNode
         // actually attenuates the signal before it reaches the speaker.
@@ -335,17 +333,13 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
           source.connect(gain);
           gain.connect(ctx.destination);
 
-          // iOS requires a user gesture to start AudioContext — resume just in case
           if (ctx.state === 'suspended') {
             ctx.resume();
           }
 
-          // Also assign to audioEl as fallback (helps keep WebRTC connection alive on some browsers)
           audioEl.srcObject = remoteStream;
-          audioEl.volume = 0; // Mute the element itself — GainNode handles volume
-          // On iOS audioEl.volume = 0 may be ignored, but GainNode is doing the real work
+          audioEl.volume = 0; // Muted — GainNode handles real volume
         } catch (err) {
-          // Fallback: if Web Audio fails, use audioEl directly
           console.warn('GainNode setup failed, falling back to audioEl:', err);
           audioEl.srcObject = remoteStream;
           audioEl.volume = volumeRef.current;
@@ -420,7 +414,6 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
       case 'response.audio.delta':
         setIsabelaThinking(false);
         setIsabelaSpeaking(true);
-        // Sync volume every audio chunk — guarantees cap is enforced
         syncAudioVolume();
         break;
 
@@ -457,6 +450,7 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
           if (!closingLinePlayedRef.current) {
             closingLinePlayedRef.current = true;
             sendGoodbye();
+            // Safety fallback — if response.done never fires again on iOS
             setTimeout(() => {
               if (!feedbackTriggeredRef.current) {
                 feedbackTriggeredRef.current = true;
@@ -552,10 +546,7 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
       const res = await fetch('/api/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: transcriptLogRef.current,
-          level,
-        }),
+        body: JSON.stringify({ messages: transcriptLogRef.current, level }),
       });
       const data = await res.json();
       setFeedback(data.feedback || 'Great session!');
@@ -589,14 +580,8 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
       const nowMuted = !m;
       isMutedRef.current = nowMuted;
       const val = nowMuted ? 0 : volumeRef.current;
-      // GainNode is the real volume control (works on iOS)
-      if (gainNodeRef.current) {
-        gainNodeRef.current.gain.value = val;
-      }
-      // Fallback for non-iOS
-      if (audioElRef.current) {
-        audioElRef.current.volume = val;
-      }
+      if (gainNodeRef.current) gainNodeRef.current.gain.value = val;
+      if (audioElRef.current) audioElRef.current.volume = val;
       return nowMuted;
     });
   };
@@ -613,7 +598,6 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
   // SCREENS
   // ─────────────────────────────────────────────────────────────
 
-  // ── INTRO ─────────────────────────────────────────────────────
   if (screen === 'intro') {
     return (
       <div style={{ maxWidth: 480, margin: '0 auto', padding: '0 16px 40px' }}>
@@ -658,7 +642,6 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
     );
   }
 
-  // ── MIC SETUP ─────────────────────────────────────────────────
   if (screen === 'mic-setup') {
     const canStart = micStatus === 'granted' && micEverSpoke;
 
@@ -676,7 +659,6 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
           </p>
         </div>
 
-        {/* Earphones notice */}
         <div style={{ background: '#fef9c3', borderRadius: 12, padding: '12px 16px', marginBottom: 16, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
           <span style={{ fontSize: '1.2rem' }}>🎧</span>
           <div style={{ fontSize: '0.82rem', color: '#854d0e', lineHeight: 1.6 }}>
@@ -767,7 +749,6 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
           {canStart ? 'Start with Isabela →' : 'Say something to confirm your mic...'}
         </button>
 
-        {/* Volume warning popup for mobile */}
         {showVolumeWarning && (
           <div style={{
             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
@@ -804,12 +785,7 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <button
                   onClick={handleStart}
-                  style={{
-                    ...styles.primaryBtn,
-                    padding: 14,
-                    fontSize: '0.95rem',
-                    margin: 0,
-                  }}
+                  style={{ ...styles.primaryBtn, padding: 14, fontSize: '0.95rem', margin: 0 }}
                 >
                   Got it, let's go! →
                 </button>
@@ -832,7 +808,6 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
     );
   }
 
-  // ── FEEDBACK ──────────────────────────────────────────────────
   if (screen === 'feedback') {
     return (
       <div style={{ maxWidth: 480, margin: '0 auto', padding: '0 16px 40px' }}>
@@ -872,7 +847,6 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
   return (
     <div style={{ maxWidth: 480, margin: '0 auto', display: 'flex', flexDirection: 'column', height: '100dvh' }}>
 
-      {/* Header */}
       <div style={styles.header}>
         <button onClick={handleReset} style={styles.backBtn}>← End</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -929,7 +903,6 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
         </div>
       </div>
 
-      {/* Messages */}
       <div ref={messagesContainerRef} style={styles.messages}>
 
         {connectionStatus === 'connecting' && (
@@ -970,7 +943,6 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
           </div>
         ))}
 
-        {/* Live Isabela text streaming */}
         {liveIsabelaText && (
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
             <div style={styles.avatarTiny} />
@@ -987,7 +959,6 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
           </div>
         )}
 
-        {/* Live user transcript */}
         {liveUserTranscript && liveUserTranscript !== '...' && (
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <div style={{
@@ -1002,7 +973,6 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
           </div>
         )}
 
-        {/* Thinking dots */}
         {isabelaThinking && !liveIsabelaText && (
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
             <div style={styles.avatarTiny} />
@@ -1025,7 +995,6 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Status bar */}
       <div style={styles.statusBar}>
         {isabelaSpeaking ? (
           <button
@@ -1046,7 +1015,6 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
               : '🎙️ Listening — just speak naturally'}
           </div>
         )}
-        {/* End button always visible at bottom */}
         <button
           onClick={handleReset}
           style={{
