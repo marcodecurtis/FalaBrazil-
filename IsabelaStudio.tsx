@@ -54,6 +54,7 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
   const level = userLevel || 'B1';
 
   const [screen, setScreen] = useState<Screen>('intro');
+  const [showVolumeWarning, setShowVolumeWarning] = useState(false);
 
   // Mic setup
   const [micStatus, setMicStatus] = useState<'idle' | 'requesting' | 'granted' | 'denied' | 'error'>('idle');
@@ -106,6 +107,12 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const displayMessagesRef = useRef<DisplayMessage[]>([]);
 
+  // Web Audio API GainNode for REAL volume control on iOS
+  // iOS Safari ignores audioEl.volume — it's always 1.0
+  // GainNode actually attenuates the audio signal before it hits the speaker
+  const gainNodeRef = useRef<GainNode | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+
   // Accumulate streaming text
   const isabelaStreamRef = useRef('');
   const userStreamRef = useRef('');
@@ -115,21 +122,30 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   const userScrolledUpRef = useRef(false);
 
-  // ── Safe volume setter — applies clamp + syncs audioEl ────────
+  // ── Safe volume setter — applies clamp + syncs GainNode ────────
   const safeSetVolume = useCallback((v: number) => {
     const clamped = clampVolume(v);
     setVolume(clamped);
     volumeRef.current = clamped;
+    // Use GainNode for actual volume control (works on iOS)
+    if (gainNodeRef.current) {
+      gainNodeRef.current.gain.value = isMutedRef.current ? 0 : clamped;
+    }
+    // Also set audioEl.volume as fallback for non-iOS
     if (audioElRef.current) {
       audioElRef.current.volume = isMutedRef.current ? 0 : clamped;
     }
   }, []);
 
-  /** Apply current volume/mute state to the audio element.
-   *  Call this from any event handler that might need to sync. */
+  /** Apply current volume/mute state via GainNode.
+   *  This actually works on iOS unlike audioEl.volume. */
   const syncAudioVolume = useCallback(() => {
+    const val = isMutedRef.current ? 0 : volumeRef.current;
+    if (gainNodeRef.current) {
+      gainNodeRef.current.gain.value = val;
+    }
     if (audioElRef.current) {
-      audioElRef.current.volume = isMutedRef.current ? 0 : volumeRef.current;
+      audioElRef.current.volume = val; // fallback, no-op on iOS
     }
   }, []);
 
@@ -210,6 +226,12 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
       pcRef.current = null;
     }
     dcRef.current = null;
+    // Clean up GainNode audio context
+    if (audioCtxRef.current) {
+      audioCtxRef.current.close().catch(() => {});
+      audioCtxRef.current = null;
+    }
+    gainNodeRef.current = null;
     if (audioElRef.current) {
       audioElRef.current.srcObject = null;
     }
@@ -296,9 +318,38 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
       audioElRef.current = audioEl;
 
       pc.ontrack = (e) => {
-        audioEl.srcObject = e.streams[0];
-        // Always use the ref so we get the current clamped value
-        audioEl.volume = isMutedRef.current ? 0 : volumeRef.current;
+        const remoteStream = e.streams[0];
+
+        // Route through Web Audio API GainNode for REAL volume control.
+        // iOS Safari ignores audioEl.volume (always 1.0), but GainNode
+        // actually attenuates the signal before it reaches the speaker.
+        try {
+          const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+          audioCtxRef.current = ctx;
+
+          const source = ctx.createMediaStreamSource(remoteStream);
+          const gain = ctx.createGain();
+          gain.gain.value = isMutedRef.current ? 0 : volumeRef.current;
+          gainNodeRef.current = gain;
+
+          source.connect(gain);
+          gain.connect(ctx.destination);
+
+          // iOS requires a user gesture to start AudioContext — resume just in case
+          if (ctx.state === 'suspended') {
+            ctx.resume();
+          }
+
+          // Also assign to audioEl as fallback (helps keep WebRTC connection alive on some browsers)
+          audioEl.srcObject = remoteStream;
+          audioEl.volume = 0; // Mute the element itself — GainNode handles volume
+          // On iOS audioEl.volume = 0 may be ignored, but GainNode is doing the real work
+        } catch (err) {
+          // Fallback: if Web Audio fails, use audioEl directly
+          console.warn('GainNode setup failed, falling back to audioEl:', err);
+          audioEl.srcObject = remoteStream;
+          audioEl.volume = volumeRef.current;
+        }
       };
 
       const stream = micStreamRef.current;
@@ -467,7 +518,16 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
   };
 
   // ── Start session ─────────────────────────────────────────────
+  const handleStartClick = () => {
+    if (IS_MOBILE) {
+      setShowVolumeWarning(true);
+    } else {
+      handleStart();
+    }
+  };
+
   const handleStart = async () => {
+    setShowVolumeWarning(false);
     setScreen('conversation');
     setDisplayMessages([]);
     setTimeLeft(SESSION_DURATION_SECONDS);
@@ -528,8 +588,14 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
     setIsMuted(m => {
       const nowMuted = !m;
       isMutedRef.current = nowMuted;
+      const val = nowMuted ? 0 : volumeRef.current;
+      // GainNode is the real volume control (works on iOS)
+      if (gainNodeRef.current) {
+        gainNodeRef.current.gain.value = val;
+      }
+      // Fallback for non-iOS
       if (audioElRef.current) {
-        audioElRef.current.volume = nowMuted ? 0 : volumeRef.current;
+        audioElRef.current.volume = val;
       }
       return nowMuted;
     });
@@ -689,7 +755,7 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
         )}
 
         <button
-          onClick={handleStart}
+          onClick={handleStartClick}
           disabled={!canStart}
           style={{
             ...styles.primaryBtn,
@@ -700,6 +766,68 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
         >
           {canStart ? 'Start with Isabela →' : 'Say something to confirm your mic...'}
         </button>
+
+        {/* Volume warning popup for mobile */}
+        {showVolumeWarning && (
+          <div style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0,0,0,0.5)', zIndex: 1000,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 24,
+          }}>
+            <div style={{
+              background: 'white', borderRadius: 20, padding: '28px 24px',
+              maxWidth: 360, width: '100%',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+              animation: 'popIn 0.25s ease-out',
+            }}>
+              <div style={{ textAlign: 'center', marginBottom: 20 }}>
+                <div style={{ fontSize: '2.8rem', marginBottom: 12 }}>🔉</div>
+                <h3 style={{ fontWeight: 800, fontSize: '1.15rem', color: '#0f172a', margin: '0 0 10px' }}>
+                  Lower your device volume
+                </h3>
+                <p style={{ fontSize: '0.88rem', color: '#475569', lineHeight: 1.7, margin: 0 }}>
+                  We recommend setting your phone's volume to <strong style={{ color: '#14532d' }}>50% or lower</strong> for the best experience. Higher volume causes echo and Isabela may hear her own voice.
+                </p>
+              </div>
+
+              <div style={{
+                background: '#f0fdf4', borderRadius: 12, padding: '12px 16px',
+                marginBottom: 20, display: 'flex', gap: 10, alignItems: 'flex-start',
+              }}>
+                <span style={{ fontSize: '1.1rem' }}>🎧</span>
+                <p style={{ fontSize: '0.82rem', color: '#14532d', margin: 0, lineHeight: 1.6 }}>
+                  <strong>Using earphones?</strong> Then you're all set — no volume limit needed!
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <button
+                  onClick={handleStart}
+                  style={{
+                    ...styles.primaryBtn,
+                    padding: 14,
+                    fontSize: '0.95rem',
+                    margin: 0,
+                  }}
+                >
+                  Got it, let's go! →
+                </button>
+                <button
+                  onClick={() => setShowVolumeWarning(false)}
+                  style={{
+                    background: 'none', border: '1px solid #e2e8f0',
+                    borderRadius: 12, padding: '10px 16px',
+                    color: '#64748b', fontSize: '0.85rem', fontWeight: 600,
+                    cursor: 'pointer', fontFamily: 'inherit',
+                  }}
+                >
+                  Go back
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -936,6 +1064,10 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
         @keyframes dot {
           0%, 100% { opacity: 0.3; transform: scale(1); }
           50% { opacity: 1; transform: scale(1.4); }
+        }
+        @keyframes popIn {
+          0% { opacity: 0; transform: scale(0.9); }
+          100% { opacity: 1; transform: scale(1); }
         }
       `}</style>
     </div>
