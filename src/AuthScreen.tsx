@@ -7,7 +7,7 @@ import {
   updateProfile,
   sendPasswordResetEmail,
 } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore'; // added updateDoc
 import { auth, db, googleProvider } from './firebase';
 
 interface Props {
@@ -29,17 +29,35 @@ export default function AuthScreen({ onContinueWithoutAccount, onAuthSuccess }: 
   const clearError = () => setError('');
 
   const saveUserToFirestore = async (uid: string, displayName: string, email: string) => {
-    const userRef = doc(db, 'users', uid);
+    const userRef  = doc(db, 'users', uid);
     const existing = await getDoc(userRef);
+
     if (!existing.exists()) {
-      const savedLevel = localStorage.getItem('userLevel') || null;
+      // ── Brand new user: pull any progress saved locally before they signed up ──
+      const savedLevel       = localStorage.getItem('userLevel')       || null;
+      const savedStreak      = parseInt(localStorage.getItem('streak')      || '0', 10);
+      const savedTotalPts    = parseInt(localStorage.getItem('totalPts')    || '0', 10);
+      const savedCurrentDay  = parseInt(localStorage.getItem('currentDay')  || '1', 10);
+      const savedTimePreference = localStorage.getItem('timePreference') || null;
+      const savedLearningGoal   = localStorage.getItem('learningGoal')   || null;
+
       await setDoc(userRef, {
-        name:      displayName,
-        email:     email,
-        level:     savedLevel,
-        xp:        0,
-        streak:    0,
-        joinedAt:  new Date().toISOString(),
+        name:             displayName,
+        email:            email,
+        level:            savedLevel,
+        xp:               0,
+        streak:           savedStreak,       // saved from localStorage
+        totalPts:         savedTotalPts,     // saved from localStorage
+        currentDay:       savedCurrentDay,   // saved from localStorage
+        timePreference:   savedTimePreference,
+        learningGoal:     savedLearningGoal,
+        joinedAt:         new Date().toISOString(),
+        lastActiveAt:     new Date().toISOString(),
+      });
+    } else {
+      // ── Returning user: just update lastActiveAt so you can track logins ──
+      await updateDoc(userRef, {
+        lastActiveAt: new Date().toISOString(),
       });
     }
   };
@@ -123,14 +141,12 @@ export default function AuthScreen({ onContinueWithoutAccount, onAuthSuccess }: 
         <h1 className="auth-title">Welcome to<br /><em>Fala Brazil!</em></h1>
         <p className="auth-subtitle">Choose how you want to get started.</p>
 
-        {/* ── New premium card ── */}
         <div className="auth-profile-card">
           <div className="auth-profile-accent" />
           <div className="auth-profile-eyebrow">Your profile is ready</div>
           <h2 className="auth-profile-headline">Save your progress &amp; personalised plan</h2>
           <p className="auth-profile-sub">Free account — keeps your journey across all devices.</p>
 
-          {/* Benefits grid */}
           <div className="auth-benefits-grid">
             <div className="auth-benefit-card">
               <div className="auth-benefit-icon">
@@ -162,12 +178,10 @@ export default function AuthScreen({ onContinueWithoutAccount, onAuthSuccess }: 
             </div>
           </div>
 
-          {/* Primary CTA */}
           <button className="auth-save-btn" onClick={() => { clearError(); setView('signup'); }}>
             Save my progress
           </button>
 
-          {/* Social options */}
           <div className="auth-social-divider"><span>or continue with</span></div>
           <button className="auth-social-btn" onClick={handleGoogleSignIn} disabled={loading}>
             <svg width="16" height="16" viewBox="0 0 24 24">

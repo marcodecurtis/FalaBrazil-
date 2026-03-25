@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import './OnboardingScreen.css';
+import { logEvent } from 'firebase/analytics';       // ADD 1
+import { analytics } from './firebase';               // ADD 2
 
 type Level = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
 type Screen = 'pick' | 'quiz' | 'result' | 'time' | 'goal';
@@ -119,10 +121,17 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
     }
   };
 
-  // After level is chosen — go to time screen
+  // After level is chosen — track it, save it, go to time screen
   const handleLevelChosen = (level: Level) => {
     setSelectedLevel(level);
     localStorage.setItem('userLevel', level);
+
+    // ── TRACK: which level every visitor picks (signed up or not) ──
+    logEvent(analytics, 'level_selected', {
+      level,
+      method: screen === 'result' ? 'placement_test' : 'manual_pick',
+    });
+
     setScreen('time');
   };
 
@@ -132,9 +141,17 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
     setScreen('goal');
   };
 
-  // After goal chosen — complete onboarding
+  // After goal chosen — track full onboarding completion, then finish
   const handleGoalChosen = () => {
     localStorage.setItem('learningGoal', selectedGoal);
+
+    // ── TRACK: full onboarding completed with all choices ──
+    logEvent(analytics, 'onboarding_complete', {
+      level:           selectedLevel,
+      time_preference: selectedTime,
+      learning_goal:   selectedGoal,
+    });
+
     onComplete(selectedLevel!);
   };
 

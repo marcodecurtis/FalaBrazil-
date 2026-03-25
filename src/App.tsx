@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import './App.css';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore'; // added updateDoc
 import { auth, db } from './firebase';
 import VerbStudio from './VerbStudio';
 import VocabStudio from './VocabStudio';
@@ -21,11 +21,16 @@ export type Level = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
 type View = 'loading' | 'welcome' | 'auth' | 'onboarding' | 'home' | 'verbs' | 'vocab' | 'grammar' | 'reading' | 'pronunciation' | 'video' | 'isabela';
 
 interface UserData {
-  name: string;
-  email: string;
-  level: Level | null;
-  xp: number;
-  streak: number;
+  name:            string;
+  email:           string;
+  level:           Level | null;
+  xp:              number;
+  streak:          number;
+  totalPts:        number;
+  currentDay:      number;
+  timePreference:  string | null;
+  learningGoal:    string | null;
+  lastActiveAt:    string;
 }
 
 export default function App() {
@@ -33,6 +38,24 @@ export default function App() {
   const [userLevel, setUserLevel]   = useState<Level | null>(null);
   const [userData, setUserData]     = useState<UserData | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  // ── Helper: write progress back to Firestore for logged-in users ──
+  // Call this anywhere in the app when streak, xp, totalPts, or currentDay changes.
+  // e.g. updateUserProgress({ streak: 5, totalPts: 120 })
+  const updateUserProgress = async (fields: Partial<UserData>) => {
+    const firebaseUser = auth.currentUser;
+    if (!firebaseUser) return; // not logged in — localStorage only
+    try {
+      await updateDoc(doc(db, 'users', firebaseUser.uid), {
+        ...fields,
+        lastActiveAt: new Date().toISOString(),
+      });
+      // Keep local state in sync
+      setUserData(prev => prev ? { ...prev, ...fields } : prev);
+    } catch (err) {
+      console.error('Failed to update user progress:', err);
+    }
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -43,9 +66,18 @@ export default function App() {
           if (userDoc.exists()) {
             const data = userDoc.data() as UserData;
             setUserData(data);
+
+            // ── Sync Firestore values back into localStorage so the rest
+            //    of the app (which still reads localStorage) gets the right values ──
+            if (data.level)          localStorage.setItem('userLevel',       data.level);
+            if (data.streak)         localStorage.setItem('streak',          String(data.streak));
+            if (data.totalPts)       localStorage.setItem('totalPts',        String(data.totalPts));
+            if (data.currentDay)     localStorage.setItem('currentDay',      String(data.currentDay));
+            if (data.timePreference) localStorage.setItem('timePreference',  data.timePreference);
+            if (data.learningGoal)   localStorage.setItem('learningGoal',    data.learningGoal);
+
             if (data.level) {
               setUserLevel(data.level);
-              localStorage.setItem('userLevel', data.level);
               setView('home');
             } else {
               setView('onboarding');
@@ -80,7 +112,6 @@ export default function App() {
 
   const handleLogout = async () => {
     await auth.signOut();
-    // Clear all progress keys correctly
     localStorage.removeItem('userLevel');
     localStorage.removeItem('hasSeenWelcome');
     localStorage.removeItem('timePreference');
@@ -115,6 +146,8 @@ export default function App() {
     if (!localStorage.getItem('currentDay')) {
       localStorage.setItem('currentDay', '1');
     }
+    // If user is logged in, save their chosen level to Firestore too
+    updateUserProgress({ level });
     setView('home');
   };
 
@@ -131,7 +164,6 @@ export default function App() {
 
   return (
     <>
-      {/* ── SANDWICH MENU ── */}
       {view === 'home' && (
         <SandwichMenu
           isLoggedIn={isLoggedIn}
@@ -164,16 +196,14 @@ export default function App() {
           />
         )}
 
-        {view === 'verbs'         && <VerbStudio onBack={() => navigateTo('home')} onGainXp={() => {}} />}
+        {/* Pass updateUserProgress down to any studio that awards XP or updates streak */}
+        {view === 'verbs'         && <VerbStudio onBack={() => navigateTo('home')} onGainXp={(pts: number) => updateUserProgress({ xp: (userData?.xp || 0) + pts, totalPts: (userData?.totalPts || 0) + pts })} />}
         {view === 'vocab'         && <VocabStudio onBack={() => navigateTo('home')} userLevel={userLevel} />}
         {view === 'grammar'       && <GrammarStudio onBack={() => navigateTo('home')} userLevel={userLevel} />}
         {view === 'reading'       && <ReadingStudio onBack={() => navigateTo('home')} userLevel={userLevel} />}
         {view === 'pronunciation' && <PronunciationStudio onBack={() => navigateTo('home')} />}
         {view === 'video'         && <VideoStudio onBack={() => navigateTo('home')} userLevel={userLevel} />}
-        {view === 'isabela' && <IsabelaStudio 
-          onBack={() => navigateTo('home')} 
-          userLevel={userLevel} 
-        />}
+        {view === 'isabela'       && <IsabelaStudio onBack={() => navigateTo('home')} userLevel={userLevel} />}
 
         <footer style={{ marginTop: 'auto', paddingTop: '60px', paddingBottom: '20px', textAlign: 'center', fontSize: '0.85rem', color: '#94a3b8' }}>
           Created by{' '}
