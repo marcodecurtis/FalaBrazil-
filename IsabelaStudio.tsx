@@ -60,9 +60,8 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
   const [isabelaThinking, setIsabelaThinking] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  const defaultVolume = isMobile ? 0.5 : 1.0;
-  const [debugLogs, setDebugLogs] = useState<string[]>([]);
-  const addLog = (msg: string) => setDebugLogs(prev => [`${new Date().toISOString().slice(11,19)} ${msg}`, ...prev].slice(0, 20));
+  const maxVolume = isMobile ? 0.5 : 1.0;
+  const [volume, setVolume] = useState(isMobile ? 0.5 : 1.0);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
 
   // Timer
@@ -85,8 +84,6 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
   const dcRef = useRef<RTCDataChannel | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
   const audioElRef = useRef<HTMLAudioElement | null>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const gainNodeRef = useRef<GainNode | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const volumeTimerRef = useRef<number | null>(null);
   const timerIntervalRef = useRef<number | null>(null);
@@ -273,32 +270,8 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
 
       pc.ontrack = (e) => {
         audioEl.srcObject = e.streams[0];
-        addLog(`🎵 ontrack fired, streams: ${e.streams.length}`);
-
-        try {
-          const ctx = audioCtxRef.current;
-          addLog(`🔊 AudioContext: ${ctx ? ctx.state : 'NULL'}`);
-          if (ctx) {
-            if (ctx.state === 'suspended') {
-              ctx.resume();
-              addLog('▶️ AudioContext resumed');
-            }
-            const source = ctx.createMediaStreamSource(e.streams[0]);
-            const gain = ctx.createGain();
-            gain.gain.value = defaultVolume;
-            source.connect(gain);
-            gain.connect(ctx.destination);
-            gainNodeRef.current = gain;
-            audioEl.srcObject = null;
-            addLog(`✅ GainNode set to ${defaultVolume} (mobile: ${isMobile})`);
-          } else {
-            audioEl.volume = defaultVolume;
-            addLog(`⚠️ No AudioContext — set volume to ${defaultVolume}`);
-          }
-        } catch (err: any) {
-          addLog(`❌ GainNode error: ${err.message}`);
-          audioEl.volume = defaultVolume;
-        }
+        // On mobile, start at 50% volume to prevent mic echo from speaker bleed
+        audioEl.volume = volume;
       };
 
       // Add mic track
@@ -375,10 +348,10 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
       case 'response.audio.delta':
         setIsabelaThinking(false);
         setIsabelaSpeaking(true);
-        if (gainNodeRef.current) {
-          gainNodeRef.current.gain.value = isMutedRef.current ? 0 : defaultVolume;
+        if (isMutedRef.current && audioElRef.current) {
+          audioElRef.current.volume = 0;
         } else if (audioElRef.current) {
-          audioElRef.current.volume = isMutedRef.current ? 0 : defaultVolume;
+          audioElRef.current.volume = volume;
         }
         break;
 
@@ -483,19 +456,6 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
 
   // ── Start session ─────────────────────────────────────────────
   const handleStart = async () => {
-    // Create and unlock AudioContext during user gesture — iOS requires this
-    try {
-      const ctx = new AudioContext();
-      const buf = ctx.createBuffer(1, 1, 22050);
-      const src = ctx.createBufferSource();
-      src.buffer = buf;
-      src.connect(ctx.destination);
-      src.start(0);
-      audioCtxRef.current = ctx;
-      addLog(`✅ AudioContext created: ${ctx.state}`);
-    } catch(e: any) {
-      addLog(`❌ AudioContext failed: ${e.message}`);
-    }
     setScreen('conversation');
     setDisplayMessages([]);
     setTimeLeft(SESSION_DURATION_SECONDS);
@@ -553,10 +513,8 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
   const handleMuteToggle = () => {
     setIsMuted(m => {
       const nowMuted = !m;
-      if (gainNodeRef.current) {
-        gainNodeRef.current.gain.value = nowMuted ? 0 : defaultVolume;
-      } else if (audioElRef.current) {
-        audioElRef.current.volume = nowMuted ? 0 : defaultVolume;
+      if (audioElRef.current) {
+        audioElRef.current.volume = nowMuted ? 0 : volume;
       }
       return nowMuted;
     });
@@ -793,12 +751,28 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
           <div style={{ fontWeight: 800, fontSize: '1rem', color: timerColor, minWidth: 48, textAlign: 'center' }}>
             {formatTime(timeLeft)}
           </div>
-          <button
-            onClick={handleMuteToggle}
-            style={{ background: isMuted ? '#fee2e2' : '#f1f5f9', border: 'none', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: '0.9rem' }}
-          >
-            {isMuted ? '🔇' : isMobile ? '🔉' : '🔊'}
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <button
+              onClick={handleMuteToggle}
+              style={{ background: isMuted ? '#fee2e2' : '#f1f5f9', border: 'none', borderRadius: 8, padding: '6px 8px', cursor: 'pointer', fontSize: '0.85rem' }}
+            >
+              {isMuted ? '🔇' : volume <= 0.3 ? '🔈' : volume <= 0.6 ? '🔉' : '🔊'}
+            </button>
+            <input
+              type="range"
+              min={0}
+              max={maxVolume}
+              step={0.05}
+              value={isMuted ? 0 : volume}
+              onChange={e => {
+                const v = parseFloat(e.target.value);
+                setVolume(v);
+                setIsMuted(v === 0);
+                if (audioElRef.current) audioElRef.current.volume = v;
+              }}
+              style={{ width: isMobile ? 55 : 65, accentColor: '#14532d', cursor: 'pointer' }}
+            />
+          </div>
         </div>
       </div>
 
@@ -896,17 +870,6 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
         )}
 
         <div ref={messagesEndRef} />
-      </div>
-
-      {/* Debug panel — remove after debugging */}
-      <div style={{ background: '#0f172a', padding: '8px 12px', maxHeight: 140, overflowY: 'auto' as const, flexShrink: 0 }}>
-        <div style={{ fontSize: '0.65rem', color: '#4ade80', fontWeight: 700, marginBottom: 4 }}>
-          DEBUG — isMobile: {String(isMobile)} | defaultVol: {defaultVolume}
-        </div>
-        {debugLogs.map((log, i) => (
-          <div key={i} style={{ fontSize: '0.6rem', color: '#94a3b8', lineHeight: 1.4 }}>{log}</div>
-        ))}
-        {debugLogs.length === 0 && <div style={{ fontSize: '0.6rem', color: '#475569' }}>No logs yet...</div>}
       </div>
 
       {/* Status bar */}
