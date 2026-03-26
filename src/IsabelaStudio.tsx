@@ -40,19 +40,10 @@ CRITICAL RULES:
 
 The student is at level STUDENT_LEVEL. Start by greeting them warmly and asking about their day or something they did recently.`;
 
-// ── Volume cap to prevent echo on mobile ────────────────────────
-const IS_MOBILE = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-const MAX_VOLUME = IS_MOBILE ? 0.5 : 1.0;
-
-function clampVolume(v: number): number {
-  return Math.max(0, Math.min(MAX_VOLUME, v));
-}
-
 export default function IsabelaStudio({ onBack, userLevel }: Props) {
   const level = userLevel || 'B1';
 
   const [screen, setScreen] = useState<Screen>('intro');
-  const [showVolumeWarning, setShowVolumeWarning] = useState(false);
 
   // Mic setup
   const [micStatus, setMicStatus] = useState<'idle' | 'requesting' | 'granted' | 'denied' | 'error'>('idle');
@@ -68,14 +59,9 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
   const [isabelaSpeaking, setIsabelaSpeaking] = useState(false);
   const [isabelaThinking, setIsabelaThinking] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-  const [volume, setVolume] = useState(clampVolume(IS_MOBILE ? 0.35 : 0.8));
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  const defaultVolume = isMobile ? 0.5 : 1.0;
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
-
-  const volumeRef = useRef(volume);
-  useEffect(() => { volumeRef.current = volume; }, [volume]);
-
-  const isMutedRef = useRef(false);
-  useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
 
   // Timer
   const [timeLeft, setTimeLeft] = useState(SESSION_DURATION_SECONDS);
@@ -84,7 +70,6 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
   // Session ending
   const sessionEndingRef = useRef(false);
   const closingLinePlayedRef = useRef(false);
-  const feedbackTriggeredRef = useRef(false);
 
   // Feedback
   const [feedback, setFeedback] = useState('');
@@ -103,42 +88,17 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
   const timerIntervalRef = useRef<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const displayMessagesRef = useRef<DisplayMessage[]>([]);
-
-  // Web Audio API GainNode for REAL volume control on iOS
-  const gainNodeRef = useRef<GainNode | null>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
+  const isMutedRef = useRef(false);
 
   // Accumulate streaming text
   const isabelaStreamRef = useRef('');
   const userStreamRef = useRef('');
 
   useEffect(() => { displayMessagesRef.current = displayMessages; }, [displayMessages]);
+  useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
 
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   const userScrolledUpRef = useRef(false);
-
-  // ── Safe volume setter ──────────────────────────────────────
-  const safeSetVolume = useCallback((v: number) => {
-    const clamped = clampVolume(v);
-    setVolume(clamped);
-    volumeRef.current = clamped;
-    if (gainNodeRef.current) {
-      gainNodeRef.current.gain.value = isMutedRef.current ? 0 : clamped;
-    }
-    if (audioElRef.current) {
-      audioElRef.current.volume = isMutedRef.current ? 0 : clamped;
-    }
-  }, []);
-
-  const syncAudioVolume = useCallback(() => {
-    const val = isMutedRef.current ? 0 : volumeRef.current;
-    if (gainNodeRef.current) {
-      gainNodeRef.current.gain.value = val;
-    }
-    if (audioElRef.current) {
-      audioElRef.current.volume = val;
-    }
-  }, []);
 
   // Track if user has scrolled up manually
   useEffect(() => {
@@ -159,7 +119,9 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
   }, [displayMessages, liveUserTranscript, liveIsabelaText, isabelaThinking]);
 
   useEffect(() => {
-    return () => { cleanup(); };
+    return () => {
+      cleanup();
+    };
   }, []);
 
   // ── Timer ─────────────────────────────────────────────────────
@@ -181,9 +143,12 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
 
   const handleTimerEnd = () => {
     sessionEndingRef.current = true;
+    // Don't interrupt if Isabela is mid-sentence
+    // The goodbye will be triggered in response.done once she finishes
   };
 
   const sendGoodbye = () => {
+    // Cancel any ongoing response first
     sendDataChannelMessage({ type: 'response.cancel' });
     setTimeout(() => {
       sendDataChannelMessage({
@@ -215,11 +180,6 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
       pcRef.current = null;
     }
     dcRef.current = null;
-    if (audioCtxRef.current) {
-      audioCtxRef.current.close().catch(() => {});
-      audioCtxRef.current = null;
-    }
-    gainNodeRef.current = null;
     if (audioElRef.current) {
       audioElRef.current.srcObject = null;
     }
@@ -292,23 +252,15 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
     try {
       setConnectionStatus('connecting');
 
+      // Get ephemeral token from your backend
       const tokenRes = await fetch('/api/realtime-token', { method: 'POST' });
       const { client_secret } = await tokenRes.json();
       if (!client_secret?.value) throw new Error('No realtime token');
 
-      // ── iOS voice-call audio routing ──────────────────────
-      // Set BEFORE creating RTCPeerConnection so it applies to
-      // the very first audio chunk. Setting it inside ontrack is
-      // too late — the first message plays before iOS switches mode.
-      // Routes through earpiece (quiet, directional) not loud speaker.
-      // Supported on iOS 16.4+ Safari. Gracefully ignored elsewhere.
-      if (IS_MOBILE && (navigator as any).audioSession) {
-        (navigator as any).audioSession.type = 'voice-call';
-      }
-
       const pc = new RTCPeerConnection();
       pcRef.current = pc;
 
+      // Audio output element — WebRTC handles iOS audio natively
       const audioEl = document.createElement('audio');
       audioEl.autoplay = true;
       audioEl.style.display = 'none';
@@ -316,46 +268,29 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
       audioElRef.current = audioEl;
 
       pc.ontrack = (e) => {
-        const remoteStream = e.streams[0];
-
-        // Route through Web Audio API GainNode for REAL volume control.
-        // iOS Safari ignores audioEl.volume (always 1.0), but GainNode
-        // actually attenuates the signal before it reaches the speaker.
-        try {
-          const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-          audioCtxRef.current = ctx;
-
-          const source = ctx.createMediaStreamSource(remoteStream);
-          const gain = ctx.createGain();
-          gain.gain.value = isMutedRef.current ? 0 : volumeRef.current;
-          gainNodeRef.current = gain;
-
-          source.connect(gain);
-          gain.connect(ctx.destination);
-
-          if (ctx.state === 'suspended') {
-            ctx.resume();
-          }
-
-          audioEl.srcObject = remoteStream;
-          audioEl.volume = 0; // Muted — GainNode handles real volume
-        } catch (err) {
-          console.warn('GainNode setup failed, falling back to audioEl:', err);
-          audioEl.srcObject = remoteStream;
-          audioEl.volume = volumeRef.current;
-        }
+        audioEl.srcObject = e.streams[0];
+        // On mobile, start at 50% volume to prevent mic echo from speaker bleed
+        audioEl.volume = defaultVolume;
       };
 
+      // Add mic track
       const stream = micStreamRef.current;
       if (!stream) throw new Error('No mic stream');
-      stream.getAudioTracks().forEach(track => pc.addTrack(track, stream));
+      // ── Mute mic BEFORE adding tracks so we don't feed back
+      //    Isabela's opening greeting into the model ──────────
+      stream.getAudioTracks().forEach(track => {
+        track.enabled = false;  // start muted
+        pc.addTrack(track, stream);
+      });
 
+      // Data channel for events
       const dc = pc.createDataChannel('oai-events');
       dcRef.current = dc;
 
       dc.onopen = () => {
         setConnectionStatus('connected');
 
+        // Configure the session
         sendDataChannelMessage({
           type: 'session.update',
           session: {
@@ -374,7 +309,13 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
           }
         });
 
+        // Trigger Isabela's opening line
         sendDataChannelMessage({ type: 'response.create' });
+
+        // ── Keep mic muted for first 800ms so echo cancellation
+        //    can calibrate before we start listening ───────────
+        // The mic will be unmuted in response.done after Isabela's
+        // first greeting finishes playing.
       };
 
       dc.onmessage = (e) => {
@@ -383,6 +324,7 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
 
       dc.onerror = () => setConnectionStatus('error');
 
+      // WebRTC offer/answer
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
@@ -411,12 +353,18 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
   const handleRealtimeEvent = (event: any) => {
     switch (event.type) {
 
+      // Isabela starts speaking
       case 'response.audio.delta':
         setIsabelaThinking(false);
         setIsabelaSpeaking(true);
-        syncAudioVolume();
+        if (isMutedRef.current && audioElRef.current) {
+          audioElRef.current.volume = 0;
+        } else if (audioElRef.current) {
+          audioElRef.current.volume = defaultVolume;
+        }
         break;
 
+      // Isabela's text streaming
       case 'response.audio_transcript.delta':
         isabelaStreamRef.current += event.delta || '';
         setLiveIsabelaText(isabelaStreamRef.current);
@@ -424,14 +372,17 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
         setIsabelaSpeaking(true);
         break;
 
+      // Isabela finished one response
       case 'response.audio_transcript.done':
       case 'response.text.done': {
         const fullText = event.transcript || event.text || isabelaStreamRef.current;
         if (fullText.trim()) {
+          // Add to display messages
           setDisplayMessages(prev => [
             ...prev,
             { role: 'isabela', text: fullText.trim() }
           ]);
+          // Add to transcript log for feedback
           transcriptLogRef.current.push({ role: 'assistant', content: fullText.trim() });
         }
         isabelaStreamRef.current = '';
@@ -439,36 +390,38 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
         break;
       }
 
+      // Isabela fully done speaking — re-enable mic
       case 'response.done':
         setIsabelaSpeaking(false);
         setIsabelaThinking(false);
-        if (micStreamRef.current) {
-          micStreamRef.current.getAudioTracks().forEach(t => { t.enabled = true; });
-        }
+        // Delay mic re-enable by 600ms after Isabela stops speaking.
+        // This lets the echo tail die down and gives AEC time to adapt —
+        // critical for the first exchange on mobile where AEC isn't warm yet.
+        setTimeout(() => {
+          if (micStreamRef.current && !isMutedRef.current) {
+            micStreamRef.current.getAudioTracks().forEach(t => { t.enabled = true; });
+          }
+        }, 600);
 
         if (sessionEndingRef.current) {
           if (!closingLinePlayedRef.current) {
+            // Isabela just finished her current sentence — now send goodbye
             closingLinePlayedRef.current = true;
             sendGoodbye();
-            // Safety fallback — if response.done never fires again on iOS
-            setTimeout(() => {
-              if (!feedbackTriggeredRef.current) {
-                feedbackTriggeredRef.current = true;
-                generateFeedback();
-              }
-            }, 8000);
           } else {
-            if (!feedbackTriggeredRef.current) {
-              feedbackTriggeredRef.current = true;
-              setTimeout(() => generateFeedback(), 1500);
-            }
+            // Goodbye text is done — wait generously for audio to finish
+            // iOS Safari 'ended' event is unreliable so we use a safe timeout
+            // 4 seconds is enough for a 2-sentence goodbye at normal speech rate
+            setTimeout(() => generateFeedback(), 4000);
           }
         }
         break;
 
+      // User started speaking — re-enable mic
       case 'input_audio_buffer.speech_started':
         setLiveUserTranscript('...');
         userStreamRef.current = '';
+        // Re-enable mic track
         if (micStreamRef.current) {
           micStreamRef.current.getAudioTracks().forEach(t => { t.enabled = true; });
         }
@@ -477,11 +430,13 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
         isabelaStreamRef.current = '';
         break;
 
+      // User transcript streaming
       case 'conversation.item.input_audio_transcription.delta':
         userStreamRef.current += event.delta || '';
         setLiveUserTranscript(userStreamRef.current);
         break;
 
+      // User finished speaking — transcript complete
       case 'conversation.item.input_audio_transcription.completed': {
         const userText = event.transcript?.trim();
         if (userText) {
@@ -497,8 +452,11 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
         break;
       }
 
+      // Isabela is generating a response — mute mic immediately
       case 'response.created':
         setIsabelaThinking(true);
+        // Always mute mic when Isabela starts a response —
+        // prevents her voice feeding back into the model
         if (micStreamRef.current) {
           micStreamRef.current.getAudioTracks().forEach(t => { t.enabled = false; });
         }
@@ -512,22 +470,12 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
   };
 
   // ── Start session ─────────────────────────────────────────────
-  const handleStartClick = () => {
-    if (IS_MOBILE) {
-      setShowVolumeWarning(true);
-    } else {
-      handleStart();
-    }
-  };
-
   const handleStart = async () => {
-    setShowVolumeWarning(false);
     setScreen('conversation');
     setDisplayMessages([]);
     setTimeLeft(SESSION_DURATION_SECONDS);
     sessionEndingRef.current = false;
     closingLinePlayedRef.current = false;
-    feedbackTriggeredRef.current = false;
     transcriptLogRef.current = [];
     isabelaStreamRef.current = '';
     userStreamRef.current = '';
@@ -546,7 +494,10 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
       const res = await fetch('/api/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: transcriptLogRef.current, level }),
+        body: JSON.stringify({
+          messages: transcriptLogRef.current,
+          level,
+        }),
       });
       const data = await res.json();
       setFeedback(data.feedback || 'Great session!');
@@ -570,7 +521,6 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
     setScreen('intro');
     sessionEndingRef.current = false;
     closingLinePlayedRef.current = false;
-    feedbackTriggeredRef.current = false;
     transcriptLogRef.current = [];
   };
 
@@ -578,10 +528,9 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
   const handleMuteToggle = () => {
     setIsMuted(m => {
       const nowMuted = !m;
-      isMutedRef.current = nowMuted;
-      const val = nowMuted ? 0 : volumeRef.current;
-      if (gainNodeRef.current) gainNodeRef.current.gain.value = val;
-      if (audioElRef.current) audioElRef.current.volume = val;
+      if (audioElRef.current) {
+        audioElRef.current.volume = nowMuted ? 0 : defaultVolume;
+      }
       return nowMuted;
     });
   };
@@ -598,6 +547,7 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
   // SCREENS
   // ─────────────────────────────────────────────────────────────
 
+  // ── INTRO ─────────────────────────────────────────────────────
   if (screen === 'intro') {
     return (
       <div style={{ maxWidth: 480, margin: '0 auto', padding: '0 16px 40px' }}>
@@ -624,14 +574,6 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
           </p>
         </div>
 
-        {IS_MOBILE && (
-          <div style={{ ...styles.infoBox, background: '#fef9c3', marginTop: 10 }}>
-            <p style={{ fontSize: '0.82rem', color: '#854d0e', fontWeight: 600, margin: 0, lineHeight: 1.6 }}>
-              🎧 <strong>Earphones recommended.</strong> On mobile, speaker volume is capped at 50% to prevent echo. Earphones give you full volume and better quality.
-            </p>
-          </div>
-        )}
-
         <button
           onClick={() => requestMic().then(() => setScreen('mic-setup'))}
           style={styles.primaryBtn}
@@ -642,6 +584,7 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
     );
   }
 
+  // ── MIC SETUP ─────────────────────────────────────────────────
   if (screen === 'mic-setup') {
     const canStart = micStatus === 'granted' && micEverSpoke;
 
@@ -659,11 +602,11 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
           </p>
         </div>
 
+        {/* Earphones notice */}
         <div style={{ background: '#fef9c3', borderRadius: 12, padding: '12px 16px', marginBottom: 16, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
           <span style={{ fontSize: '1.2rem' }}>🎧</span>
           <div style={{ fontSize: '0.82rem', color: '#854d0e', lineHeight: 1.6 }}>
             <strong>Use earphones for best results.</strong> Without them, Isabela's voice may be picked up by the mic and appear as random words.
-            {IS_MOBILE && <> Speaker volume is automatically limited to prevent echo.</>}
           </div>
         </div>
 
@@ -737,7 +680,7 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
         )}
 
         <button
-          onClick={handleStartClick}
+          onClick={handleStart}
           disabled={!canStart}
           style={{
             ...styles.primaryBtn,
@@ -748,132 +691,17 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
         >
           {canStart ? 'Start with Isabela →' : 'Say something to confirm your mic...'}
         </button>
-
-        {showVolumeWarning && (
-          <div style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            background: 'rgba(0,0,0,0.5)', zIndex: 1000,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            padding: 24,
-          }}>
-            <div style={{
-              background: 'white', borderRadius: 20, padding: '28px 24px',
-              maxWidth: 360, width: '100%',
-              boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
-              animation: 'popIn 0.25s ease-out',
-            }}>
-              <div style={{ textAlign: 'center', marginBottom: 20 }}>
-                <div style={{ fontSize: '2.8rem', marginBottom: 12 }}>🔉</div>
-                <h3 style={{ fontWeight: 800, fontSize: '1.15rem', color: '#0f172a', margin: '0 0 10px' }}>
-                  Lower your device volume
-                </h3>
-                <p style={{ fontSize: '0.88rem', color: '#475569', lineHeight: 1.7, margin: 0 }}>
-                  We recommend setting your phone's volume to <strong style={{ color: '#14532d' }}>50% or lower</strong> for the best experience. Higher volume causes echo and Isabela may hear her own voice.
-                </p>
-              </div>
-
-              <div style={{
-                background: '#f0fdf4', borderRadius: 12, padding: '12px 16px',
-                marginBottom: 20, display: 'flex', gap: 10, alignItems: 'flex-start',
-              }}>
-                <span style={{ fontSize: '1.1rem' }}>🎧</span>
-                <p style={{ fontSize: '0.82rem', color: '#14532d', margin: 0, lineHeight: 1.6 }}>
-                  <strong>Using earphones?</strong> Then you're all set — no volume limit needed!
-                </p>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <button
-                  onClick={handleStart}
-                  style={{ ...styles.primaryBtn, padding: 14, fontSize: '0.95rem', margin: 0 }}
-                >
-                  Got it, let's go! →
-                </button>
-                <button
-                  onClick={() => setShowVolumeWarning(false)}
-                  style={{
-                    background: 'none', border: '1px solid #e2e8f0',
-                    borderRadius: 12, padding: '10px 16px',
-                    color: '#64748b', fontSize: '0.85rem', fontWeight: 600,
-                    cursor: 'pointer', fontFamily: 'inherit',
-                  }}
-                >
-                  Go back
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     );
   }
 
-  // Parse feedback into structured sections (no regex to avoid TS errors)
-  const parseFeedback = (text: string) => {
-    let ratingScore = '';
-    let ratingComment = '';
-    const allLines = text.split('\n');
-    for (let i = 0; i < allLines.length; i++) {
-      const line = allLines[i];
-      if (line.includes('/10')) {
-        const parts = line.split('/10')[0].split(' ');
-        const num = parts[parts.length - 1].replace(/[^0-9]/g, '');
-        if (num) {
-          ratingScore = num;
-          if (i + 1 < allLines.length) ratingComment = allLines[i + 1].trim();
-        }
-      }
-    }
-    const upper = text.toUpperCase();
-    const getSectionContent = (startKey: string, endKey: string): string => {
-      const s = upper.indexOf(startKey);
-      if (s === -1) return '';
-      const e = endKey ? upper.indexOf(endKey, s + 1) : -1;
-      return e === -1 ? text.slice(s) : text.slice(s, e);
-    };
-    const wellMatch = getSectionContent('WHAT WENT WELL', 'MISTAKES TO CORRECT');
-    const mistakesMatch = getSectionContent('MISTAKES TO CORRECT', 'FOCUS FOR NEXT SESSION');
-    const focusMatch = getSectionContent('FOCUS FOR NEXT SESSION', '');
-    const parsePoints = (section: string): string[] =>
-      section.split('\n- ').slice(1).map((s: string) => s.trim()).filter(Boolean);
-    return {
-      ratingScore,
-      ratingComment,
-      wellPoints: parsePoints(wellMatch),
-      mistakePoints: parsePoints(mistakesMatch),
-      focusPoints: parsePoints(focusMatch),
-    };
-  };
-
-    const renderBold = (text: string) => {
-    const parts: string[] = [];
-    let remaining = text;
-    while (remaining.length > 0) {
-      const start = remaining.indexOf('**');
-      if (start === -1) { parts.push(remaining); break; }
-      if (start > 0) parts.push(remaining.slice(0, start));
-      const end = remaining.indexOf('**', start + 2);
-      if (end === -1) { parts.push(remaining.slice(start)); break; }
-      parts.push('BOLD:' + remaining.slice(start + 2, end));
-      remaining = remaining.slice(end + 2);
-    }
-    return parts.map((part, i) =>
-      part.startsWith('BOLD:')
-        ? <strong key={i} style={{ fontWeight: 700 }}>{part.slice(5)}</strong>
-        : <span key={i}>{part}</span>
-    );
-  };
-
+  // ── FEEDBACK ──────────────────────────────────────────────────
   if (screen === 'feedback') {
-    const parsed = feedback ? parseFeedback(feedback) : null;
-
     return (
-      <div style={{ maxWidth: 480, margin: '0 auto', padding: '0 16px 48px' }}>
-
-        {/* Header */}
-        <div style={{ textAlign: 'center', padding: '28px 0 20px' }}>
-          <div style={{ fontSize: '2.2rem', marginBottom: 8 }}>📊</div>
-          <h2 style={{ fontWeight: 900, fontSize: '1.5rem', color: '#0f172a', margin: '0 0 4px' }}>
+      <div style={{ maxWidth: 480, margin: '0 auto', padding: '0 16px 40px' }}>
+        <div style={{ textAlign: 'center', padding: '24px 0 20px' }}>
+          <div style={{ fontSize: '2.5rem', marginBottom: 8 }}>📊</div>
+          <h2 style={{ fontWeight: 800, fontSize: '1.4rem', color: '#0f172a', margin: '0 0 4px' }}>
             Session feedback
           </h2>
           <p style={{ color: '#64748b', fontSize: '0.85rem', margin: 0 }}>
@@ -882,101 +710,9 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
         </div>
 
         {feedbackLoading ? (
-          <div style={{ textAlign: 'center', padding: '60px 0', color: '#64748b' }}>
-            <div style={{ fontSize: '2.5rem', marginBottom: 16 }}>✨</div>
-            <p style={{ fontSize: '0.95rem', fontWeight: 600, color: '#0f172a' }}>Isabela is reviewing your session...</p>
-            <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: 4 }}>This takes about 10 seconds</p>
-          </div>
-        ) : parsed ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-            {/* Rating card */}
-            {parsed.ratingScore && (
-              <div style={{
-                background: 'linear-gradient(135deg, #14532d, #166534)',
-                borderRadius: 20, padding: '24px 20px', textAlign: 'center',
-                boxShadow: '0 8px 32px rgba(20,83,45,0.25)',
-              }}>
-                <div style={{ fontSize: '0.75rem', color: '#86efac', fontWeight: 700, letterSpacing: 1, marginBottom: 8, textTransform: 'uppercase' }}>
-                  Session Rating
-                </div>
-                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 4, marginBottom: 8 }}>
-                  <span style={{ fontSize: '4rem', fontWeight: 900, color: 'white', lineHeight: 1 }}>
-                    {parsed.ratingScore}
-                  </span>
-                  <span style={{ fontSize: '1.5rem', color: '#86efac', fontWeight: 700 }}>/10</span>
-                </div>
-                {parsed.ratingComment && (
-                  <p style={{ fontSize: '0.85rem', color: '#bbf7d0', margin: 0, lineHeight: 1.6 }}>
-                    {parsed.ratingComment}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* What went well */}
-            {parsed.wellPoints.length > 0 && (
-              <div style={{ background: 'white', borderRadius: 16, padding: '18px 16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                  <span style={{ fontSize: '1.2rem' }}>✅</span>
-                  <span style={{ fontWeight: 800, fontSize: '0.9rem', color: '#0f172a' }}>What went well</span>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {parsed.wellPoints.map((point, i) => (
-                    <div key={i} style={{
-                      background: '#f0fdf4', borderRadius: 10, padding: '10px 12px',
-                      fontSize: '0.82rem', color: '#166534', lineHeight: 1.6,
-                      borderLeft: '3px solid #16a34a',
-                    }}>
-                      {renderBold(point)}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Mistakes */}
-            {parsed.mistakePoints.length > 0 && (
-              <div style={{ background: 'white', borderRadius: 16, padding: '18px 16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                  <span style={{ fontSize: '1.2rem' }}>🔧</span>
-                  <span style={{ fontWeight: 800, fontSize: '0.9rem', color: '#0f172a' }}>Mistakes to correct</span>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {parsed.mistakePoints.map((point, i) => (
-                    <div key={i} style={{
-                      background: '#fff7ed', borderRadius: 10, padding: '10px 12px',
-                      fontSize: '0.82rem', color: '#9a3412', lineHeight: 1.6,
-                      borderLeft: '3px solid #f97316',
-                    }}>
-                      {renderBold(point)}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Focus */}
-            {parsed.focusPoints.length > 0 && (
-              <div style={{ background: 'white', borderRadius: 16, padding: '18px 16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                  <span style={{ fontSize: '1.2rem' }}>🎯</span>
-                  <span style={{ fontWeight: 800, fontSize: '0.9rem', color: '#0f172a' }}>Focus for next session</span>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {parsed.focusPoints.map((point, i) => (
-                    <div key={i} style={{
-                      background: '#eff6ff', borderRadius: 10, padding: '10px 12px',
-                      fontSize: '0.82rem', color: '#1e40af', lineHeight: 1.6,
-                      borderLeft: '3px solid #3b82f6',
-                    }}>
-                      {renderBold(point)}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
+          <div style={{ textAlign: 'center', padding: '40px 0', color: '#64748b' }}>
+            <div style={{ fontSize: '2rem', marginBottom: 12 }}>⏳</div>
+            <p style={{ fontSize: '0.9rem' }}>Isabela is preparing your feedback...</p>
           </div>
         ) : (
           <div style={{ background: '#f8fafc', borderRadius: 16, padding: 20, marginBottom: 20 }}>
@@ -986,7 +722,7 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
           </div>
         )}
 
-        <button onClick={handleReset} style={{ ...styles.primaryBtn, marginTop: 20 }}>
+        <button onClick={handleReset} style={styles.primaryBtn}>
           Speak with Isabela again 🎙️
         </button>
       </div>
@@ -999,6 +735,7 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
   return (
     <div style={{ maxWidth: 480, margin: '0 auto', display: 'flex', flexDirection: 'column', height: '100dvh' }}>
 
+      {/* Header */}
       <div style={styles.header}>
         <button onClick={handleReset} style={styles.backBtn}>← End</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1029,32 +766,16 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
           <div style={{ fontWeight: 800, fontSize: '1rem', color: timerColor, minWidth: 48, textAlign: 'center' }}>
             {formatTime(timeLeft)}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <button
-              onClick={handleMuteToggle}
-              style={{ background: isMuted ? '#fee2e2' : '#f1f5f9', border: 'none', borderRadius: 8, padding: '6px 8px', cursor: 'pointer', fontSize: '0.85rem' }}
-            >
-              {isMuted ? '🔇' : volume <= 0.15 ? '🔈' : volume <= 0.35 ? '🔉' : '🔊'}
-            </button>
-            <input
-              type="range"
-              min={0}
-              max={MAX_VOLUME}
-              step={0.05}
-              value={isMuted ? 0 : volume}
-              onChange={e => {
-                const v = parseFloat(e.target.value);
-                const clamped = clampVolume(v);
-                setIsMuted(clamped === 0);
-                isMutedRef.current = clamped === 0;
-                safeSetVolume(clamped);
-              }}
-              style={{ width: IS_MOBILE ? 55 : 65, accentColor: '#14532d', cursor: 'pointer' }}
-            />
-          </div>
+          <button
+            onClick={handleMuteToggle}
+            style={{ background: isMuted ? '#fee2e2' : '#f1f5f9', border: 'none', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: '0.9rem' }}
+          >
+            {isMuted ? '🔇' : isMobile ? '🔉' : '🔊'}
+          </button>
         </div>
       </div>
 
+      {/* Messages */}
       <div ref={messagesContainerRef} style={styles.messages}>
 
         {connectionStatus === 'connecting' && (
@@ -1095,6 +816,7 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
           </div>
         ))}
 
+        {/* Live Isabela text streaming */}
         {liveIsabelaText && (
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
             <div style={styles.avatarTiny} />
@@ -1111,6 +833,7 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
           </div>
         )}
 
+        {/* Live user transcript */}
         {liveUserTranscript && liveUserTranscript !== '...' && (
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <div style={{
@@ -1125,6 +848,7 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
           </div>
         )}
 
+        {/* Thinking dots */}
         {isabelaThinking && !liveIsabelaText && (
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
             <div style={styles.avatarTiny} />
@@ -1147,6 +871,7 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Status bar */}
       <div style={styles.statusBar}>
         {isabelaSpeaking ? (
           <button
@@ -1167,6 +892,7 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
               : '🎙️ Listening — just speak naturally'}
           </div>
         )}
+        {/* End button always visible at bottom — no need to scroll up */}
         <button
           onClick={handleReset}
           style={{
@@ -1184,10 +910,6 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
         @keyframes dot {
           0%, 100% { opacity: 0.3; transform: scale(1); }
           50% { opacity: 1; transform: scale(1.4); }
-        }
-        @keyframes popIn {
-          0% { opacity: 0; transform: scale(0.9); }
-          100% { opacity: 1; transform: scale(1); }
         }
       `}</style>
     </div>

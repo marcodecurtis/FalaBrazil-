@@ -26,15 +26,9 @@ import { stopSpeaking } from './speak';
 
 export type Level = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
 
-// ── Tab = bottom nav destinations ──────────────────────────────────
 type Tab = 'today' | 'learn' | 'isabela' | 'progress' | 'account';
-
-// ── Studio = full-screen overlays (no bottom nav shown) ────────────
 type Studio = 'verbs' | 'vocab' | 'grammar' | 'reading' | 'pronunciation' | 'video' | 'isabela-studio';
-
-// ── Setup screens (no bottom nav) ──────────────────────────────────
 type SetupView = 'loading' | 'welcome' | 'auth' | 'onboarding';
-
 type AppView = SetupView | Tab | Studio;
 
 interface UserData {
@@ -57,9 +51,8 @@ export default function App() {
   const [userData, setUserData]     = useState<UserData | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  // ── Progress stats (needed for ProgressScreen and AccountScreen) ──
-  const [streak, setStreak]                 = useState(0);
-  const [totalPts, setTotalPts]             = useState(0);
+  const [streak, setStreak]                     = useState(0);
+  const [totalPts, setTotalPts]                 = useState(0);
   const [lessonsCompleted, setLessonsCompleted] = useState(0);
 
   const updateUserProgress = async (fields: Partial<UserData>) => {
@@ -86,12 +79,12 @@ export default function App() {
             const data = userDoc.data() as UserData;
             setUserData(data);
 
-            if (data.level)          localStorage.setItem('userLevel',       data.level);
-            if (data.streak)         localStorage.setItem('streak',          String(data.streak));
-            if (data.totalPts)       localStorage.setItem('totalPts',        String(data.totalPts));
-            if (data.currentDay)     localStorage.setItem('currentDay',      String(data.currentDay));
-            if (data.timePreference) localStorage.setItem('timePreference',  data.timePreference);
-            if (data.learningGoal)   localStorage.setItem('learningGoal',    data.learningGoal);
+            if (data.level)          localStorage.setItem('userLevel',      data.level);
+            if (data.streak)         localStorage.setItem('streak',         String(data.streak));
+            if (data.totalPts)       localStorage.setItem('totalPts',       String(data.totalPts));
+            if (data.currentDay)     localStorage.setItem('currentDay',     String(data.currentDay));
+            if (data.timePreference) localStorage.setItem('timePreference', data.timePreference);
+            if (data.learningGoal)   localStorage.setItem('learningGoal',   data.learningGoal);
 
             setStreak(data.streak || 0);
             setTotalPts(data.totalPts || 0);
@@ -118,11 +111,14 @@ export default function App() {
         setLessonsCompleted(parseInt(localStorage.getItem('lessonsCompleted') || '0'));
 
         if (hasSeenWelcome && savedLevel) {
+          // Returning user who already completed onboarding — go straight to app
           setUserLevel(savedLevel);
           setView('today');
         } else if (hasSeenWelcome) {
+          // Seen welcome but no level yet — go to onboarding
           setView('onboarding');
         } else {
+          // Brand new user — show welcome slides first
           setView('welcome');
         }
       }
@@ -150,9 +146,10 @@ export default function App() {
     setView('welcome');
   };
 
+  // ── FIX: Welcome now goes to onboarding, NOT auth ──────────────
   const handleWelcomeFinish = () => {
     localStorage.setItem('hasSeenWelcome', 'true');
-    setView('auth');
+    setView('onboarding');
   };
 
   const handleOnboardingComplete = (level: Level) => {
@@ -198,39 +195,49 @@ export default function App() {
     return <OnboardingScreen onComplete={handleOnboardingComplete} />;
   }
 
-  // ── Studio overlays — full screen, no bottom nav ───────────────
+  // ── Studio overlays — full screen, WITH bottom nav ────────────
   const studioBack = () => navigateTo('learn');
 
-  if (view === 'verbs') {
+  const studioViews = {
+    verbs: (
+      <VerbStudio
+        onBack={studioBack}
+        onGainXp={(pts: number) => updateUserProgress({ xp: (userData?.xp || 0) + pts, totalPts: (userData?.totalPts || 0) + pts })}
+      />
+    ),
+    vocab:         <VocabStudio onBack={studioBack} userLevel={userLevel} />,
+    grammar:       <GrammarStudio onBack={studioBack} userLevel={userLevel} />,
+    reading:       <ReadingStudio onBack={studioBack} userLevel={userLevel} />,
+    pronunciation: <PronunciationStudio onBack={studioBack} />,
+    video:         <VideoStudio onBack={studioBack} userLevel={userLevel} />,
+  };
+
+  if (view in studioViews) {
     return (
-      <div className="container">
-        <VerbStudio
-          onBack={studioBack}
-          onGainXp={(pts: number) => updateUserProgress({ xp: (userData?.xp || 0) + pts, totalPts: (userData?.totalPts || 0) + pts })}
-        />
-      </div>
+      <>
+        <div className="container" style={{ paddingBottom: 0 }}>
+          {studioViews[view as keyof typeof studioViews]}
+        </div>
+        <BottomNav active={'learn'} onNavigate={(tab) => navigateTo(tab)} />
+      </>
     );
   }
-  if (view === 'vocab')         return <div className="container"><VocabStudio onBack={studioBack} userLevel={userLevel} /></div>;
-  if (view === 'grammar')       return <div className="container"><GrammarStudio onBack={studioBack} userLevel={userLevel} /></div>;
-  if (view === 'reading')       return <div className="container"><ReadingStudio onBack={studioBack} userLevel={userLevel} /></div>;
-  if (view === 'pronunciation') return <div className="container"><PronunciationStudio onBack={studioBack} /></div>;
-  if (view === 'video')         return <div className="container"><VideoStudio onBack={studioBack} userLevel={userLevel} /></div>;
 
-  // Isabela — can be launched from the nav tab OR from a lesson block
   if (view === 'isabela' || view === 'isabela-studio') {
     return (
-      <div className="container">
-        <IsabelaStudio
-          onBack={() => navigateTo('today')}
-          userLevel={userLevel}
-        />
-      </div>
+      <>
+        <div className="container" style={{ paddingBottom: 0 }}>
+          <IsabelaStudio
+            onBack={() => navigateTo('today')}
+            userLevel={userLevel}
+          />
+        </div>
+        <BottomNav active={'isabela'} onNavigate={(tab) => navigateTo(tab)} />
+      </>
     );
   }
 
   // ── Main app with bottom nav ───────────────────────────────────
-  // At this point view is one of: today | learn | progress | account
   const activeTab = view as Tab;
 
   return (
@@ -240,10 +247,7 @@ export default function App() {
         {activeTab === 'today' && (
           <TodayScreen
             userLevel={userLevel}
-            onNavigate={(v) => {
-              // TodayScreen can navigate to any studio or tab
-              navigateTo(v as AppView);
-            }}
+            onNavigate={(v) => navigateTo(v as AppView)}
           />
         )}
 
@@ -275,7 +279,7 @@ export default function App() {
 
         <footer style={{
           marginTop: 'auto', paddingTop: '40px',
-          paddingBottom: '90px', // clears bottom nav
+          paddingBottom: '90px',
           textAlign: 'center', fontSize: '0.85rem', color: '#94a3b8',
         }}>
           Created by{' '}
