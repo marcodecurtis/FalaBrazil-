@@ -27,245 +27,368 @@ interface Video {
 const VIDEOS: Video[] = [
   {
     id: 'v1',
-    youtubeId: 'CkIiJj_s7CM',
-    title: 'Greetings in Brazilian Portuguese',
-    description: 'Learn how Brazilians greet each other in everyday situations.',
+    youtubeId: 'IELrPIGdcec',
+    title: 'Brazilian Famous Songs You Need To Know',
+    description: 'Discover the iconic sounds of Samba, Bossa Nova and MPB — the music that defines Brazil.',
     level: 'A1',
-    duration: '8 min',
-    topic: 'Greetings',
-    emoji: '👋',
+    duration: '10 min',
+    topic: 'Music & Culture',
+    emoji: '🎵',
     questions: [
       {
-        question: 'How do you say "Good morning" in Brazilian Portuguese?',
-        options: ['Boa tarde', 'Boa noite', 'Bom dia', 'Olá'],
-        correct: 2,
+        question: 'Which music genre originated in Rio de Janeiro in the late 1950s, blending samba with jazz?',
+        options: ['Forró', 'Bossa Nova', 'Axé', 'Pagode'],
+        correct: 1,
       },
       {
-        question: 'Which phrase means "How are you?" in informal Brazilian Portuguese?',
-        options: ['Como vai?', 'Obrigado', 'Até logo', 'Por favor'],
+        question: 'What does "MPB" stand for in Brazilian music?',
+        options: ['Música Popular Brasileira', 'Música Para Baile', 'Muito Boa Batida', 'Música Para Brasil'],
         correct: 0,
       },
       {
-        question: 'What does "Tchau" mean?',
-        options: ['Hello', 'Thank you', 'Goodbye', 'Please'],
+        question: 'Samba originated from which community in Brazil?',
+        options: ['Indigenous communities in the Amazon', 'European immigrants in São Paulo', 'Afro-Brazilian communities', 'Fishermen in the Northeast'],
         correct: 2,
       },
     ],
   },
   {
     id: 'v2',
-    youtubeId: '5x7dBcFBHo4',
-    title: 'Brazilian Portuguese Numbers 1–20',
-    description: 'Master counting from 1 to 20 with native pronunciation.',
+    youtubeId: 'xmXLB1xtRpM',
+    title: 'Deixa Falar: The First Samba School in Brazil',
+    description: 'Learn the fascinating history of how Brazil\'s first samba school was born in Rio de Janeiro.',
     level: 'A1',
-    duration: '6 min',
-    topic: 'Numbers',
-    emoji: '🔢',
+    duration: '8 min',
+    topic: 'History & Culture',
+    emoji: '🥁',
     questions: [
       {
-        question: 'How do you say the number 5 in Portuguese?',
-        options: ['Quatro', 'Seis', 'Cinco', 'Três'],
-        correct: 2,
-      },
-      {
-        question: 'What is "dez" in English?',
-        options: ['Two', 'Ten', 'Twenty', 'Twelve'],
+        question: 'What does "Deixa Falar" mean in English?',
+        options: ['Let it rain', 'Let them speak', 'Let\'s dance', 'Let it go'],
         correct: 1,
       },
       {
-        question: 'How do you say 15 in Portuguese?',
-        options: ['Treze', 'Quatorze', 'Dezesseis', 'Quinze'],
-        correct: 3,
+        question: 'In which city was the first samba school founded?',
+        options: ['São Paulo', 'Salvador', 'Rio de Janeiro', 'Belo Horizonte'],
+        correct: 2,
+      },
+      {
+        question: 'Samba schools in Brazil are primarily associated with which celebration?',
+        options: ['Christmas', 'Festa Junina', 'Carnival', 'New Year\'s Eve'],
+        correct: 2,
       },
     ],
   },
   {
     id: 'v3',
-    youtubeId: 'viZjTlGwXWc',
-    title: 'Ordering Food at a Brazilian Restaurant',
-    description: 'Practical phrases for eating out in Brazil.',
+    youtubeId: 'VoBtI-oAeEI',
+    title: 'Valentine\'s Day in Brazil: What You Need to Know',
+    description: 'Brazil\'s version of Valentine\'s Day is nothing like what you expect — discover Dia dos Namorados.',
     level: 'A2',
-    duration: '10 min',
-    topic: 'Food & Drink',
-    emoji: '🍽️',
+    duration: '9 min',
+    topic: 'Culture & Traditions',
+    emoji: '💕',
     questions: [
       {
-        question: 'How do you ask for the menu in Portuguese?',
-        options: ['Onde fica o banheiro?', 'O cardápio, por favor', 'A conta, por favor', 'Eu quero água'],
+        question: 'What is Valentine\'s Day called in Brazil?',
+        options: ['Dia do Amor', 'Dia dos Namorados', 'Dia dos Casados', 'Dia do Coração'],
         correct: 1,
       },
       {
-        question: 'What does "A conta, por favor" mean?',
-        options: ['The menu, please', 'The water, please', 'The bill, please', 'The table, please'],
+        question: 'When is Dia dos Namorados celebrated in Brazil?',
+        options: ['February 14th', 'March 8th', 'June 12th', 'July 4th'],
         correct: 2,
       },
       {
-        question: 'How do you say "I am vegetarian" in Portuguese?',
-        options: ['Eu sou alérgico', 'Eu não como carne', 'Eu sou vegetariano', 'Eu quero frango'],
-        correct: 2,
+        question: 'What does "namorados" mean in English?',
+        options: ['Friends', 'Sweethearts / dating partners', 'Married couples', 'Family members'],
+        correct: 1,
       },
     ],
   },
   {
     id: 'v4',
-    youtubeId: 'Qwh6RuoHexw',
-    title: 'Brazilian Portuguese Pronunciation Tips',
-    description: 'Master the sounds that make Brazilian Portuguese unique.',
+    youtubeId: 'tl-Pu3lFh7Q',
+    title: 'Como os doces brasileiros ficaram tão doces',
+    description: 'The sweet story behind Brazilian desserts — from brigadeiro to cocada — and why Brazilians love sugar.',
     level: 'A2',
-    duration: '12 min',
-    topic: 'Pronunciation',
-    emoji: '🔊',
+    duration: '11 min',
+    topic: 'Food & Culture',
+    emoji: '🍬',
     questions: [
       {
-        question: 'The nasal vowel sound in Portuguese is often represented by which letters?',
-        options: ['ss and rr', 'ão and ãe', 'lh and nh', 'ch and x'],
+        question: 'What is a "brigadeiro"?',
+        options: ['A type of Brazilian bread', 'A chocolate truffle made with condensed milk', 'A grilled meat dish', 'A type of Brazilian cheese'],
         correct: 1,
       },
       {
-        question: 'How is the letter "R" at the start of a word typically pronounced in Brazilian Portuguese?',
-        options: ['Like English R', 'Like English H', 'Like English L', 'Like English V'],
-        correct: 1,
-      },
-      {
-        question: 'What is the term for the accent that shows a nasal vowel in Portuguese?',
-        options: ['Acento agudo', 'Cedilha', 'Til', 'Acento circunflexo'],
+        question: 'Which ingredient is central to most traditional Brazilian sweets?',
+        options: ['Honey', 'Brown sugar', 'Condensed milk (leite condensado)', 'Maple syrup'],
         correct: 2,
+      },
+      {
+        question: 'The Portuguese influence on Brazilian sweets mainly came through which ingredient?',
+        options: ['Chocolate', 'Sugar cane', 'Coconut', 'Vanilla'],
+        correct: 1,
       },
     ],
   },
   {
     id: 'v5',
-    youtubeId: 'JoXHhMSQiAA',
-    title: 'Brazilian Slang & Everyday Expressions',
-    description: 'Sound like a local with these popular Brazilian expressions.',
-    level: 'B1',
-    duration: '11 min',
-    topic: 'Slang',
-    emoji: '😎',
+    youtubeId: 'a_xLlF-iu6M',
+    title: 'What is Brazil\'s Festa Junina?',
+    description: 'One of Brazil\'s most beloved festivals — forró dancing, corn dishes, and countryside costumes.',
+    level: 'A2',
+    duration: '10 min',
+    topic: 'Festivals & Traditions',
+    emoji: '🎪',
     questions: [
       {
-        question: 'What does "saudade" mean?',
-        options: [
-          'A feeling of anger',
-          'A longing or nostalgia for something you miss',
-          'A type of Brazilian dance',
-          'A greeting between friends',
-        ],
+        question: 'When does Festa Junina take place in Brazil?',
+        options: ['December', 'March', 'June', 'September'],
+        correct: 2,
+      },
+      {
+        question: 'Which dance is most associated with Festa Junina?',
+        options: ['Samba', 'Forró', 'Axé', 'Funk'],
         correct: 1,
       },
       {
-        question: 'If someone says "que saudade de você!", what are they expressing?',
-        options: ['They are angry at you', 'They missed you', 'They are congratulating you', 'They are saying goodbye'],
-        correct: 1,
-      },
-      {
-        question: 'What does the slang "cara" mean when talking to a friend?',
-        options: ['Face', 'Expensive', 'Dude / guy', 'Careful'],
+        question: 'Festa Junina celebrates the harvest of which food?',
+        options: ['Coffee', 'Sugar cane', 'Corn (milho)', 'Beans'],
         correct: 2,
       },
     ],
   },
   {
     id: 'v6',
-    youtubeId: 'OhAmJ8bDPSg',
-    title: 'Brazil: Culture, People & Traditions',
-    description: 'Explore Brazilian culture and the Portuguese vocabulary that comes with it.',
+    youtubeId: 'QhJE9lChJxI',
+    title: 'How to Swear in Portuguese 🇧🇷',
+    description: 'The real informal Brazilian Portuguese that textbooks won\'t teach you — explained with cultural context.',
     level: 'B1',
-    duration: '14 min',
-    topic: 'Culture',
-    emoji: '🇧🇷',
+    duration: '12 min',
+    topic: 'Slang & Informal Language',
+    emoji: '🤬',
     questions: [
       {
-        question: 'What is the name of the famous Brazilian carnival city?',
-        options: ['São Paulo', 'Brasília', 'Rio de Janeiro', 'Salvador'],
-        correct: 2,
-      },
-      {
-        question: 'What is "capoeira"?',
+        question: 'Why is learning informal and slang language important for Portuguese learners?',
         options: [
-          'A type of Brazilian food',
-          'An Afro-Brazilian martial art and dance',
-          'A Brazilian music style',
-          'A traditional Brazilian festival',
+          'To be rude to people',
+          'To understand native speakers in real conversations and movies',
+          'It is not important — only formal language matters',
+          'To pass formal exams',
         ],
         correct: 1,
       },
       {
-        question: 'What does "festa junina" celebrate?',
-        options: ['New Year', 'Harvest and rural traditions in June', 'Independence Day', 'Carnival'],
+        question: 'In Brazilian Portuguese, the word "caramba" is used to express:',
+        options: ['Agreement', 'Surprise or frustration (a mild exclamation)', 'A greeting', 'A farewell'],
+        correct: 1,
+      },
+      {
+        question: 'When Brazilians say "que saudade!", they are expressing:',
+        options: ['Anger', 'A deep longing or missing someone/something', 'Hunger', 'Surprise'],
         correct: 1,
       },
     ],
   },
   {
     id: 'v7',
-    youtubeId: 'j9GKFaHNMKY',
-    title: 'The Subjunctive in Brazilian Portuguese',
-    description: 'Understand when and how to use the subjunctive mood.',
-    level: 'B2',
-    duration: '15 min',
-    topic: 'Grammar',
-    emoji: '✍️',
+    youtubeId: 'CJQ7W6c7xt0',
+    title: 'When do we use "nós" or "a gente"?',
+    description: 'One of the most common points of confusion in Brazilian Portuguese — finally explained clearly.',
+    level: 'B1',
+    duration: '10 min',
+    topic: 'Grammar & Usage',
+    emoji: '🧩',
     questions: [
       {
-        question: 'The subjunctive mood is typically used after which type of expression?',
-        options: [
-          'Certainty and facts',
-          'Doubt, wish, emotion, or necessity',
-          'Simple past actions',
-          'Physical descriptions',
-        ],
+        question: 'Both "nós" and "a gente" mean what in English?',
+        options: ['"You" (plural)', '"We"', '"They"', '"One" (impersonal)'],
         correct: 1,
       },
       {
-        question: 'Which sentence uses the subjunctive correctly?',
-        options: [
-          'Eu quero que você vem.',
-          'Espero que ele está bem.',
-          'Quero que você venha.',
-          'Ele vai que eu falo.',
-        ],
-        correct: 2,
+        question: 'In everyday spoken Brazilian Portuguese, which form is more commonly used?',
+        options: ['"Nós" — it is always preferred', '"A gente" — it is more informal and widely used in speech', 'Both are used equally', '"Nós" in Rio, "a gente" only in São Paulo'],
+        correct: 1,
       },
       {
-        question: 'After which word does Portuguese almost always require the subjunctive?',
-        options: ['Porque', 'Talvez', 'Sempre', 'Já'],
+        question: 'When "a gente" is used as "we", the verb is conjugated in which form?',
+        options: ['First person plural (nós form)', 'Third person singular (ele/ela form)', 'Second person singular (você form)', 'Infinitive form'],
         correct: 1,
       },
     ],
   },
   {
     id: 'v8',
-    youtubeId: '8EzGd7oPoBI',
-    title: 'Advanced Brazilian Idioms',
-    description: 'Master colourful Brazilian expressions to sound truly fluent.',
-    level: 'C1',
-    duration: '13 min',
-    topic: 'Idioms',
-    emoji: '🧠',
+    youtubeId: 'sFZgPuJmjBc',
+    title: 'STOP Confusing Tudo and Todo!',
+    description: 'A super common mistake even intermediate learners make — learn the difference once and for all.',
+    level: 'B1',
+    duration: '8 min',
+    topic: 'Grammar & Usage',
+    emoji: '✋',
     questions: [
       {
-        question: 'What does "chutar o balde" literally mean and what does it imply?',
+        question: 'What does "tudo" mean in English?',
+        options: ['All (referring to a specific group)', 'Everything (general, uncountable)', 'Every day', 'All of them'],
+        correct: 1,
+      },
+      {
+        question: 'Which sentence is correct?',
+        options: ['"Todo está bem" — Everything is fine', '"Tudo está bem" — Everything is fine', '"Todo são felizes" — Everyone is happy', '"Tudo as pessoas" — All people'],
+        correct: 1,
+      },
+      {
+        question: '"Todo dia" means:',
+        options: ['Everything', 'Every day', 'All the things', 'The whole truth'],
+        correct: 1,
+      },
+    ],
+  },
+  {
+    id: 'v9',
+    youtubeId: '4ygqb46j4P0',
+    title: '10 Brazilian Telenovelas to Learn Authentic Portuguese',
+    description: 'Virginia\'s guide to the most iconic telenovelas — and exactly how to use them to improve your Portuguese.',
+    level: 'B2',
+    duration: '15 min',
+    topic: 'Telenovelas & Media',
+    emoji: '📺',
+    questions: [
+      {
+        question: 'Why are telenovelas particularly good for learning Portuguese?',
         options: [
-          'To kick the bucket — meaning to die',
-          'To kick the bucket — meaning to give up on everything',
-          'To lose your keys — meaning to be forgetful',
-          'To spill water — meaning to make a mistake',
+          'They use only formal language',
+          'They feature real everyday speech, emotions and cultural situations',
+          'They are always subtitled in English',
+          'They speak very slowly for learners',
         ],
         correct: 1,
       },
       {
-        question: 'If someone tells you "não é mole não", what are they saying?',
-        options: ["It's not easy", "It's not soft", "It's not mine", "It's not late"],
-        correct: 0,
+        question: 'Avenida Brasil is considered one of the most watched telenovelas ever. What is its main theme?',
+        options: ['A love story in the Amazon', 'Revenge, family secrets and social class in Rio de Janeiro', 'Brazilian football', 'A political drama in Brasília'],
+        correct: 1,
       },
       {
-        question: 'What does "dar um jeitinho" refer to in Brazilian culture?',
+        question: 'What is a practical tip for using telenovelas to learn Portuguese?',
         options: [
-          'Working very hard',
-          'Finding a clever or informal way to solve a problem',
-          'Asking for help from others',
-          'Following rules strictly',
+          'Watch only with English subtitles always',
+          'Start with Portuguese subtitles then gradually remove them',
+          'Skip dialogue and focus on visuals',
+          'Only watch for 5 minutes at a time',
+        ],
+        correct: 1,
+      },
+    ],
+  },
+  {
+    id: 'v10',
+    youtubeId: 'SgMfs9g_WRw',
+    title: '3 Brazilian Telenovelas to Improve Your Portuguese',
+    description: 'Three specific telenovela recommendations with tips on how to study with each one.',
+    level: 'B2',
+    duration: '12 min',
+    topic: 'Telenovelas & Media',
+    emoji: '🎬',
+    questions: [
+      {
+        question: 'What makes Brazilian telenovelas different from American soap operas?',
+        options: [
+          'They run indefinitely for decades',
+          'They typically have a defined end after around 6-8 months with one main storyline',
+          'They are always comedies',
+          'They are filmed in the Amazon',
+        ],
+        correct: 1,
+      },
+      {
+        question: 'Which platform has invested heavily in Brazilian original series and telenovelas?',
+        options: ['Disney+', 'Netflix', 'Apple TV+', 'HBO Max only'],
+        correct: 1,
+      },
+      {
+        question: 'When studying Portuguese with a telenovela, what should you focus on first?',
+        options: [
+          'Memorising every word',
+          'Understanding the emotional context and getting used to the rhythm of speech',
+          'Writing down every new word',
+          'Translating every sentence',
+        ],
+        correct: 1,
+      },
+    ],
+  },
+  {
+    id: 'v11',
+    youtubeId: 'JpSGEIvfquI',
+    title: 'Learn Portuguese with Netflix — Brazilian Series',
+    description: 'How to turn your Netflix watching into a powerful Portuguese learning tool — with specific Brazilian series recommendations.',
+    level: 'C1',
+    duration: '14 min',
+    topic: 'Advanced Learning & Media',
+    emoji: '🎯',
+    questions: [
+      {
+        question: 'The Brazilian Netflix series "3%" is set in what kind of world?',
+        options: ['A historical drama in colonial Brazil', 'A dystopian future where only 3% of people reach a privileged life', 'A romantic comedy in São Paulo', 'A crime thriller in Rio\'s favelas'],
+        correct: 1,
+      },
+      {
+        question: 'What is the most effective subtitle strategy for advanced Portuguese learners on Netflix?',
+        options: [
+          'Always use English subtitles',
+          'Use Portuguese subtitles — this forces active listening and reading simultaneously',
+          'Watch with no subtitles from the very start',
+          'Pause every 10 seconds to look up words',
+        ],
+        correct: 1,
+      },
+      {
+        question: 'Why is watching Brazilian series better than European Portuguese series for Brazilian Portuguese learners?',
+        options: [
+          'Brazilian series are always better quality',
+          'The accent, vocabulary and cultural references are specific to Brazil and what you are learning',
+          'They are cheaper to access',
+          'They always have better subtitles',
+        ],
+        correct: 1,
+      },
+    ],
+  },
+  {
+    id: 'v12',
+    youtubeId: 'lYv16N3TEwM',
+    title: '17 Most Romantic and Sensual Words in Brazilian Portuguese',
+    description: 'The most beautiful and expressive vocabulary in Portuguese — words that reveal the soul of the language.',
+    level: 'C1',
+    duration: '13 min',
+    topic: 'Advanced Vocabulary',
+    emoji: '💋',
+    questions: [
+      {
+        question: 'What does "saudade" mean — considered one of the most untranslatable words in Portuguese?',
+        options: [
+          'A type of sadness with no hope',
+          'A deep emotional longing for something or someone you love that is absent',
+          'Romantic love at first sight',
+          'The feeling of being homesick',
+        ],
+        correct: 1,
+      },
+      {
+        question: 'The word "gostoso/gostosa" literally means "tasty" but is also used to mean:',
+        options: ['Boring', 'Attractive or sexy in informal Brazilian speech', 'Kind and generous', 'Intelligent'],
+        correct: 1,
+      },
+      {
+        question: 'Why does Portuguese have so many expressive emotional words compared to other languages?',
+        options: [
+          'It is a newer language with more words',
+          'Portuguese developed from a rich mix of Latin, Arabic, African and indigenous influences creating deep emotional vocabulary',
+          'Brazilians invented most of these words recently',
+          'They borrowed them all from Spanish',
         ],
         correct: 1,
       },
@@ -321,14 +444,12 @@ export default function VideoStudio({ onBack: _onBack, userLevel }: Props) {
     }
   };
 
-  // ── VIDEO PLAYER PHASE ──
+  // ── VIDEO PLAYER ──
   if (selectedVideo && phase === 'watch') {
     return (
       <div style={{ maxWidth: '480px', margin: '0 auto', padding: '0 16px 40px' }}>
-        <button
-          onClick={() => setSelectedVideo(null)}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700, color: '#64748b', fontSize: '0.85rem', padding: '16px 0', display: 'flex', alignItems: 'center', gap: '4px' }}
-        >
+        <button onClick={() => setSelectedVideo(null)}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700, color: '#64748b', fontSize: '0.85rem', padding: '16px 0', display: 'flex', alignItems: 'center', gap: '4px' }}>
           ← All Videos
         </button>
 
@@ -344,7 +465,7 @@ export default function VideoStudio({ onBack: _onBack, userLevel }: Props) {
           </div>
         </div>
 
-        <div style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           <span style={{ background: LEVEL_COLORS[selectedVideo.level], color: 'white', borderRadius: '20px', padding: '2px 10px', fontSize: '0.72rem', fontWeight: 800 }}>
             {selectedVideo.level}
           </span>
@@ -356,20 +477,18 @@ export default function VideoStudio({ onBack: _onBack, userLevel }: Props) {
 
         <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px', padding: '16px', marginBottom: '20px' }}>
           <p style={{ fontWeight: 700, color: '#14532d', fontSize: '0.85rem', margin: '0 0 4px' }}>📝 Ready to test yourself?</p>
-          <p style={{ color: '#166534', fontSize: '0.8rem', margin: 0 }}>Watch the video above, then answer {selectedVideo.questions.length} comprehension questions.</p>
+          <p style={{ color: '#166534', fontSize: '0.8rem', margin: 0 }}>Watch the video above, then answer {selectedVideo.questions.length} questions.</p>
         </div>
 
-        <button
-          onClick={() => setPhase('quiz')}
-          style={{ width: '100%', padding: '14px', background: '#14532d', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 800, fontSize: '1rem', cursor: 'pointer', fontFamily: 'inherit' }}
-        >
+        <button onClick={() => setPhase('quiz')}
+          style={{ width: '100%', padding: '14px', background: '#14532d', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 800, fontSize: '1rem', cursor: 'pointer', fontFamily: 'inherit' }}>
           Start Quiz →
         </button>
       </div>
     );
   }
 
-  // ── QUIZ PHASE ──
+  // ── QUIZ ──
   if (selectedVideo && phase === 'quiz') {
     const q = selectedVideo.questions[currentQ];
     const isCorrect = selected === q.correct;
@@ -378,10 +497,8 @@ export default function VideoStudio({ onBack: _onBack, userLevel }: Props) {
     return (
       <div style={{ maxWidth: '480px', margin: '0 auto', padding: '0 16px 40px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 0' }}>
-          <button
-            onClick={() => setPhase('watch')}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700, color: '#64748b', fontSize: '0.85rem' }}
-          >
+          <button onClick={() => setPhase('watch')}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700, color: '#64748b', fontSize: '0.85rem' }}>
             ← Re-watch
           </button>
           <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#94a3b8' }}>
@@ -400,23 +517,17 @@ export default function VideoStudio({ onBack: _onBack, userLevel }: Props) {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
           {q.options.map((opt, i) => {
-            let bg = 'white';
-            let border = '2px solid #e2e8f0';
-            let color = '#0f172a';
+            let bg = 'white', border = '2px solid #e2e8f0', color = '#0f172a';
             if (showFeedback) {
               if (i === q.correct) { bg = '#f0fdf4'; border = '2px solid #4caf7d'; color = '#14532d'; }
               else if (i === selected) { bg = '#fff1f2'; border = '2px solid #f87171'; color = '#991b1b'; }
-              else { bg = '#f8fafc'; color = '#94a3b8'; border = '2px solid #e2e8f0'; }
+              else { bg = '#f8fafc'; color = '#94a3b8'; }
             } else if (selected === i) {
               bg = '#f0fdf4'; border = '2px solid #14532d';
             }
             return (
-              <button
-                key={i}
-                onClick={() => handleAnswer(i)}
-                disabled={showFeedback}
-                style={{ background: bg, border, borderRadius: '12px', padding: '14px 16px', textAlign: 'left', cursor: showFeedback ? 'default' : 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '12px', transition: 'all 0.15s' }}
-              >
+              <button key={i} onClick={() => handleAnswer(i)} disabled={showFeedback}
+                style={{ background: bg, border, borderRadius: '12px', padding: '14px 16px', textAlign: 'left', cursor: showFeedback ? 'default' : 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '12px', transition: 'all 0.15s' }}>
                 <span style={{ width: '28px', height: '28px', borderRadius: '50%', background: showFeedback && i === q.correct ? '#14532d' : '#f1f5f9', color: showFeedback && i === q.correct ? 'white' : '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.75rem', flexShrink: 0 }}>
                   {['A', 'B', 'C', 'D'][i]}
                 </span>
@@ -437,10 +548,8 @@ export default function VideoStudio({ onBack: _onBack, userLevel }: Props) {
         )}
 
         {showFeedback && (
-          <button
-            onClick={handleNext}
-            style={{ width: '100%', padding: '14px', background: '#14532d', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 800, fontSize: '1rem', cursor: 'pointer', fontFamily: 'inherit' }}
-          >
+          <button onClick={handleNext}
+            style={{ width: '100%', padding: '14px', background: '#14532d', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 800, fontSize: '1rem', cursor: 'pointer', fontFamily: 'inherit' }}>
             {isLast ? 'See Results →' : 'Next Question →'}
           </button>
         )}
@@ -448,7 +557,7 @@ export default function VideoStudio({ onBack: _onBack, userLevel }: Props) {
     );
   }
 
-  // ── RESULT PHASE ──
+  // ── RESULT ──
   if (selectedVideo && phase === 'result') {
     const score = answers.filter((a, i) => a === selectedVideo.questions[i].correct).length;
     const total = selectedVideo.questions.length;
@@ -458,31 +567,24 @@ export default function VideoStudio({ onBack: _onBack, userLevel }: Props) {
       <div style={{ maxWidth: '480px', margin: '0 auto', padding: '40px 16px' }}>
         <div style={{ textAlign: 'center', background: 'white', borderRadius: '20px', padding: '32px 24px', boxShadow: '0 4px 24px rgba(0,0,0,0.08)' }}>
           <div style={{ fontSize: '3rem', marginBottom: '12px' }}>{passed ? '🎉' : '📺'}</div>
-          <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: passed ? '#f0fdf4' : '#fff1f2', border: `3px solid ${passed ? '#4caf7d' : '#f87171'}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+          <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: passed ? '#f0fdf4' : '#fff1f2', border: `3px solid ${passed ? '#4caf7d' : '#f87171'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
             <span style={{ fontWeight: 900, fontSize: '1.4rem', color: passed ? '#14532d' : '#991b1b' }}>{score}/{total}</span>
           </div>
-          <h2 style={{ fontWeight: 900, fontSize: '1.3rem', marginBottom: '8px' }}>
-            {passed ? 'Well done!' : 'Keep watching!'}
-          </h2>
+          <h2 style={{ fontWeight: 900, fontSize: '1.3rem', marginBottom: '8px' }}>{passed ? 'Well done!' : 'Keep watching!'}</h2>
           <p style={{ color: '#64748b', fontSize: '0.85rem', marginBottom: '28px' }}>
             {passed
-              ? `You answered ${score} out of ${total} questions correctly. Great comprehension!`
-              : `You got ${score} out of ${total}. Try re-watching the video and quiz again.`}
+              ? `You answered ${score} out of ${total} correctly. Great comprehension!`
+              : `You got ${score} out of ${total}. Try re-watching and quiz again.`}
           </p>
-
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {!passed && (
-              <button
-                onClick={() => { setPhase('watch'); setCurrentQ(0); setAnswers([]); setSelected(null); setShowFeedback(false); }}
-                style={{ padding: '13px', background: '#14532d', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 800, fontSize: '0.95rem', cursor: 'pointer', fontFamily: 'inherit' }}
-              >
+              <button onClick={() => { setPhase('watch'); setCurrentQ(0); setAnswers([]); setSelected(null); setShowFeedback(false); }}
+                style={{ padding: '13px', background: '#14532d', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 800, fontSize: '0.95rem', cursor: 'pointer', fontFamily: 'inherit' }}>
                 Re-watch & Retry →
               </button>
             )}
-            <button
-              onClick={() => setSelectedVideo(null)}
-              style={{ padding: '13px', background: passed ? '#14532d' : 'white', color: passed ? 'white' : '#64748b', border: '2px solid #e2e8f0', borderRadius: '12px', fontWeight: 800, fontSize: '0.95rem', cursor: 'pointer', fontFamily: 'inherit' }}
-            >
+            <button onClick={() => setSelectedVideo(null)}
+              style={{ padding: '13px', background: passed ? '#14532d' : 'white', color: passed ? 'white' : '#64748b', border: '2px solid #e2e8f0', borderRadius: '12px', fontWeight: 800, fontSize: '0.95rem', cursor: 'pointer', fontFamily: 'inherit' }}>
               {passed ? 'Watch More Videos →' : 'Back to Videos'}
             </button>
           </div>
@@ -498,61 +600,28 @@ export default function VideoStudio({ onBack: _onBack, userLevel }: Props) {
     <div style={{ maxWidth: '480px', margin: '0 auto', padding: '0 16px 40px' }}>
       <header style={{ padding: '24px 0 20px' }}>
         <h1 style={{ fontWeight: 900, fontSize: '2.2rem', color: '#0f172a', margin: '0 0 4px' }}>Watch & Learn</h1>
-        <p style={{ color: '#64748b', fontSize: '0.9rem', margin: 0 }}>Brazilian videos with comprehension Q&A</p>
+        <p style={{ color: '#64748b', fontSize: '0.9rem', margin: 0 }}>Brazilian culture, music, food & telenovelas</p>
       </header>
 
-      {/* Level filter */}
       <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px', marginBottom: '20px', scrollbarWidth: 'none' }}>
         {levels.map(lvl => (
-          <button
-            key={lvl}
-            onClick={() => setFilterLevel(lvl)}
-            style={{
-              padding: '6px 14px',
-              borderRadius: '99px',
-              border: 'none',
-              background: filterLevel === lvl ? '#14532d' : '#f1f5f9',
-              color: filterLevel === lvl ? 'white' : '#64748b',
-              fontWeight: 700,
-              fontSize: '0.78rem',
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-              flexShrink: 0,
-              transition: 'all 0.15s',
-            }}
-          >
+          <button key={lvl} onClick={() => setFilterLevel(lvl)}
+            style={{ padding: '6px 14px', borderRadius: '99px', border: 'none', background: filterLevel === lvl ? '#14532d' : '#f1f5f9', color: filterLevel === lvl ? 'white' : '#64748b', fontWeight: 700, fontSize: '0.78rem', cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0, transition: 'all 0.15s' }}>
             {lvl === 'all' ? 'All Levels' : lvl}
           </button>
         ))}
       </div>
 
-      {/* Video cards */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
         {filteredVideos.map(video => {
           const videoLevelNum = LEVEL_ORDER[video.level] || 1;
           const isAccessible = videoLevelNum <= userLevelNum + 1;
           return (
-            <div
-              key={video.id}
-              onClick={() => isAccessible && handleSelect(video)}
-              style={{
-                background: 'white',
-                borderRadius: '16px',
-                overflow: 'hidden',
-                boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
-                cursor: isAccessible ? 'pointer' : 'default',
-                opacity: isAccessible ? 1 : 0.5,
-                border: '1px solid #f1f5f9',
-                transition: 'transform 0.15s, box-shadow 0.15s',
-              }}
-            >
-              {/* Thumbnail */}
+            <div key={video.id} onClick={() => isAccessible && handleSelect(video)}
+              style={{ background: 'white', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', cursor: isAccessible ? 'pointer' : 'default', opacity: isAccessible ? 1 : 0.5, border: '1px solid #f1f5f9' }}>
               <div style={{ position: 'relative', paddingBottom: '56.25%', background: '#0f172a' }}>
-                <img
-                  src={`https://img.youtube.com/vi/${video.youtubeId}/mqdefault.jpg`}
-                  alt={video.title}
-                  style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }}
-                />
+                <img src={`https://img.youtube.com/vi/${video.youtubeId}/mqdefault.jpg`} alt={video.title}
+                  style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
                 <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'rgba(255,255,255,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="#0f172a"><path d="M8 5v14l11-7z"/></svg>
@@ -567,20 +636,14 @@ export default function VideoStudio({ onBack: _onBack, userLevel }: Props) {
                   {video.duration}
                 </span>
               </div>
-
-              {/* Info */}
               <div style={{ padding: '12px 14px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-                  <span style={{ background: LEVEL_COLORS[video.level], color: 'white', borderRadius: '20px', padding: '2px 8px', fontSize: '0.65rem', fontWeight: 800 }}>
-                    {video.level}
-                  </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px', flexWrap: 'wrap' }}>
+                  <span style={{ background: LEVEL_COLORS[video.level], color: 'white', borderRadius: '20px', padding: '2px 8px', fontSize: '0.65rem', fontWeight: 800 }}>{video.level}</span>
                   <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 600 }}>{video.emoji} {video.topic}</span>
                 </div>
                 <h3 style={{ fontWeight: 800, fontSize: '0.95rem', color: '#0f172a', margin: '0 0 4px', lineHeight: 1.3 }}>{video.title}</h3>
                 <p style={{ color: '#64748b', fontSize: '0.78rem', margin: '0 0 8px', lineHeight: 1.4 }}>{video.description}</p>
-                <span style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 600 }}>
-                  📝 {video.questions.length} comprehension questions
-                </span>
+                <span style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 600 }}>📝 {video.questions.length} comprehension questions</span>
               </div>
             </div>
           );

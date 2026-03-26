@@ -560,4 +560,124 @@
     color: #16a34a;
     font-weight: 700;
   }
-  
+  /* ── ADD THESE TO YOUR EXISTING TodayScreen.css ── */
+ 
+@keyframes tsBrainPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.92); }
+}
+ 
+@keyframes tsShimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+ 
+@keyframes tsDotPulse {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 1; }
+}
+ 
+@keyframes tsFadeUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+ 
+.ts-loading-card {
+  background: white;
+  border: 1px solid #f1f5f9;
+  border-radius: 16px;
+  padding: 28px 20px 20px;
+  margin-bottom: 12px;
+  text-align: center;
+}
+ 
+.ts-loading-brain {
+  font-size: 36px;
+  display: inline-block;
+  margin-bottom: 14px;
+  animation: tsBrainPulse 2s ease-in-out infinite;
+}
+ 
+.ts-loading-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 6px;
+  animation: tsFadeUp 0.4s ease forwards;
+}
+ 
+.ts-loading-subtitle {
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.6;
+  margin-bottom: 16px;
+  animation: tsFadeUp 0.4s 0.1s ease both;
+}
+ 
+.ts-loading-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 20px;
+}
+ 
+.ts-loading-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #14532d;
+}
+ 
+.ts-loading-dot:nth-child(1) { animation: tsDotPulse 1.2s 0s infinite; }
+.ts-loading-dot:nth-child(2) { animation: tsDotPulse 1.2s 0.2s infinite; }
+.ts-loading-dot:nth-child(3) { animation: tsDotPulse 1.2s 0.4s infinite; }
+ 
+.ts-quote-box {
+  background: #f0fdf4;
+  border-radius: 12px;
+  padding: 14px 16px;
+  text-align: left;
+  margin-bottom: 16px;
+  animation: tsFadeUp 0.5s 0.3s ease both;
+}
+ 
+.ts-quote-label {
+  font-size: 10px;
+  font-weight: 800;
+  color: #14532d;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+ 
+.ts-quote-pt {
+  font-size: 14px;
+  font-weight: 700;
+  color: #14532d;
+  line-height: 1.5;
+  margin-bottom: 5px;
+  font-style: italic;
+}
+ 
+.ts-quote-en {
+  font-size: 12px;
+  color: #166534;
+  line-height: 1.5;
+}
+ 
+.ts-ghost-card {
+  background: white;
+  border: 1px solid #f1f5f9;
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 10px;
+  opacity: 0.5;
+}
+ 
+.ts-skeleton {
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 400px 100%;
+  animation: tsShimmer 1.6s infinite;
+  border-radius: 6px;
+}
+ 
