@@ -1,0 +1,124 @@
+/* src/BottomNav.css */
+
+.bn-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 64px;
+    background: white;
+    border-top: 0.5px solid #e2e8f0;
+    display: flex;
+    align-items: flex-end;
+    padding-bottom: env(safe-area-inset-bottom, 8px);
+    z-index: 1000;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+  
+  /* On wider screens, centre and constrain the nav */
+  @media (min-width: 480px) {
+    .bn-nav {
+      left: 50%;
+      right: auto;
+      transform: translateX(-50%);
+      width: 480px;
+      border-left: 0.5px solid #e2e8f0;
+      border-right: 0.5px solid #e2e8f0;
+      border-radius: 0 0 16px 16px;
+    }
+  }
+  
+  .bn-tab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 8px 4px 10px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: opacity 0.15s;
+  }
+  
+  .bn-tab:active {
+    opacity: 0.7;
+  }
+  
+  .bn-label {
+    font-size: 10px;
+    font-weight: 500;
+    color: #94a3b8;
+    font-family: inherit;
+  }
+  
+  .bn-active .bn-label {
+    color: #14532d;
+  }
+  
+  .bn-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #14532d;
+    margin-top: 1px;
+  }
+  
+  /* ── Isabela centre button ── */
+  .bn-isabela-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 0 4px 10px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    margin-top: -18px;
+  }
+  
+  .bn-isabela-ring {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 2.5px solid white;
+    outline: 2px solid #e2e8f0;
+    background: linear-gradient(135deg, #fce7f3, #fbcfe8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: outline-color 0.2s;
+  }
+  
+  .bn-isabela-ring.bn-isabela-active {
+    outline-color: #14532d;
+    outline-width: 2.5px;
+  }
+  
+  .bn-isabela-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  .bn-isabela-label {
+    font-size: 10px;
+    font-weight: 500;
+    color: #94a3b8;
+    font-family: inherit;
+  }
+  
+  .bn-isabela-label.bn-active {
+    color: #14532d;
+  }
+  
+  /* ── Page bottom padding so content clears the nav ── */
+  .bn-page-padding {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  }
+  

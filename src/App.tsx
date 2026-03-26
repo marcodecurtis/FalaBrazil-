@@ -1,7 +1,11 @@
+// src/App.tsx
+// Bottom nav replaces sandwich menu
+// 5 tabs: Today, Learn, Isabela, Progress, Account
+
 import { useState, useEffect } from 'react';
 import './App.css';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, updateDoc } from 'firebase/firestore'; // added updateDoc
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import VerbStudio from './VerbStudio';
 import VocabStudio from './VocabStudio';
@@ -14,11 +18,24 @@ import OnboardingScreen from './OnboardingScreen';
 import WelcomeScreen from './WelcomeScreen';
 import AuthScreen from './AuthScreen';
 import TodayScreen from './TodayScreen';
-import SandwichMenu from './SandwichMenu';
+import LearnScreen from './LearnScreen';
+import ProgressScreen from './ProgressScreen';
+import AccountScreen from './AccountScreen';
+import BottomNav from './BottomNav';
 import { stopSpeaking } from './speak';
 
 export type Level = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
-type View = 'loading' | 'welcome' | 'auth' | 'onboarding' | 'home' | 'verbs' | 'vocab' | 'grammar' | 'reading' | 'pronunciation' | 'video' | 'isabela';
+
+// ── Tab = bottom nav destinations ──────────────────────────────────
+type Tab = 'today' | 'learn' | 'isabela' | 'progress' | 'account';
+
+// ── Studio = full-screen overlays (no bottom nav shown) ────────────
+type Studio = 'verbs' | 'vocab' | 'grammar' | 'reading' | 'pronunciation' | 'video' | 'isabela-studio';
+
+// ── Setup screens (no bottom nav) ──────────────────────────────────
+type SetupView = 'loading' | 'welcome' | 'auth' | 'onboarding';
+
+type AppView = SetupView | Tab | Studio;
 
 interface UserData {
   name:            string;
@@ -31,26 +48,28 @@ interface UserData {
   timePreference:  string | null;
   learningGoal:    string | null;
   lastActiveAt:    string;
+  lessonsCompleted?: number;
 }
 
 export default function App() {
-  const [view, setView]             = useState<View>('loading');
+  const [view, setView]             = useState<AppView>('loading');
   const [userLevel, setUserLevel]   = useState<Level | null>(null);
   const [userData, setUserData]     = useState<UserData | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  // ── Helper: write progress back to Firestore for logged-in users ──
-  // Call this anywhere in the app when streak, xp, totalPts, or currentDay changes.
-  // e.g. updateUserProgress({ streak: 5, totalPts: 120 })
+  // ── Progress stats (needed for ProgressScreen and AccountScreen) ──
+  const [streak, setStreak]                 = useState(0);
+  const [totalPts, setTotalPts]             = useState(0);
+  const [lessonsCompleted, setLessonsCompleted] = useState(0);
+
   const updateUserProgress = async (fields: Partial<UserData>) => {
     const firebaseUser = auth.currentUser;
-    if (!firebaseUser) return; // not logged in — localStorage only
+    if (!firebaseUser) return;
     try {
       await updateDoc(doc(db, 'users', firebaseUser.uid), {
         ...fields,
         lastActiveAt: new Date().toISOString(),
       });
-      // Keep local state in sync
       setUserData(prev => prev ? { ...prev, ...fields } : prev);
     } catch (err) {
       console.error('Failed to update user progress:', err);
@@ -67,8 +86,6 @@ export default function App() {
             const data = userDoc.data() as UserData;
             setUserData(data);
 
-            // ── Sync Firestore values back into localStorage so the rest
-            //    of the app (which still reads localStorage) gets the right values ──
             if (data.level)          localStorage.setItem('userLevel',       data.level);
             if (data.streak)         localStorage.setItem('streak',          String(data.streak));
             if (data.totalPts)       localStorage.setItem('totalPts',        String(data.totalPts));
@@ -76,9 +93,13 @@ export default function App() {
             if (data.timePreference) localStorage.setItem('timePreference',  data.timePreference);
             if (data.learningGoal)   localStorage.setItem('learningGoal',    data.learningGoal);
 
+            setStreak(data.streak || 0);
+            setTotalPts(data.totalPts || 0);
+            setLessonsCompleted(data.lessonsCompleted || 0);
+
             if (data.level) {
               setUserLevel(data.level);
-              setView('home');
+              setView('today');
             } else {
               setView('onboarding');
             }
@@ -92,9 +113,13 @@ export default function App() {
         setIsLoggedIn(false);
         const hasSeenWelcome = localStorage.getItem('hasSeenWelcome');
         const savedLevel     = localStorage.getItem('userLevel') as Level | null;
+        setStreak(parseInt(localStorage.getItem('streak') || '0'));
+        setTotalPts(parseInt(localStorage.getItem('totalPts') || '0'));
+        setLessonsCompleted(parseInt(localStorage.getItem('lessonsCompleted') || '0'));
+
         if (hasSeenWelcome && savedLevel) {
           setUserLevel(savedLevel);
-          setView('home');
+          setView('today');
         } else if (hasSeenWelcome) {
           setView('onboarding');
         } else {
@@ -105,9 +130,9 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  const navigateTo = (newView: View | string) => {
+  const navigateTo = (newView: AppView) => {
     stopSpeaking();
-    setView(newView as View);
+    setView(newView);
   };
 
   const handleLogout = async () => {
@@ -119,6 +144,7 @@ export default function App() {
     localStorage.removeItem('currentDay');
     localStorage.removeItem('streak');
     localStorage.removeItem('totalPts');
+    localStorage.removeItem('lessonsCompleted');
     setUserData(null);
     setUserLevel(null);
     setView('welcome');
@@ -129,28 +155,16 @@ export default function App() {
     setView('auth');
   };
 
-  const handleAuthSuccess = () => {};
-
-  const handleContinueWithoutAccount = () => {
-    const savedLevel = localStorage.getItem('userLevel') as Level | null;
-    if (savedLevel) {
-      setUserLevel(savedLevel);
-      setView('home');
-    } else {
-      setView('onboarding');
-    }
-  };
-
   const handleOnboardingComplete = (level: Level) => {
     setUserLevel(level);
     if (!localStorage.getItem('currentDay')) {
       localStorage.setItem('currentDay', '1');
     }
-    // If user is logged in, save their chosen level to Firestore too
     updateUserProgress({ level });
-    setView('home');
+    setView('today');
   };
 
+  // ── Loading ────────────────────────────────────────────────────
   if (view === 'loading') {
     return (
       <div className="container" style={{ justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
@@ -162,57 +176,121 @@ export default function App() {
     );
   }
 
+  // ── Setup screens — no bottom nav ──────────────────────────────
+  if (view === 'welcome') {
+    return <WelcomeScreen onFinish={handleWelcomeFinish} />;
+  }
+
+  if (view === 'auth') {
+    return (
+      <AuthScreen
+        onContinueWithoutAccount={() => {
+          const savedLevel = localStorage.getItem('userLevel') as Level | null;
+          if (savedLevel) { setUserLevel(savedLevel); }
+          setView('today');
+        }}
+        onAuthSuccess={() => {}}
+      />
+    );
+  }
+
+  if (view === 'onboarding') {
+    return <OnboardingScreen onComplete={handleOnboardingComplete} />;
+  }
+
+  // ── Studio overlays — full screen, no bottom nav ───────────────
+  const studioBack = () => navigateTo('learn');
+
+  if (view === 'verbs') {
+    return (
+      <div className="container">
+        <VerbStudio
+          onBack={studioBack}
+          onGainXp={(pts: number) => updateUserProgress({ xp: (userData?.xp || 0) + pts, totalPts: (userData?.totalPts || 0) + pts })}
+        />
+      </div>
+    );
+  }
+  if (view === 'vocab')         return <div className="container"><VocabStudio onBack={studioBack} userLevel={userLevel} /></div>;
+  if (view === 'grammar')       return <div className="container"><GrammarStudio onBack={studioBack} userLevel={userLevel} /></div>;
+  if (view === 'reading')       return <div className="container"><ReadingStudio onBack={studioBack} userLevel={userLevel} /></div>;
+  if (view === 'pronunciation') return <div className="container"><PronunciationStudio onBack={studioBack} /></div>;
+  if (view === 'video')         return <div className="container"><VideoStudio onBack={studioBack} userLevel={userLevel} /></div>;
+
+  // Isabela — can be launched from the nav tab OR from a lesson block
+  if (view === 'isabela' || view === 'isabela-studio') {
+    return (
+      <div className="container">
+        <IsabelaStudio
+          onBack={() => navigateTo('today')}
+          userLevel={userLevel}
+        />
+      </div>
+    );
+  }
+
+  // ── Main app with bottom nav ───────────────────────────────────
+  // At this point view is one of: today | learn | progress | account
+  const activeTab = view as Tab;
+
   return (
     <>
-      {view === 'home' && (
-        <SandwichMenu
-          isLoggedIn={isLoggedIn}
-          userData={userData}
-          userLevel={userLevel}
-          onNavigate={navigateTo}
-          onLogout={handleLogout}
-        />
-      )}
+      <div className="container" style={{ paddingBottom: 0 }}>
 
-      <div className="container">
-
-        {view !== 'home' && view !== 'onboarding' && view !== 'welcome' && view !== 'auth' && (
-          <button className="top-back-btn" onClick={() => navigateTo('home')}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M15 18l-6-6 6-6"/>
-            </svg>
-            Back
-          </button>
-        )}
-
-        {view === 'welcome'    && <WelcomeScreen onFinish={handleWelcomeFinish} />}
-        {view === 'auth'       && <AuthScreen onContinueWithoutAccount={handleContinueWithoutAccount} onAuthSuccess={handleAuthSuccess} />}
-        {view === 'onboarding' && <OnboardingScreen onComplete={handleOnboardingComplete} />}
-
-        {view === 'home' && (
+        {activeTab === 'today' && (
           <TodayScreen
             userLevel={userLevel}
-            onNavigate={(v) => navigateTo(v as View)}
+            onNavigate={(v) => {
+              // TodayScreen can navigate to any studio or tab
+              navigateTo(v as AppView);
+            }}
           />
         )}
 
-        {/* Pass updateUserProgress down to any studio that awards XP or updates streak */}
-        {view === 'verbs'         && <VerbStudio onBack={() => navigateTo('home')} onGainXp={(pts: number) => updateUserProgress({ xp: (userData?.xp || 0) + pts, totalPts: (userData?.totalPts || 0) + pts })} />}
-        {view === 'vocab'         && <VocabStudio onBack={() => navigateTo('home')} userLevel={userLevel} />}
-        {view === 'grammar'       && <GrammarStudio onBack={() => navigateTo('home')} userLevel={userLevel} />}
-        {view === 'reading'       && <ReadingStudio onBack={() => navigateTo('home')} userLevel={userLevel} />}
-        {view === 'pronunciation' && <PronunciationStudio onBack={() => navigateTo('home')} />}
-        {view === 'video'         && <VideoStudio onBack={() => navigateTo('home')} userLevel={userLevel} />}
-        {view === 'isabela'       && <IsabelaStudio onBack={() => navigateTo('home')} userLevel={userLevel} />}
+        {activeTab === 'learn' && (
+          <LearnScreen
+            userLevel={userLevel}
+            onNavigate={(v) => navigateTo(v as AppView)}
+          />
+        )}
 
-        <footer style={{ marginTop: 'auto', paddingTop: '60px', paddingBottom: '20px', textAlign: 'center', fontSize: '0.85rem', color: '#94a3b8' }}>
+        {activeTab === 'progress' && (
+          <ProgressScreen
+            userLevel={userLevel}
+            streak={streak}
+            totalPts={totalPts}
+            lessonsCompleted={lessonsCompleted}
+          />
+        )}
+
+        {activeTab === 'account' && (
+          <AccountScreen
+            isLoggedIn={isLoggedIn}
+            userData={userData}
+            userLevel={userLevel}
+            onNavigate={(v) => navigateTo(v as AppView)}
+            onLogout={handleLogout}
+          />
+        )}
+
+        <footer style={{
+          marginTop: 'auto', paddingTop: '40px',
+          paddingBottom: '90px', // clears bottom nav
+          textAlign: 'center', fontSize: '0.85rem', color: '#94a3b8',
+        }}>
           Created by{' '}
-          <a href="https://www.nocodediary.co.uk/" target="_blank" rel="noopener noreferrer" style={{ color: '#14532d', fontWeight: 800, textDecoration: 'none' }}>
+          <a href="https://www.nocodediary.co.uk/" target="_blank" rel="noopener noreferrer"
+            style={{ color: '#14532d', fontWeight: 800, textDecoration: 'none' }}>
             Marco De Curtis
           </a>
         </footer>
 
       </div>
+
+      <BottomNav
+        active={activeTab}
+        onNavigate={(tab) => navigateTo(tab)}
+      />
     </>
   );
 }

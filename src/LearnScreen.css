@@ -1,0 +1,81 @@
+/* src/LearnScreen.css */
+
+.learn-wrapper {
+    padding: 0 16px;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+  
+  .learn-header {
+    padding: 24px 0 20px;
+  }
+  
+  .learn-title {
+    font-size: 1.6rem;
+    font-weight: 900;
+    color: #0f172a;
+    margin: 0 0 4px;
+  }
+  
+  .learn-subtitle {
+    font-size: 0.85rem;
+    color: #64748b;
+    margin: 0;
+  }
+  
+  .learn-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .learn-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: white;
+    border: 0.5px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 14px 16px;
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+    font-family: inherit;
+    transition: transform 0.12s, box-shadow 0.12s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  .learn-card:active {
+    transform: scale(0.98);
+  }
+  
+  .learn-card-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  
+  .learn-card-body {
+    flex: 1;
+  }
+  
+  .learn-card-label {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 2px;
+  }
+  
+  .learn-card-desc {
+    font-size: 0.78rem;
+    color: #64748b;
+  }
+  
+  .learn-card-arrow {
+    flex-shrink: 0;
+  }
+  

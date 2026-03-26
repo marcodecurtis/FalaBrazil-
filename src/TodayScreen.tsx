@@ -53,16 +53,6 @@ const BLOCK_ICONS: Record<string, string> = {
   verb:          '🔤',
 };
 
-const FREE_PRACTICE = [
-  { id: 'verbs',         label: 'Practise Verbs',        desc: '100 verbs · 6 tenses',          icon: '📚',  isIsabela: false },
-  { id: 'vocab',         label: 'Learn Vocabulary',       desc: 'Flashcards by category',         icon: '🗂️',  isIsabela: false },
-  { id: 'grammar',       label: 'Master Grammar',         desc: 'Rules for your level',           icon: '✍️',  isIsabela: false },
-  { id: 'reading',       label: 'Read Articles',          desc: 'Real Brazilian Portuguese',      icon: '📰',  isIsabela: false },
-  { id: 'pronunciation', label: 'Pronunciation',          desc: '20 rules with audio',            icon: '🔊',  isIsabela: false },
-  { id: 'video',         label: 'Watch & Learn',          desc: 'Brazilian videos + Q&A',         icon: '🎬',  isIsabela: false },
-  { id: 'isabela',       label: 'Chat with Isabela',      desc: 'AI conversation partner',        icon: null,  isIsabela: true  },
-];
-
 const LESSONS_PER_LEVEL: Record<string, number> = {
   '5':  100,
   '15': 60,
@@ -392,7 +382,7 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
   const requiredDone = dailyContent && completedToday.includes(dailyContent.requiredLesson.id);
 
   return (
-    <div className="ts-wrapper">
+    <div className="ts-wrapper bn-page-padding">
 
       {showSaveBanner && !isLoggedIn && (
         <div className="ts-save-banner">
@@ -502,13 +492,13 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
             {/* Show block list so user knows what's coming */}
             {!requiredDone && dailyContent.requiredLesson.blocks.length > 1 && (
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', margin: '10px 0 4px' }}>
-                {dailyContent.requiredLesson.blocks.map((b, i) => (
+                {dailyContent.requiredLesson.blocks.map((block, i) => (
                   <span key={i} style={{
                     fontSize: '0.72rem', fontWeight: 600,
-                    background: BLOCK_COLORS[b.type] || '#f1f5f9',
+                    background: BLOCK_COLORS[block.type] || '#f1f5f9',
                     color: '#334155', padding: '3px 8px', borderRadius: 20,
                   }}>
-                    {BLOCK_ICONS[b.type]} {b.title}
+                    {BLOCK_ICONS[block.type]} {block.title}
                   </span>
                 ))}
               </div>
@@ -569,35 +559,7 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
         </>
       ) : null}
 
-      <div className="ts-divider">
-        <div className="ts-divider-line" />
-        <div className="ts-divider-text">free practice</div>
-        <div className="ts-divider-line" />
-      </div>
 
-      <div className="ts-free-list">
-        {FREE_PRACTICE.map(item => (
-          <button key={item.id} className="ts-free-card" onClick={() => onNavigate(item.id)}>
-            <div className="ts-free-icon-wrap">
-              {item.isIsabela ? (
-                <img
-                  src="/isabela.png"
-                  alt="Isabela"
-                  className="ts-free-isabela-img"
-                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                />
-              ) : (
-                <span className="ts-free-icon">{item.icon}</span>
-              )}
-            </div>
-            <div className="ts-free-content">
-              <div className="ts-free-label">{item.label}</div>
-              <div className="ts-free-desc">{item.desc}</div>
-            </div>
-            <div className="ts-free-arrow">→</div>
-          </button>
-        ))}
-      </div>
 
     </div>
   );
