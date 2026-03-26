@@ -1,22 +1,22 @@
 import { useState } from 'react';
 import './OnboardingScreen.css';
-import { logEvent } from 'firebase/analytics';       // ADD 1
-import { analytics } from './firebase';               // ADD 2
+import { logEvent } from 'firebase/analytics';
+import { analytics } from './firebase';
 
 type Level = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
-type Screen = 'pick' | 'quiz' | 'result' | 'time' | 'goal';
+type Screen = 'pick' | 'quiz' | 'result' | 'time';
 
 interface OnboardingScreenProps {
   onComplete: (level: Level) => void;
 }
 
-const LEVELS: { level: Level; label: string; labelEn: string; emoji: string; desc: string; descEn: string; color: string; bg: string }[] = [
-  { level: 'A1', label: 'Iniciante',       labelEn: 'Beginner',          emoji: '🌱', desc: 'Conheço palavras básicas como "olá", números e cores.',                descEn: 'I know basic words like "hello", numbers and colours.',              color: '#166534', bg: 'linear-gradient(135deg, #f0fdf4, #dcfce7)' },
-  { level: 'A2', label: 'Elementar',       labelEn: 'Elementary',        emoji: '🌿', desc: 'Consigo apresentar-me e falar sobre coisas simples do dia-a-dia.',    descEn: 'I can introduce myself and talk about simple everyday things.',      color: '#15803d', bg: 'linear-gradient(135deg, #dcfce7, #bbf7d0)' },
-  { level: 'B1', label: 'Intermédio',      labelEn: 'Intermediate',      emoji: '🌳', desc: 'Entendo conversas sobre temas comuns e expresso opiniões básicas.',   descEn: 'I understand common topics and can express basic opinions.',         color: '#16a34a', bg: 'linear-gradient(135deg, #bbf7d0, #86efac)' },
-  { level: 'B2', label: 'Intermédio Alto', labelEn: 'Upper Intermediate', emoji: '🎋', desc: 'Comunico com fluência em situações variadas e leio textos elaborados.', descEn: 'I communicate fluently in varied situations and read complex texts.', color: '#14532d', bg: 'linear-gradient(135deg, #86efac, #4ade80)' },
-  { level: 'C1', label: 'Avançado',        labelEn: 'Advanced',          emoji: '🌴', desc: 'Expresso-me com espontaneidade e domino estruturas complexas.',        descEn: 'I express myself spontaneously and master complex structures.',      color: '#052e16', bg: 'linear-gradient(135deg, #4ade80, #22c55e)' },
-  { level: 'C2', label: 'Proficiente',     labelEn: 'Proficient',        emoji: '👑', desc: 'Domino o português ao nível de um nativo. Sem esforço.',               descEn: 'I speak Portuguese at native level. Effortlessly.',                  color: '#fff',    bg: 'linear-gradient(135deg, #14532d, #052e16)' },
+const LEVELS = [
+  { level: 'A1' as Level, label: 'Iniciante',       labelEn: 'Beginner',          emoji: '🌱', desc: 'Conheço palavras básicas como "olá", números e cores.',                descEn: 'I know basic words like "hello", numbers and colours.',              color: '#166534', bg: 'linear-gradient(135deg, #f0fdf4, #dcfce7)' },
+  { level: 'A2' as Level, label: 'Elementar',       labelEn: 'Elementary',        emoji: '🌿', desc: 'Consigo apresentar-me e falar sobre coisas simples do dia-a-dia.',    descEn: 'I can introduce myself and talk about simple everyday things.',      color: '#15803d', bg: 'linear-gradient(135deg, #dcfce7, #bbf7d0)' },
+  { level: 'B1' as Level, label: 'Intermédio',      labelEn: 'Intermediate',      emoji: '🌳', desc: 'Entendo conversas sobre temas comuns e expresso opiniões básicas.',   descEn: 'I understand common topics and can express basic opinions.',         color: '#16a34a', bg: 'linear-gradient(135deg, #bbf7d0, #86efac)' },
+  { level: 'B2' as Level, label: 'Intermédio Alto', labelEn: 'Upper Intermediate', emoji: '🎋', desc: 'Comunico com fluência em situações variadas e leio textos elaborados.', descEn: 'I communicate fluently in varied situations and read complex texts.', color: '#14532d', bg: 'linear-gradient(135deg, #86efac, #4ade80)' },
+  { level: 'C1' as Level, label: 'Avançado',        labelEn: 'Advanced',          emoji: '🌴', desc: 'Expresso-me com espontaneidade e domino estruturas complexas.',        descEn: 'I express myself spontaneously and master complex structures.',      color: '#052e16', bg: 'linear-gradient(135deg, #4ade80, #22c55e)' },
+  { level: 'C2' as Level, label: 'Proficiente',     labelEn: 'Proficient',        emoji: '👑', desc: 'Domino o português ao nível de um nativo. Sem esforço.',               descEn: 'I speak Portuguese at native level. Effortlessly.',                  color: '#fff',    bg: 'linear-gradient(135deg, #14532d, #052e16)' },
 ];
 
 interface Question {
@@ -61,25 +61,19 @@ function getLevel(score: number): Level {
 }
 
 const RESULT_MESSAGES: Record<Level, { pt: string; en: string }> = {
-  A1: { pt: 'Estás a dar os primeiros passos. Tens tudo à tua frente — e é uma boa posição para começar.', en: 'You\'re taking your first steps. Everything is ahead of you — and that\'s a great place to start.' },
-  A2: { pt: 'Já tens uma base. Com prática consistente, chegas ao B1 mais depressa do que pensas.', en: 'You already have a foundation. With consistent practice, you\'ll reach B1 faster than you think.' },
-  B1: { pt: 'Já consegues comunicar em português. A partir daqui, a fluência está ao virar da esquina.', en: 'You can already communicate in Portuguese. From here, fluency is just around the corner.' },
-  B2: { pt: 'Tens uma fluência real. Os detalhes que faltam são exatamente o que vamos trabalhar.', en: 'You have real fluency. The missing details are exactly what we\'ll work on.' },
-  C1: { pt: 'Dominas o português com confiança. Falta só o brilho final.', en: 'You master Portuguese with confidence. Just the final polish left.' },
-  C2: { pt: 'Nível nativo. O teu português é uma obra de arte — e o Fala Brazil! vai mantê-la assim.', en: 'Native level. Your Portuguese is a work of art — and Fala Brazil! will keep it that way.' },
+  A1: { pt: 'Estás a dar os primeiros passos. Tens tudo à tua frente — e é uma boa posição para começar.', en: "You're taking your first steps. Everything is ahead of you — and that's a great place to start." },
+  A2: { pt: 'Já tens uma base. Com prática consistente, chegas ao B1 mais depressa do que pensas.', en: "You already have a foundation. With consistent practice, you'll reach B1 faster than you think." },
+  B1: { pt: 'Já consegues comunicar em português. A partir daqui, a fluência está ao virar da esquina.', en: "You can already communicate in Portuguese. From here, fluency is just around the corner." },
+  B2: { pt: 'Tens uma fluência real. Os detalhes que faltam são exatamente o que vamos trabalhar.', en: "You have real fluency. The missing details are exactly what we'll work on." },
+  C1: { pt: 'Dominas o português com confiança. Falta só o brilho final.', en: "You master Portuguese with confidence. Just the final polish left." },
+  C2: { pt: 'Nível nativo. O teu português é uma obra de arte — e o Fala Brazil! vai mantê-la assim.', en: "Native level. Your Portuguese is a work of art — and Fala Brazil! will keep it that way." },
 };
 
+// ── 15 mins is now recommended, 30 mins is not ──
 const TIME_OPTIONS = [
   { value: '5',  label: '5 minutes',  sublabel: 'Quick daily habit', emoji: '⚡' },
-  { value: '15', label: '15 minutes', sublabel: 'Steady progress',   emoji: '🌿' },
-  { value: '30', label: '30 minutes', sublabel: 'Recommended',       emoji: '🏆', recommended: true },
-];
-
-const GOAL_OPTIONS = [
-  { value: 'conversation', label: 'Conversation',    sublabel: 'Speak with Brazilians confidently', emoji: '💬' },
-  { value: 'tv_movies',    label: 'TV & Movies',     sublabel: 'Understand shows without subtitles', emoji: '🎬' },
-  { value: 'travel',       label: 'Travel',          sublabel: 'Get around Brazil easily',           emoji: '✈️' },
-  { value: 'business',     label: 'Business',        sublabel: 'Professional Portuguese',            emoji: '💼' },
+  { value: '15', label: '15 minutes', sublabel: 'Steady progress',   emoji: '🌿', recommended: true },
+  { value: '30', label: '30 minutes', sublabel: 'Full immersion',    emoji: '🏆' },
 ];
 
 export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
@@ -88,8 +82,7 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
   const [answers, setAnswers]         = useState<(number | null)[]>(Array(QUESTIONS.length).fill(null));
   const [resultLevel, setResultLevel] = useState<Level | null>(null);
   const [selectedLevel, setSelectedLevel] = useState<Level | null>(null);
-  const [selectedTime, setSelectedTime]   = useState<string>('30');
-  const [selectedGoal, setSelectedGoal]   = useState<string>('conversation');
+  const [selectedTime, setSelectedTime]   = useState<string>('15');
   const [animating, setAnimating]         = useState(false);
 
   const currentAnswer = answers[currentQ];
@@ -121,43 +114,31 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
     }
   };
 
-  // After level is chosen — track it, save it, go to time screen
   const handleLevelChosen = (level: Level) => {
     setSelectedLevel(level);
     localStorage.setItem('userLevel', level);
-
-    // ── TRACK: which level every visitor picks (signed up or not) ──
     logEvent(analytics, 'level_selected', {
       level,
       method: screen === 'result' ? 'placement_test' : 'manual_pick',
     });
-
     setScreen('time');
   };
 
-  // After time chosen — go to goal screen
+  // ── Goal screen removed — go straight to complete after time ──
   const handleTimeChosen = () => {
     localStorage.setItem('timePreference', selectedTime);
-    setScreen('goal');
-  };
-
-  // After goal chosen — track full onboarding completion, then finish
-  const handleGoalChosen = () => {
-    localStorage.setItem('learningGoal', selectedGoal);
-
-    // ── TRACK: full onboarding completed with all choices ──
+    localStorage.setItem('learningGoal', 'conversation'); // sensible default
     logEvent(analytics, 'onboarding_complete', {
       level:           selectedLevel,
       time_preference: selectedTime,
-      learning_goal:   selectedGoal,
+      learning_goal:   'conversation',
     });
-
     onComplete(selectedLevel!);
   };
 
   const score = answers.reduce<number>((acc, a, i) => acc + (a === QUESTIONS[i].ans ? 1 : 0), 0);
 
-  // ── LEVEL PICKER ───────────────────────────────────────────────────
+  // ── LEVEL PICKER ──────────────────────────────────────────────
   if (screen === 'pick') {
     return (
       <div className="ob-wrapper">
@@ -207,7 +188,7 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
     );
   }
 
-  // ── QUIZ ───────────────────────────────────────────────────────────
+  // ── QUIZ ──────────────────────────────────────────────────────
   if (screen === 'quiz') {
     const q = QUESTIONS[currentQ];
     return (
@@ -267,7 +248,7 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
     );
   }
 
-  // ── RESULT ─────────────────────────────────────────────────────────
+  // ── RESULT ────────────────────────────────────────────────────
   if (screen === 'result' && resultLevel) {
     const levelInfo = LEVELS.find(l => l.level === resultLevel)!;
     const msg = RESULT_MESSAGES[resultLevel];
@@ -302,7 +283,7 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
     );
   }
 
-  // ── TIME PREFERENCE ────────────────────────────────────────────────
+  // ── TIME PREFERENCE ───────────────────────────────────────────
   if (screen === 'time') {
     return (
       <div className="ob-wrapper">
@@ -337,44 +318,8 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
         <button className="ob-confirm-btn" style={{ marginTop: '24px' }} onClick={handleTimeChosen}>
           Continue →
         </button>
-      </div>
-    );
-  }
 
-  // ── LEARNING GOAL ──────────────────────────────────────────────────
-  if (screen === 'goal') {
-    return (
-      <div className="ob-wrapper">
-        <div className="ob-flag-row">
-          <img src="https://flagcdn.com/w80/br.png" alt="Brazil" className="ob-flag" />
-        </div>
-        <h1 className="ob-title">
-          What's your<br /><em>main goal?</em>
-        </h1>
-        <p className="ob-subtitle">
-          We'll focus your lessons on what matters most to you.<br />
-          <span style={{ fontSize: '0.88em', color: '#b0b8c8' }}>You can always change this later.</span>
-        </p>
-
-        <div className="ob-pref-grid">
-          {GOAL_OPTIONS.map(opt => (
-            <button
-              key={opt.value}
-              className={`ob-pref-card ${selectedGoal === opt.value ? 'ob-pref-selected' : ''}`}
-              onClick={() => setSelectedGoal(opt.value)}
-            >
-              <span className="ob-pref-emoji">{opt.emoji}</span>
-              <div className="ob-pref-label">{opt.label}</div>
-              <div className="ob-pref-sub">{opt.sublabel}</div>
-            </button>
-          ))}
-        </div>
-
-        <button className="ob-confirm-btn" style={{ marginTop: '24px' }} onClick={handleGoalChosen}>
-          Start learning →
-        </button>
-
-        <button className="ob-change-btn" style={{ marginTop: '12px' }} onClick={() => setScreen('time')}>
+        <button className="ob-change-btn" style={{ marginTop: '12px' }} onClick={() => setScreen('pick')}>
           ← Back
         </button>
       </div>

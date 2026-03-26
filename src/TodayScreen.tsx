@@ -53,7 +53,6 @@ const FREE_PRACTICE = [
   { id: 'isabela',       label: 'Chat with Isabela',      desc: 'AI conversation partner',        icon: null,  isIsabela: true  },
 ];
 
-// Lessons needed per level based on time preference
 const LESSONS_PER_LEVEL: Record<string, number> = {
   '5':  100,
   '15': 60,
@@ -62,6 +61,58 @@ const LESSONS_PER_LEVEL: Record<string, number> = {
 
 const NEXT_LEVEL: Record<string, string> = {
   A1: 'A2', A2: 'B1', B1: 'B2', B2: 'C1', C1: 'C2', C2: 'C2',
+};
+
+// ── Quotes per level ──────────────────────────────────────────────
+// Simple and encouraging for beginners, richer and more literary for advanced
+const QUOTES_BY_LEVEL: Record<string, { pt: string; en: string; source: string }[]> = {
+  A1: [
+    { pt: "Devagar se vai ao longe.", en: "Slowly but surely you go far.", source: "Brazilian proverb" },
+    { pt: "Cada dia é uma nova chance.", en: "Every day is a new chance.", source: "Brazilian saying" },
+    { pt: "Quem tenta, aprende.", en: "Those who try, learn.", source: "Brazilian proverb" },
+    { pt: "Um passo de cada vez.", en: "One step at a time.", source: "Brazilian saying" },
+    { pt: "A prática leva à perfeição.", en: "Practice makes perfect.", source: "Brazilian proverb" },
+  ],
+  A2: [
+    { pt: "Água mole em pedra dura tanto bate até que fura.", en: "Constant dripping wears away the stone.", source: "Brazilian proverb" },
+    { pt: "Quem não arrisca, não petisca.", en: "Nothing ventured, nothing gained.", source: "Brazilian proverb" },
+    { pt: "O segredo é não correr.", en: "The secret is not to rush.", source: "Brazilian saying" },
+    { pt: "Depois da tempestade, vem a bonança.", en: "After the storm comes the calm.", source: "Brazilian proverb" },
+    { pt: "Ninguém nasce sabendo.", en: "Nobody is born knowing everything.", source: "Brazilian saying" },
+  ],
+  B1: [
+    { pt: "A língua é a alma de um povo.", en: "Language is the soul of a people.", source: "Brazilian saying" },
+    { pt: "Cada cabeça, uma sentença.", en: "Every mind has its own story.", source: "Brazilian proverb" },
+    { pt: "O mundo é dos corajosos.", en: "The world belongs to the brave.", source: "Brazilian saying" },
+    { pt: "Com paciência e perseverança, tudo se alcança.", en: "With patience and perseverance, everything is achievable.", source: "Brazilian proverb" },
+    { pt: "Quem fala uma língua, vive uma vida. Quem fala duas, vive duas.", en: "Who speaks one language lives one life. Who speaks two, lives two.", source: "Brazilian saying" },
+  ],
+  B2: [
+    { pt: "É preciso sonhar, mas com a condição de crer em nosso sonho.", en: "One must dream, but with the belief in one's dream.", source: "Clarice Lispector" },
+    { pt: "Sou feita de retalhos. Pedacinhos coloridos de cada vida que passa pela minha.", en: "I am made of scraps. Small colourful pieces of each life that passes through mine.", source: "Cora Coralina" },
+    { pt: "A coragem é a única virtude que torna todas as outras virtudes possíveis.", en: "Courage is the only virtue that makes all other virtues possible.", source: "Paulo Coelho" },
+    { pt: "Existir é tão surpreendente que engole qualquer outro espanto.", en: "To exist is so surprising that it swallows any other astonishment.", source: "Clarice Lispector" },
+    { pt: "Não existe distância demasiada para quem ama.", en: "There is no distance too great for those who love.", source: "Paulo Coelho" },
+  ],
+  C1: [
+    { pt: "A vida é a arte do encontro, embora haja tanto desencontro pela vida.", en: "Life is the art of encounter, although there is so much missed connection throughout life.", source: "Vinícius de Moraes" },
+    { pt: "Escrever é uma forma de não morrer.", en: "Writing is a way of not dying.", source: "Clarice Lispector" },
+    { pt: "O tempo não para. E nós, enquanto ele não para, também não devemos parar.", en: "Time does not stop. And we, while it does not stop, must not stop either.", source: "Caetano Veloso" },
+    { pt: "Não sou nada. Nunca serei nada. Não posso querer ser nada. À parte isso, tenho em mim todos os sonhos do mundo.", en: "I am nothing. I shall never be anything. I cannot wish to be anything. Aside from that, I have in me all the dreams of the world.", source: "Fernando Pessoa" },
+    { pt: "Cada homem é uma raça.", en: "Each man is a race unto himself.", source: "João Guimarães Rosa" },
+  ],
+  C2: [
+    { pt: "No meio do caminho tinha uma pedra / tinha uma pedra no meio do caminho.", en: "In the middle of the road there was a stone / there was a stone in the middle of the road.", source: "Carlos Drummond de Andrade" },
+    { pt: "O amor é eterno enquanto dura.", en: "Love is eternal for as long as it lasts.", source: "Vinicius de Moraes" },
+    { pt: "Tão bem. Tão bem. Tão longe da mim mesma.", en: "So well. So well. So far away from myself.", source: "Clarice Lispector" },
+    { pt: "Sertão é o penal, o criminal. Mas sertão é o deleite, a exaltação do ser.", en: "The sertão is the penal, the criminal. But the sertão is delight, the exaltation of being.", source: "João Guimarães Rosa" },
+    { pt: "A memória é o único paraíso do qual não podemos ser expulsos.", en: "Memory is the only paradise from which we cannot be expelled.", source: "Jean Paul Richter, beloved in Brazil" },
+  ],
+};
+
+const getQuoteForLevel = (level: string) => {
+  const quotes = QUOTES_BY_LEVEL[level] || QUOTES_BY_LEVEL['B1'];
+  return quotes[Math.floor(Math.random() * quotes.length)];
 };
 
 const getCacheKey = (level: string) => `lessons_cache_${level}`;
@@ -114,6 +165,9 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
   const levelProgress  = Math.min(100, Math.round((lessonsCompleted / lessonsNeeded) * 100));
   const nextLevel      = NEXT_LEVEL[level];
 
+  // Pick a quote once per render so it doesn't change during loading
+  const [quote] = useState(() => getQuoteForLevel(level));
+
   useEffect(() => {
     const user = auth.currentUser;
     setIsLoggedIn(!!user);
@@ -124,19 +178,14 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
       const savedStreak    = parseInt(localStorage.getItem('streak') || '0');
       const savedPts       = parseInt(localStorage.getItem('totalPts') || '0');
       const lastLessonDate = localStorage.getItem('lastLessonDate');
-      
-      // Check if streak should be reset
       const today = new Date().toISOString().split('T')[0];
       let currentStreak = savedStreak;
       if (lastLessonDate && lastLessonDate !== today) {
         const lastDate = new Date(lastLessonDate);
         const todayDate = new Date(today);
         const daysDiff = Math.floor((todayDate.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
-        if (daysDiff > 1) {
-          currentStreak = 0;
-        }
+        if (daysDiff > 1) currentStreak = 0;
       }
-      
       setLessonsCompleted(savedLessons);
       setStreak(currentStreak);
       setTotalPts(savedPts);
@@ -154,18 +203,14 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
         const savedStreak = data.streak || 0;
         const savedPts = data.totalPts || 0;
         const lastLessonDate = data.lastLessonDate;
-        
         const today = new Date().toISOString().split('T')[0];
         let currentStreak = savedStreak;
         if (lastLessonDate && lastLessonDate !== today) {
           const lastDate = new Date(lastLessonDate);
           const todayDate = new Date(today);
           const daysDiff = Math.floor((todayDate.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
-          if (daysDiff > 1) {
-            currentStreak = 0;
-          }
+          if (daysDiff > 1) currentStreak = 0;
         }
-        
         setLessonsCompleted(savedLessons);
         setStreak(currentStreak);
         setTotalPts(savedPts);
@@ -211,14 +256,10 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
       localStorage.setItem('streak', newStreak.toString());
       localStorage.setItem('lastLessonDate', today);
     }
-    
     const user = auth.currentUser;
     if (user) {
       try {
-        const updateData: any = {
-          lessonsCompleted: newLessons,
-          totalPts: newPts,
-        };
+        const updateData: any = { lessonsCompleted: newLessons, totalPts: newPts };
         if (requiredDone) {
           updateData.streak = newStreak;
           updateData.lastLessonDate = today;
@@ -232,36 +273,25 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
     const newLessons = lessonsCompleted + 1;
     const newPts = totalPts + xpEarned;
     let newStreak = streak;
-    
     if (isRequired) {
       const today = new Date().toISOString().split('T')[0];
       const lastLessonDate = localStorage.getItem('lastLessonDate');
-      
-      // Check if streak should continue
       if (!lastLessonDate || lastLessonDate === today) {
-        // First lesson today or already have streak
         newStreak = lastLessonDate === today ? streak : streak + 1;
       } else {
         const lastDate = new Date(lastLessonDate);
         const todayDate = new Date(today);
         const daysDiff = Math.floor((todayDate.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
-        if (daysDiff === 1) {
-          newStreak = streak + 1; // Consecutive day
-        } else {
-          newStreak = 1; // Broken streak, restart
-        }
+        newStreak = daysDiff === 1 ? streak + 1 : 1;
       }
-      
       setStreak(newStreak);
       setShowCelebration(true);
     }
-    
     setLessonsCompleted(newLessons);
     setTotalPts(newPts);
     setCompletedToday([...completedToday, lesson.id]);
     setActiveLesson(null);
     setActiveLessonIsRequired(false);
-    
     await saveProgress(newLessons, newPts, newStreak, isRequired);
   };
 
@@ -320,7 +350,6 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
         </div>
       </div>
 
-      {/* ── LEVEL PROGRESS — based on lessons completed ── */}
       <div className="ts-level-bar">
         <div className="ts-level-row">
           <span className="ts-level-pill">{level}</span>
@@ -336,11 +365,40 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
       </div>
 
       {loading ? (
-        <div className="ts-loading">
-          <div className="ts-loading-dots">
-            <div className="ts-loading-dot" /><div className="ts-loading-dot" /><div className="ts-loading-dot" />
+        <div className="ts-loading-card">
+          <div className="ts-loading-brain">🧠</div>
+          <div className="ts-loading-title">Building your personalised plan</div>
+          <div className="ts-loading-subtitle">
+            Analysing your {level} level and learning goals.<br />
+            This takes a few seconds — worth the wait.
           </div>
-          <div className="ts-loading-text">Preparing today's lessons...</div>
+          <div className="ts-loading-dots">
+            <div className="ts-loading-dot" />
+            <div className="ts-loading-dot" />
+            <div className="ts-loading-dot" />
+          </div>
+          <div className="ts-quote-box">
+            <div className="ts-quote-label">Quote of the day</div>
+            <div className="ts-quote-pt">"{quote.pt}"</div>
+            <div className="ts-quote-en">"{quote.en}" — {quote.source}</div>
+          </div>
+
+          {/* Ghost cards while loading */}
+          <div className="ts-ghost-card">
+            <div className="ts-skeleton" style={{ height: '12px', width: '110px', marginBottom: '10px' }} />
+            <div className="ts-skeleton" style={{ height: '18px', width: '200px', marginBottom: '8px' }} />
+            <div className="ts-skeleton" style={{ height: '11px', width: '70px', marginBottom: '14px' }} />
+            <div className="ts-skeleton" style={{ height: '42px', borderRadius: '10px' }} />
+          </div>
+          <div className="ts-ghost-card" style={{ opacity: 0.3 }}>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+              <div className="ts-skeleton" style={{ width: '40px', height: '40px', borderRadius: '10px', flexShrink: 0 }} />
+              <div style={{ flex: 1 }}>
+                <div className="ts-skeleton" style={{ height: '13px', width: '130px', marginBottom: '6px' }} />
+                <div className="ts-skeleton" style={{ height: '11px', width: '75px' }} />
+              </div>
+            </div>
+          </div>
         </div>
       ) : error ? (
         <div className="ts-error">
@@ -352,7 +410,7 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
           {showCelebration && requiredDone && (
             <div className="ts-celebration">
               <div className="ts-celebration-emoji">🎉</div>
-              <div className="ts-celebration-title">Required lesson done!</div>
+              <div className="ts-celebration-title">Today's lesson done!</div>
               <div className="ts-celebration-pts">Great work today 🌟</div>
               <div className="ts-celebration-streak">🔥 {streak} day streak</div>
               <div className="ts-celebration-next">
@@ -366,22 +424,22 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
 
           <div className="ts-lesson-card">
             <div className="ts-lesson-eyebrow">
-              {requiredDone ? '✅ Required lesson done!' : '📌 Today\'s required lesson'}
+              {requiredDone ? '✅ Today\'s lesson done!' : '📌 Today\'s lesson'}
             </div>
             <div className="ts-lesson-title">{dailyContent.requiredLesson.themeEmoji} {dailyContent.requiredLesson.title}</div>
             <div className="ts-lesson-meta">{dailyContent.requiredLesson.totalMinutes} mins · {dailyContent.requiredLesson.xpAvailable} pts</div>
 
             {!requiredDone ? (
-              <button 
+              <button
                 className="ts-block-btn"
                 onClick={() => handleLessonStart(dailyContent.requiredLesson, true)}
                 style={{ width: '100%', marginTop: '16px', padding: '12px' }}
               >
-                Start Required Lesson →
+                Start Today's Lesson →
               </button>
             ) : (
               <div style={{ padding: '12px', background: '#f0fdf4', borderRadius: '8px', color: '#14532d', fontWeight: 700, textAlign: 'center', marginTop: '16px' }}>
-                ✓ Completed - Streak unlocked!
+                ✓ Completed — Streak unlocked!
               </div>
             )}
           </div>
