@@ -43,6 +43,16 @@ const BLOCK_COLORS: Record<string, string> = {
   verb:          '#ede9fe',
 };
 
+const BLOCK_ICONS: Record<string, string> = {
+  vocabulary:    '📚',
+  grammar:       '✍️',
+  reading:       '📰',
+  isabela:       '🎙️',
+  exercise:      '💪',
+  mini_exercise: '⚡',
+  verb:          '🔤',
+};
+
 const FREE_PRACTICE = [
   { id: 'verbs',         label: 'Practise Verbs',        desc: '100 verbs · 6 tenses',          icon: '📚',  isIsabela: false },
   { id: 'vocab',         label: 'Learn Vocabulary',       desc: 'Flashcards by category',         icon: '🗂️',  isIsabela: false },
@@ -63,8 +73,6 @@ const NEXT_LEVEL: Record<string, string> = {
   A1: 'A2', A2: 'B1', B1: 'B2', B2: 'C1', C1: 'C2', C2: 'C2',
 };
 
-// ── Quotes per level ──────────────────────────────────────────────
-// Simple and encouraging for beginners, richer and more literary for advanced
 const QUOTES_BY_LEVEL: Record<string, { pt: string; en: string; source: string }[]> = {
   A1: [
     { pt: "Devagar se vai ao longe.", en: "Slowly but surely you go far.", source: "Brazilian proverb" },
@@ -155,6 +163,10 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
   const [showSaveBanner, setShowSaveBanner] = useState(false);
   const [activeLesson, setActiveLesson]     = useState<Lesson | null>(null);
   const [activeLessonIsRequired, setActiveLessonIsRequired] = useState(false);
+
+  // ── NEW: track which block we're on within the active lesson ──
+  const [activeBlockIndex, setActiveBlockIndex] = useState(0);
+
   const [showCelebration, setShowCelebration] = useState(false);
   const [completedToday, setCompletedToday] = useState<string[]>([]);
 
@@ -165,7 +177,6 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
   const levelProgress  = Math.min(100, Math.round((lessonsCompleted / lessonsNeeded) * 100));
   const nextLevel      = NEXT_LEVEL[level];
 
-  // Pick a quote once per render so it doesn't change during loading
   const [quote] = useState(() => getQuoteForLevel(level));
 
   useEffect(() => {
@@ -291,29 +302,90 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
     setTotalPts(newPts);
     setCompletedToday([...completedToday, lesson.id]);
     setActiveLesson(null);
+    setActiveBlockIndex(0); // reset block index
     setActiveLessonIsRequired(false);
     await saveProgress(newLessons, newPts, newStreak, isRequired);
   };
 
   const handleLessonStart = (lesson: Lesson, isRequired: boolean) => {
     setActiveLesson(lesson);
+    setActiveBlockIndex(0); // always start at first block
     setActiveLessonIsRequired(isRequired);
   };
 
   const handleLessonBack = () => {
     setActiveLesson(null);
+    setActiveBlockIndex(0);
     setActiveLessonIsRequired(false);
   };
 
+  // ── Called when user passes a block ──────────────────────────────
+  // If there are more blocks, advance to the next one.
+  // If this was the last block, complete the whole lesson.
+  const handleBlockPass = async () => {
+    if (!activeLesson) return;
+
+    const nextIndex = activeBlockIndex + 1;
+
+    if (nextIndex < activeLesson.blocks.length) {
+      // More blocks to go — advance
+      setActiveBlockIndex(nextIndex);
+    } else {
+      // All blocks done — complete the lesson
+      await handleLessonComplete(activeLesson, activeLesson.xpAvailable, activeLessonIsRequired);
+    }
+  };
+
+  // ── Render active lesson ─────────────────────────────────────────
   if (activeLesson) {
+    const currentBlock = activeLesson.blocks[activeBlockIndex];
+    const totalBlocks  = activeLesson.blocks.length;
+    const blockNum     = activeBlockIndex + 1;
+
+    // Special case: isabela block — navigate to Isabela studio instead
+    if (currentBlock?.type === 'isabela') {
+      onNavigate('isabela');
+      return null;
+    }
+
     return (
-      <LessonPlayer
-        block={activeLesson.blocks[0]}
-        onPass={async () => {
-          await handleLessonComplete(activeLesson, activeLesson.xpAvailable, activeLessonIsRequired);
-        }}
-        onBack={handleLessonBack}
-      />
+      <div>
+        {/* Block progress indicator */}
+        {totalBlocks > 1 && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '10px 16px',
+            background: 'white',
+            borderBottom: '1px solid #f1f5f9',
+          }}>
+            <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>
+              {activeLesson.themeEmoji} {activeLesson.title}
+            </span>
+            <div style={{ flex: 1, display: 'flex', gap: 4 }}>
+              {activeLesson.blocks.map((_b, i) => (
+                <div key={i} style={{
+                  flex: 1,
+                  height: 4,
+                  borderRadius: 2,
+                  background: i < blockNum ? '#14532d' : i === activeBlockIndex ? '#86efac' : '#e2e8f0',
+                  transition: 'background 0.3s',
+                }} />
+              ))}
+            </div>
+            <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>
+              {BLOCK_ICONS[currentBlock?.type] || '📖'} {blockNum}/{totalBlocks}
+            </span>
+          </div>
+        )}
+
+        <LessonPlayer
+          block={currentBlock}
+          onPass={handleBlockPass}
+          onBack={handleLessonBack}
+        />
+      </div>
     );
   }
 
@@ -382,8 +454,6 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
             <div className="ts-quote-pt">"{quote.pt}"</div>
             <div className="ts-quote-en">"{quote.en}" — {quote.source}</div>
           </div>
-
-          {/* Ghost cards while loading */}
           <div className="ts-ghost-card">
             <div className="ts-skeleton" style={{ height: '12px', width: '110px', marginBottom: '10px' }} />
             <div className="ts-skeleton" style={{ height: '18px', width: '200px', marginBottom: '8px' }} />
@@ -428,6 +498,21 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
             </div>
             <div className="ts-lesson-title">{dailyContent.requiredLesson.themeEmoji} {dailyContent.requiredLesson.title}</div>
             <div className="ts-lesson-meta">{dailyContent.requiredLesson.totalMinutes} mins · {dailyContent.requiredLesson.xpAvailable} pts</div>
+
+            {/* Show block list so user knows what's coming */}
+            {!requiredDone && dailyContent.requiredLesson.blocks.length > 1 && (
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', margin: '10px 0 4px' }}>
+                {dailyContent.requiredLesson.blocks.map((b, i) => (
+                  <span key={i} style={{
+                    fontSize: '0.72rem', fontWeight: 600,
+                    background: BLOCK_COLORS[b.type] || '#f1f5f9',
+                    color: '#334155', padding: '3px 8px', borderRadius: 20,
+                  }}>
+                    {BLOCK_ICONS[b.type]} {b.title}
+                  </span>
+                ))}
+              </div>
+            )}
 
             {!requiredDone ? (
               <button
