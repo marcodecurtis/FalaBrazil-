@@ -15,6 +15,11 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const analytics = getAnalytics(app);
+
+if (import.meta.env.DEV) {
+  (window as any).firebase_analytics_debug_mode = true;
+}
+
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const googleProvider = new GoogleAuthProvider();
