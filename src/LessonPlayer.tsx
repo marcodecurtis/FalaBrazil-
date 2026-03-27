@@ -7,6 +7,8 @@ interface Props {
   block: LessonBlock;
   onPass: () => void;
   onBack: () => void;
+  blockIndex?: number;
+  totalBlocks?: number;
 }
 
 function shuffle<T>(arr: T[]): T[] {
@@ -26,7 +28,7 @@ function getWrongOptions(correctWord: string, allWords: { word: string; translat
   return shuffle(others).slice(0, count);
 }
 
-export default function LessonPlayer({ block, onPass, onBack }: Props) {
+export default function LessonPlayer({ block, onPass, onBack, blockIndex = 0, totalBlocks = 1 }: Props) {
   const [phase, setPhase]                   = useState<'learn' | 'test' | 'result'>('learn');
   const [cardIndex, setCardIndex]           = useState(0);
   const [flipped, setFlipped]               = useState(false);
@@ -68,9 +70,9 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
       return (
         <div className="lp-wrapper">
           <div className="lp-header">
-            <button className="lp-back-btn" onClick={onBack}>← Back</button>
+            <button className="lp-back-btn" onClick={onBack}>{blockIndex > 0 ? '← Previous' : '← Back'}</button>
             <div className="lp-header-title">{block.title}</div>
-            <div className="lp-counter">{cardIndex + 1} / {words.length}</div>
+            <div className="lp-counter">{totalBlocks > 1 ? `${blockIndex + 1}/${totalBlocks} · ` : ''}{cardIndex + 1} / {words.length}</div>
           </div>
           <div className="lp-progress-track">
             <div className="lp-progress-fill" style={{ width: `${((cardIndex + 1) / words.length) * 100}%` }} />

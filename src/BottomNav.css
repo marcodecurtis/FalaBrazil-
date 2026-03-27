@@ -5,12 +5,14 @@
     bottom: 0;
     left: 0;
     right: 0;
-    height: 64px;
+    /* Height + safe area for iPhone home bar & browser chrome */
+    height: calc(64px + env(safe-area-inset-bottom, 16px));
     background: white;
     border-top: 0.5px solid #e2e8f0;
     display: flex;
-    align-items: stretch;
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    align-items: flex-start; /* tabs sit at top, safe area fills bottom */
+    padding-top: 4px;
+    padding-bottom: env(safe-area-inset-bottom, 16px);
     z-index: 9999;
   }
   
@@ -40,6 +42,8 @@
     -webkit-tap-highlight-color: transparent;
     transition: opacity 0.15s;
     position: relative;
+    /* Ensure tap target is always visible above safe area */
+    min-height: 56px;
   }
   
   .bn-tab:active { opacity: 0.7; }
@@ -79,6 +83,6 @@
   
   /* ── Page bottom padding so content clears the nav ── */
   .bn-page-padding {
-    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 16px));
   }
   

@@ -29,13 +29,6 @@ const TIME_LABELS: Record<string, string> = {
 };
 
 // ── "conversation" now shows as "Conversation" not "Everyday conversation"
-const GOAL_LABELS: Record<string, string> = {
-  conversation: 'Conversation',
-  tv_movies:    'TV & Movies',
-  travel:       'Travel',
-  business:     'Business Portuguese',
-};
-
 export default function AccountScreen({ isLoggedIn, userData, userLevel, onNavigate, onLogout }: Props) {
   const [showAbout, setShowAbout] = useState(false);
 
@@ -68,8 +61,8 @@ export default function AccountScreen({ isLoggedIn, userData, userLevel, onNavig
             <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Current settings</div>
           </div>
           <SettingRow label="Level" value={userLevel || 'Not set'} />
-          <SettingRow label="Daily goal" value={TIME_LABELS[localStorage.getItem('timePreference') || '15'] || '15 minutes / day'} />
-          <SettingRow label="Learning goal" value={GOAL_LABELS[localStorage.getItem('learningGoal') || 'conversation']} last />
+          <SettingRow label="Daily goal" value={TIME_LABELS[localStorage.getItem('timePreference') || '15'] || '15 minutes / day'} last />
+
         </div>
       </div>
     );
@@ -101,8 +94,8 @@ export default function AccountScreen({ isLoggedIn, userData, userLevel, onNavig
           <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Learning settings</div>
         </div>
         <SettingRow label="Level" value={userLevel || userData?.level || 'Not set'} />
-        <SettingRow label="Daily goal" value={TIME_LABELS[userData?.timePreference || localStorage.getItem('timePreference') || '15'] || '15 minutes / day'} />
-        <SettingRow label="Learning goal" value={GOAL_LABELS[userData?.learningGoal || localStorage.getItem('learningGoal') || 'conversation']} last />
+        <SettingRow label="Daily goal" value={TIME_LABELS[userData?.timePreference || localStorage.getItem('timePreference') || '15'] || '15 minutes / day'} last />
+
       </div>
 
       <div style={{ background: 'white', border: '0.5px solid #e2e8f0', borderRadius: 14, overflow: 'hidden', marginBottom: 16 }}>

@@ -217,7 +217,7 @@ export default function App() {
     return (
       <>
         <TopBar streak={streak} totalPts={totalPts} />
-        <div className="container" style={{ paddingTop: '52px', paddingBottom: 0 }}>
+        <div className="container" style={{ paddingTop: '52px', paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 16px))' }}>
           {studioViews[view as keyof typeof studioViews]}
         </div>
         <BottomNav active={'learn'} onNavigate={(tab) => navigateTo(tab)} />
@@ -229,7 +229,7 @@ export default function App() {
     return (
       <>
         <TopBar streak={streak} totalPts={totalPts} />
-        <div className="container" style={{ paddingTop: '52px', paddingBottom: 0 }}>
+        <div className="container" style={{ paddingTop: '52px', paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 16px))' }}>
           <IsabelaStudio
             onBack={() => navigateTo('today')}
             userLevel={userLevel}
@@ -246,7 +246,7 @@ export default function App() {
   return (
     <>
       <TopBar streak={streak} totalPts={totalPts} />
-      <div className="container" style={{ paddingTop: '52px', paddingBottom: 0 }}>
+      <div className="container" style={{ paddingTop: '52px', paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 16px))' }}>
 
         {activeTab === 'today' && (
           <TodayScreen

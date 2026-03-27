@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import LessonPlayer from './LessonPlayer';
@@ -42,16 +42,6 @@ const BLOCK_COLORS: Record<string, string> = {
   mini_exercise: '#fef3c7',
   verb:          '#ede9fe',
 };
-
-const FREE_PRACTICE = [
-  { id: 'verbs',         label: 'Practise Verbs',        desc: '100 verbs · 6 tenses',          icon: '📚',  isIsabela: false },
-  { id: 'vocab',         label: 'Learn Vocabulary',       desc: 'Flashcards by category',         icon: '🗂️',  isIsabela: false },
-  { id: 'grammar',       label: 'Master Grammar',         desc: 'Rules for your level',           icon: '✍️',  isIsabela: false },
-  { id: 'reading',       label: 'Read Articles',          desc: 'Real Brazilian Portuguese',      icon: '📰',  isIsabela: false },
-  { id: 'pronunciation', label: 'Pronunciation',          desc: '20 rules with audio',            icon: '🔊',  isIsabela: false },
-  { id: 'video',         label: 'Watch & Learn',          desc: 'Brazilian videos + Q&A',         icon: '🎬',  isIsabela: false },
-  { id: 'isabela',       label: 'Chat with Isabela',      desc: 'AI conversation partner',        icon: null,  isIsabela: true  },
-];
 
 const LESSONS_PER_LEVEL: Record<string, number> = {
   '5':  100,
@@ -110,11 +100,6 @@ const QUOTES_BY_LEVEL: Record<string, { pt: string; en: string; source: string }
   ],
 };
 
-const getQuoteForLevel = (level: string) => {
-  const quotes = QUOTES_BY_LEVEL[level] || QUOTES_BY_LEVEL['B1'];
-  return quotes[Math.floor(Math.random() * quotes.length)];
-};
-
 const getCacheKey = (level: string) => `lessons_cache_${level}`;
 
 const getCachedLessons = (level: string): DailyContent | null => {
@@ -155,6 +140,7 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
   const [showSaveBanner, setShowSaveBanner] = useState(false);
   const [activeLesson, setActiveLesson]     = useState<Lesson | null>(null);
   const [activeLessonIsRequired, setActiveLessonIsRequired] = useState(false);
+  const [activeBlockIndex, setActiveBlockIndex] = useState(0);
   const [showCelebration, setShowCelebration] = useState(false);
   const [completedToday, setCompletedToday] = useState<string[]>([]);
 
@@ -165,8 +151,34 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
   const levelProgress  = Math.min(100, Math.round((lessonsCompleted / lessonsNeeded) * 100));
   const nextLevel      = NEXT_LEVEL[level];
 
-  // Pick a quote once per render so it doesn't change during loading
-  const [quote] = useState(() => getQuoteForLevel(level));
+  // Pick 3 quotes for the loading state — rotate every 6 seconds
+  const [quotes] = useState(() => {
+    const allQuotes = QUOTES_BY_LEVEL[level] || QUOTES_BY_LEVEL['B1'];
+    const shuffled = [...allQuotes].sort(() => Math.random() - 0.5);
+    // Pick 3 distinct quotes
+    return [shuffled[0], shuffled[1 % shuffled.length], shuffled[2 % shuffled.length]];
+  });
+  const [quoteIndex, setQuoteIndex] = useState(0);
+  const [quoteFading, setQuoteFading] = useState(false);
+  const quoteTimerRef = useRef<number | null>(null);
+
+  // Rotate quotes every 6 seconds during loading
+  useEffect(() => {
+    if (!loading) {
+      if (quoteTimerRef.current) clearInterval(quoteTimerRef.current);
+      return;
+    }
+    quoteTimerRef.current = window.setInterval(() => {
+      setQuoteFading(true);
+      setTimeout(() => {
+        setQuoteIndex(i => (i + 1) % 3);
+        setQuoteFading(false);
+      }, 400);
+    }, 6000);
+    return () => {
+      if (quoteTimerRef.current) clearInterval(quoteTimerRef.current);
+    };
+  }, [loading]);
 
   useEffect(() => {
     const user = auth.currentUser;
@@ -295,9 +307,10 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
     await saveProgress(newLessons, newPts, newStreak, isRequired);
   };
 
-  const handleLessonStart = (lesson: Lesson, isRequired: boolean) => {
+  const handleLessonStart = (lesson: Lesson, isRequired: boolean, blockIndex = 0) => {
     setActiveLesson(lesson);
     setActiveLessonIsRequired(isRequired);
+    setActiveBlockIndex(blockIndex);
   };
 
   const handleLessonBack = () => {
@@ -306,13 +319,33 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
   };
 
   if (activeLesson) {
+    const currentBlock = activeLesson.blocks[activeBlockIndex];
+    const isLastBlock = activeBlockIndex >= activeLesson.blocks.length - 1;
+    const totalBlocks = activeLesson.blocks.length;
+
     return (
       <LessonPlayer
-        block={activeLesson.blocks[0]}
+        block={currentBlock}
         onPass={async () => {
-          await handleLessonComplete(activeLesson, activeLesson.xpAvailable, activeLessonIsRequired);
+          if (isLastBlock) {
+            // All blocks done — complete the lesson
+            await handleLessonComplete(activeLesson, activeLesson.xpAvailable, activeLessonIsRequired);
+          } else {
+            // Move to next block
+            setActiveBlockIndex(i => i + 1);
+          }
         }}
-        onBack={handleLessonBack}
+        onBack={() => {
+          if (activeBlockIndex > 0) {
+            // Go back to previous block — keeps progress
+            setActiveBlockIndex(i => i - 1);
+          } else {
+            // First block — exit lesson
+            handleLessonBack();
+          }
+        }}
+        blockIndex={activeBlockIndex}
+        totalBlocks={totalBlocks}
       />
     );
   }
@@ -361,10 +394,10 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
             <div className="ts-loading-dot" />
             <div className="ts-loading-dot" />
           </div>
-          <div className="ts-quote-box">
-            <div className="ts-quote-label">Quote of the day</div>
-            <div className="ts-quote-pt">"{quote.pt}"</div>
-            <div className="ts-quote-en">"{quote.en}" — {quote.source}</div>
+          <div className="ts-quote-box" style={{ opacity: quoteFading ? 0 : 1, transition: 'opacity 0.4s ease' }}>
+            <div className="ts-quote-label">Quote {quoteIndex + 1} of 3</div>
+            <div className="ts-quote-pt">"{quotes[quoteIndex].pt}"</div>
+            <div className="ts-quote-en">"{quotes[quoteIndex].en}" — {quotes[quoteIndex].source}</div>
           </div>
 
           {/* Ghost cards while loading */}
@@ -468,35 +501,7 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
         </>
       ) : null}
 
-      <div className="ts-divider">
-        <div className="ts-divider-line" />
-        <div className="ts-divider-text">free practice</div>
-        <div className="ts-divider-line" />
-      </div>
 
-      <div className="ts-free-list">
-        {FREE_PRACTICE.map(item => (
-          <button key={item.id} className="ts-free-card" onClick={() => onNavigate(item.id)}>
-            <div className="ts-free-icon-wrap">
-              {item.isIsabela ? (
-                <img
-                  src="/isabela.png"
-                  alt="Isabela"
-                  className="ts-free-isabela-img"
-                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                />
-              ) : (
-                <span className="ts-free-icon">{item.icon}</span>
-              )}
-            </div>
-            <div className="ts-free-content">
-              <div className="ts-free-label">{item.label}</div>
-              <div className="ts-free-desc">{item.desc}</div>
-            </div>
-            <div className="ts-free-arrow">→</div>
-          </button>
-        ))}
-      </div>
 
     </div>
   );

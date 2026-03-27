@@ -301,9 +301,11 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
             input_audio_transcription: { model: 'whisper-1', language: 'pt' },
             turn_detection: {
               type: 'server_vad',
-              threshold: 0.5,
+              // Higher threshold on mobile reduces false triggers from
+              // speaker bleed — desktop can stay more sensitive
+              threshold: isMobile ? 0.7 : 0.5,
               prefix_padding_ms: 300,
-              silence_duration_ms: 700,
+              silence_duration_ms: isMobile ? 900 : 700,
             },
             instructions: ISABELA_SYSTEM_PROMPT.replace('STUDENT_LEVEL', level),
           }
@@ -357,6 +359,10 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
       case 'response.audio.delta':
         setIsabelaThinking(false);
         setIsabelaSpeaking(true);
+        // Mute mic whenever audio is actively streaming
+        if (micStreamRef.current) {
+          micStreamRef.current.getAudioTracks().forEach(t => { t.enabled = false; });
+        }
         if (isMutedRef.current && audioElRef.current) {
           audioElRef.current.volume = 0;
         } else if (audioElRef.current) {
@@ -394,14 +400,15 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
       case 'response.done':
         setIsabelaSpeaking(false);
         setIsabelaThinking(false);
-        // Delay mic re-enable by 600ms after Isabela stops speaking.
-        // This lets the echo tail die down and gives AEC time to adapt —
-        // critical for the first exchange on mobile where AEC isn't warm yet.
+        // Delay mic re-enable after Isabela stops speaking.
+        // iOS needs a longer tail — audio keeps playing from buffer after
+        // response.done fires, and Whisper picks it up as user speech.
+        // 1500ms gives the speaker audio time to fully die down.
         setTimeout(() => {
           if (micStreamRef.current && !isMutedRef.current) {
             micStreamRef.current.getAudioTracks().forEach(t => { t.enabled = true; });
           }
-        }, 600);
+        }, isMobile ? 1500 : 600);
 
         if (sessionEndingRef.current) {
           if (!closingLinePlayedRef.current) {
@@ -421,10 +428,8 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
       case 'input_audio_buffer.speech_started':
         setLiveUserTranscript('...');
         userStreamRef.current = '';
-        // Re-enable mic track
-        if (micStreamRef.current) {
-          micStreamRef.current.getAudioTracks().forEach(t => { t.enabled = true; });
-        }
+        // Don't re-enable mic here — it creates a feedback loop
+        // Mic re-enables after response.done with a delay
         setIsabelaSpeaking(false);
         setLiveIsabelaText('');
         isabelaStreamRef.current = '';
