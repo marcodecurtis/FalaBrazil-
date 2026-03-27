@@ -22,6 +22,7 @@ import LearnScreen from './LearnScreen';
 import ProgressScreen from './ProgressScreen';
 import AccountScreen from './AccountScreen';
 import BottomNav from './BottomNav';
+import TopBar from './TopBar';
 import { stopSpeaking } from './speak';
 
 export type Level = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
@@ -215,7 +216,8 @@ export default function App() {
   if (view in studioViews) {
     return (
       <>
-        <div className="container" style={{ paddingBottom: 0 }}>
+        <TopBar streak={streak} totalPts={totalPts} />
+        <div className="container" style={{ paddingTop: '52px', paddingBottom: 0 }}>
           {studioViews[view as keyof typeof studioViews]}
         </div>
         <BottomNav active={'learn'} onNavigate={(tab) => navigateTo(tab)} />
@@ -226,7 +228,8 @@ export default function App() {
   if (view === 'isabela' || view === 'isabela-studio') {
     return (
       <>
-        <div className="container" style={{ paddingBottom: 0 }}>
+        <TopBar streak={streak} totalPts={totalPts} />
+        <div className="container" style={{ paddingTop: '52px', paddingBottom: 0 }}>
           <IsabelaStudio
             onBack={() => navigateTo('today')}
             userLevel={userLevel}
@@ -242,7 +245,8 @@ export default function App() {
 
   return (
     <>
-      <div className="container" style={{ paddingBottom: 0 }}>
+      <TopBar streak={streak} totalPts={totalPts} />
+      <div className="container" style={{ paddingTop: '52px', paddingBottom: 0 }}>
 
         {activeTab === 'today' && (
           <TodayScreen
@@ -277,17 +281,7 @@ export default function App() {
           />
         )}
 
-        <footer style={{
-          marginTop: 'auto', paddingTop: '40px',
-          paddingBottom: '90px',
-          textAlign: 'center', fontSize: '0.85rem', color: '#94a3b8',
-        }}>
-          Created by{' '}
-          <a href="https://www.nocodediary.co.uk/" target="_blank" rel="noopener noreferrer"
-            style={{ color: '#14532d', fontWeight: 800, textDecoration: 'none' }}>
-            Marco De Curtis
-          </a>
-        </footer>
+        <footer style={{ paddingBottom: '90px' }} />
 
       </div>
 

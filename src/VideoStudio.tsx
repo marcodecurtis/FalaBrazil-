@@ -325,7 +325,7 @@ const VIDEOS: Video[] = [
     youtubeId: 'JpSGEIvfquI',
     title: 'Learn Portuguese with Netflix — Brazilian Series',
     description: 'How to turn your Netflix watching into a powerful Portuguese learning tool — with specific Brazilian series recommendations.',
-    level: 'C1',
+    level: 'C2',
     duration: '14 min',
     topic: 'Advanced Learning & Media',
     emoji: '🎯',
@@ -362,7 +362,7 @@ const VIDEOS: Video[] = [
     youtubeId: 'lYv16N3TEwM',
     title: '17 Most Romantic and Sensual Words in Brazilian Portuguese',
     description: 'The most beautiful and expressive vocabulary in Portuguese — words that reveal the soul of the language.',
-    level: 'C1',
+    level: 'C2',
     duration: '13 min',
     topic: 'Advanced Vocabulary',
     emoji: '💋',
@@ -599,6 +599,7 @@ export default function VideoStudio({ onBack: _onBack, userLevel }: Props) {
   return (
     <div style={{ maxWidth: '480px', margin: '0 auto', padding: '0 16px 40px' }}>
       <header style={{ padding: '24px 0 20px' }}>
+        <button onClick={() => _onBack()} style={{ background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700, color: '#64748b', fontSize: '0.85rem', padding: '0 0 12px', display: 'flex', alignItems: 'center', gap: '4px', fontFamily: 'inherit' }}>← Back</button>
         <h1 style={{ fontWeight: 900, fontSize: '2.2rem', color: '#0f172a', margin: '0 0 4px' }}>Watch & Learn</h1>
         <p style={{ color: '#64748b', fontSize: '0.9rem', margin: 0 }}>Brazilian culture, music, food & telenovelas</p>
       </header>
@@ -615,7 +616,7 @@ export default function VideoStudio({ onBack: _onBack, userLevel }: Props) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
         {filteredVideos.map(video => {
           const videoLevelNum = LEVEL_ORDER[video.level] || 1;
-          const isAccessible = videoLevelNum <= userLevelNum + 1;
+          const isAccessible = videoLevelNum <= userLevelNum + 1 || userLevel === 'C2';
           return (
             <div key={video.id} onClick={() => isAccessible && handleSelect(video)}
               style={{ background: 'white', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', cursor: isAccessible ? 'pointer' : 'default', opacity: isAccessible ? 1 : 0.5, border: '1px solid #f1f5f9' }}>

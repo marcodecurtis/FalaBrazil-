@@ -13,7 +13,6 @@ function shuffle<T>(arr: T[]): T[] {
   return [...arr].sort(() => Math.random() - 0.5);
 }
 
-// ── Accent-insensitive comparison ─────────────────────
 function normalise(str: string): string {
   return str
     .toLowerCase()
@@ -37,14 +36,11 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
   const [showFeedback, setShowFeedback]     = useState(false);
   const [score, setScore]                   = useState(0);
 
-  // Support both "words" (vocabulary/mini_exercise) and legacy "items" field
   const words: { word: string; translation: string; example: string }[] =
     block.content?.words || block.content?.items || [];
 
-  // ── Stable test words — computed ONCE, never reshuffled ──
   const testWords = useMemo(() => shuffle(words).slice(0, Math.min(5, words.length)), [block]);
 
-  // ── Stable options per question — computed ONCE per question ──
   const testOptions = useMemo(() =>
     testWords.map(q => shuffle([q.translation, ...getWrongOptions(q.translation, words)])),
     [testWords]
@@ -62,8 +58,8 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
     setTestAnswers([]);
   };
 
-  // ── VOCABULARY ────────────────────────────────────
-  if (block.type === 'vocabulary' || block.type === 'mini_exercise') {
+  // ── VOCABULARY / MINI_EXERCISE / EXERCISE ─────────────────────
+  if (block.type === 'vocabulary' || block.type === 'mini_exercise' || block.type === 'exercise') {
     if (words.length === 0) { onPass(); return null; }
 
     if (phase === 'learn') {
@@ -114,7 +110,6 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
     }
 
     if (phase === 'test') {
-      // ── SAFETY CHECK: Prevent test from running with invalid state ──
       if (testWords.length === 0 || currentTestQ >= testWords.length) {
         setPhase('result');
         return null;
@@ -271,7 +266,6 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
       const q           = testPronouns[currentTestQ];
       const correctForm = conjugation[q] || '';
       const isAnswered  = testAnswers[currentTestQ] !== undefined && testAnswers[currentTestQ] !== null;
-      // ── Accent-insensitive check ──
       const isCorrect   = normalise(testAnswers[currentTestQ] || '') === normalise(correctForm);
       const isLastQ     = currentTestQ === testPronouns.length - 1;
 
@@ -408,7 +402,6 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
       const q          = testItems[currentTestQ];
       if (!q) { setPhase('result'); return null; }
       const isAnswered = testAnswers[currentTestQ] !== undefined && testAnswers[currentTestQ] !== null;
-      // ── Accent-insensitive check ──
       const isCorrect  = normalise(testAnswers[currentTestQ] || '') === normalise(q.answer);
       const isLastQ    = currentTestQ === testItems.length - 1;
 
@@ -524,25 +517,22 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
     if (phase === 'test' && questions.length > 0) {
       const q = questions[currentTestQ];
 
-      // Handle both old format (string) and new format (object with options)
       let question = '';
       let options: string[] = [];
       let correctAnswer = '';
 
       if (typeof q === 'string') {
-        // Old format - just a question string, no validation possible
         question = q;
       } else {
-        // New format with options
-        question = q.question || '';
-        options = q.options || [];
+        question      = q.question      || '';
+        options       = q.options       || [];
         correctAnswer = q.correctAnswer || '';
       }
 
-      const isAnswered = testAnswers[currentTestQ] !== undefined && testAnswers[currentTestQ] !== null;
+      const isAnswered     = testAnswers[currentTestQ] !== undefined && testAnswers[currentTestQ] !== null;
       const selectedAnswer = testAnswers[currentTestQ];
-      const isCorrect = selectedAnswer === correctAnswer;
-      const isLastQ = currentTestQ === questions.length - 1;
+      const isCorrect      = selectedAnswer === correctAnswer;
+      const isLastQ        = currentTestQ === questions.length - 1;
 
       return (
         <div className="lp-wrapper">
@@ -558,14 +548,13 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
           <div className="lp-grammar-fill-q">{question}</div>
 
           {options.length > 0 ? (
-            // Multiple choice format
             <div className="lp-options">
               {options.map((option: string, i: number) => {
                 let cls = 'lp-option';
                 if (isAnswered) {
-                  if (option === correctAnswer)    cls += ' lp-option-correct';
+                  if (option === correctAnswer)       cls += ' lp-option-correct';
                   else if (option === selectedAnswer) cls += ' lp-option-wrong';
-                  else                            cls += ' lp-option-dim';
+                  else                               cls += ' lp-option-dim';
                 }
                 return (
                   <button
@@ -590,7 +579,6 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
               })}
             </div>
           ) : (
-            // Fallback to textarea for old format
             <textarea
               key={currentTestQ}
               className="lp-fill-textarea"
@@ -657,25 +645,64 @@ export default function LessonPlayer({ block, onPass, onBack }: Props) {
           <button className="lp-back-btn" onClick={onBack}>← Back</button>
           <div className="lp-header-title">Chat with Isabela</div>
         </div>
-        <div style={{
-          padding: '60px 20px',
-          textAlign: 'center',
-          color: '#94a3b8',
-        }}>
-          <div style={{ fontSize: '2rem', marginBottom: '12px' }}>🎙️</div>
-          <p style={{ fontWeight: 700, marginBottom: '20px' }}>Redirecting to Isabela...</p>
-          <button
-            className="lp-next-btn"
-            onClick={onPass}
-            style={{ marginTop: '20px' }}
-          >
-            Start Chat →
+        <div style={{ padding: '40px 20px 20px', textAlign: 'center' }}>
+          <div style={{ fontSize: '2.5rem', marginBottom: '16px' }}>🎙️</div>
+          <h3 style={{ fontWeight: 800, fontSize: '1.1rem', color: '#0f172a', marginBottom: '8px' }}>
+            Speaking practice with Isabela
+          </h3>
+          <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '8px', lineHeight: 1.6 }}>
+            {block.description}
+          </p>
+          {block.content?.suggestedPhrases?.length > 0 && (
+            <div style={{ background: '#f0fdf4', borderRadius: '12px', padding: '12px 16px', marginBottom: '24px', textAlign: 'left' }}>
+              <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#14532d', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>
+                Suggested phrases
+              </div>
+              {block.content.suggestedPhrases.map((phrase: string, i: number) => (
+                <div key={i} style={{ fontSize: '0.82rem', color: '#166534', marginBottom: '4px', fontStyle: 'italic' }}>
+                  "{phrase}"
+                </div>
+              ))}
+            </div>
+          )}
+          <button className="lp-next-btn" onClick={onPass} style={{ marginBottom: '12px' }}>
+            Start Chat with Isabela →
           </button>
+          <button
+            onClick={onPass}
+            style={{
+              width: '100%', padding: '11px', background: 'none',
+              border: '1px solid #e2e8f0', borderRadius: '10px',
+              color: '#94a3b8', fontSize: '0.8rem', fontWeight: 600,
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            Skip speaking practice
+          </button>
+          <p style={{ fontSize: '0.72rem', color: '#cbd5e1', marginTop: '10px', lineHeight: 1.5 }}>
+            Speaking practice is optional — skip if you're having technical issues.
+          </p>
         </div>
       </div>
     );
   }
 
-  onPass();
-  return null;
+  // ── FALLBACK — unknown block type ─────────────────
+  // Never auto-pass. Show a message so the user can skip manually.
+  return (
+    <div className="lp-wrapper">
+      <div className="lp-header">
+        <button className="lp-back-btn" onClick={onBack}>← Back</button>
+        <div className="lp-header-title">{block.title}</div>
+      </div>
+      <div style={{ padding: '60px 20px', textAlign: 'center', color: '#94a3b8' }}>
+        <div style={{ fontSize: '2rem', marginBottom: '12px' }}>📖</div>
+        <p style={{ fontWeight: 700, color: '#0f172a', marginBottom: '8px' }}>{block.title}</p>
+        <p style={{ fontSize: '0.85rem', marginBottom: '24px', lineHeight: 1.5 }}>{block.description}</p>
+        <button className="lp-next-btn" onClick={onPass}>
+          Mark as complete →
+        </button>
+      </div>
+    </div>
+  );
 }

@@ -164,10 +164,15 @@ async function generateDailyLessons(level, time, goal, dayNumber, res) {
     'technology and social media','education and learning','environment and sustainability',
   ];
 
+  // Start at a sensible theme offset based on level — beginners start at 0,
+  // intermediate/advanced users skip the basics they already know
+  const levelThemeOffset = { A1: 0, A2: 4, B1: 8, B2: 12, C1: 16, C2: 18 };
+  const startOffset = levelThemeOffset[level] || 0;
+
   const lessons = [];
 
   for (let i = 0; i < 4; i++) {
-    const themeIndex = (dayNumber - 1 + i) % themes.length;
+    const themeIndex = (startOffset + dayNumber - 1 + i) % themes.length;
     const theme      = themes[themeIndex];
     const lessonType = LESSON_TYPES[i];
     const isRequired = i === 0;
