@@ -412,7 +412,7 @@ import {
     if (!snap.exists()) return 0;
   
     const { streak, lastActiveAt } = snap.data() as UserProfile;
-    const lastDate = lastActiveAt?.toDate();
+    const lastDate = (lastActiveAt as Timestamp)?.toDate();
     const today    = new Date();
   
     const daysSinceLast = lastDate
