@@ -159,7 +159,7 @@ export default function App() {
       localStorage.setItem('currentDay', '1');
     }
     updateUserProgress({ level });
-    setView('today');
+    setView('auth');   // ← show auth screen after onboarding
   };
 
   // ── Loading ────────────────────────────────────────────────────
@@ -187,7 +187,7 @@ export default function App() {
           if (savedLevel) { setUserLevel(savedLevel); }
           setView('today');
         }}
-        onAuthSuccess={() => {}}
+        onAuthSuccess={() => setView('today')}
       />
     );
   }

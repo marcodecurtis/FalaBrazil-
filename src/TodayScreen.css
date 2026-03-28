@@ -42,8 +42,7 @@
 .ts-level-track { height: 6px; background: #f1f5f9; border-radius: 3px; overflow: hidden; }
 .ts-level-fill { height: 6px; background: linear-gradient(90deg, #16a34a, #14532d); border-radius: 3px; transition: width 0.8s cubic-bezier(0.22, 1, 0.36, 1); }
 
-/* ── OLD LOADING (removed bounce dots, replaced by new) ── */
-/* keeping .ts-error only */
+/* ── ERROR ────────────────────────────────────────── */
 .ts-error { margin: 0 16px; background: #fef2f2; border: 1px solid #fca5a5; border-radius: 14px; padding: 16px; text-align: center; }
 .ts-error-text { font-size: 0.85rem; color: #b91c1c; margin-bottom: 10px; }
 .ts-retry-btn { background: #14532d; color: white; border: none; border-radius: 8px; padding: 8px 20px; font-size: 0.82rem; font-weight: 700; cursor: pointer; font-family: inherit; }
@@ -154,16 +153,18 @@
 .ts-celebration-btn-sec:hover { background: #f0fdf4; }
 
 /* ── LESSON CARD ──────────────────────────────────── */
-.ts-lesson-card { margin: 0 16px 16px; background: white; border: 1px solid #e2e8f0; border-radius: 20px; padding: 20px 56px 16px 16px; }
+/* FIX: removed asymmetric right padding (was 56px) so button centres correctly */
+.ts-lesson-card { margin: 0 16px 16px; background: white; border: 1px solid #e2e8f0; border-radius: 20px; padding: 20px 16px 16px; }
 .ts-lesson-eyebrow { font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: #16a34a; margin-bottom: 4px; }
-.ts-lesson-title { font-size: 1.2rem; font-weight: 900; color: #0f172a; font-family: 'Playfair Display', Georgia, serif; margin-bottom: 4px; padding-right: 8px; }
+.ts-lesson-title { font-size: 1.2rem; font-weight: 900; color: #0f172a; font-family: 'Playfair Display', Georgia, serif; margin-bottom: 4px; }
 .ts-lesson-meta { font-size: 0.78rem; color: #64748b; margin-bottom: 14px; }
 .ts-progress-track { height: 5px; background: #f1f5f9; border-radius: 3px; overflow: hidden; margin-bottom: 6px; }
 .ts-progress-fill { height: 5px; background: linear-gradient(90deg, #16a34a, #14532d); border-radius: 3px; transition: width 0.6s ease; }
 .ts-progress-label { font-size: 0.72rem; color: #94a3b8; font-weight: 600; margin-bottom: 16px; }
 
 /* ── BLOCKS ───────────────────────────────────────── */
-.ts-blocks { display: flex; flex-direction: column; gap: 8px; }
+/* FIX: added margin 0 16px so blocks match lesson card width */
+.ts-blocks { display: flex; flex-direction: column; gap: 8px; margin: 0 16px; }
 .ts-block { display: flex; align-items: center; gap: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; transition: all 0.2s; }
 .ts-block-active { border-color: #16a34a; background: #f0fdf4; }
 .ts-block-done { opacity: 0.55; }
