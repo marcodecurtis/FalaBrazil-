@@ -73,6 +73,7 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
+        // ── Signed-in user: always go to today ────────────────────
         setIsLoggedIn(true);
         try {
           const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
@@ -93,6 +94,7 @@ export default function App() {
 
             if (data.level) {
               setUserLevel(data.level);
+              localStorage.setItem('hasCompletedAuth', 'true');
               setView('today');
             } else {
               setView('onboarding');
@@ -104,17 +106,24 @@ export default function App() {
           setView('onboarding');
         }
       } else {
+        // ── Anonymous visitor ─────────────────────────────────────
         setIsLoggedIn(false);
-        const hasSeenWelcome = localStorage.getItem('hasSeenWelcome');
-        const savedLevel     = localStorage.getItem('userLevel') as Level | null;
+        const hasSeenWelcome   = localStorage.getItem('hasSeenWelcome');
+        const savedLevel       = localStorage.getItem('userLevel') as Level | null;
+        const hasCompletedAuth = localStorage.getItem('hasCompletedAuth');
+
         setStreak(parseInt(localStorage.getItem('streak') || '0'));
         setTotalPts(parseInt(localStorage.getItem('totalPts') || '0'));
         setLessonsCompleted(parseInt(localStorage.getItem('lessonsCompleted') || '0'));
 
-        if (hasSeenWelcome && savedLevel) {
-          // Returning user who already completed onboarding — go straight to app
+        if (hasSeenWelcome && savedLevel && hasCompletedAuth) {
+          // Returning anonymous user who already dismissed auth — go to app
           setUserLevel(savedLevel);
           setView('today');
+        } else if (hasSeenWelcome && savedLevel && !hasCompletedAuth) {
+          // Completed onboarding but hasn't seen auth yet — show auth
+          setUserLevel(savedLevel);
+          setView('auth');
         } else if (hasSeenWelcome) {
           // Seen welcome but no level yet — go to onboarding
           setView('onboarding');
@@ -136,6 +145,7 @@ export default function App() {
     await auth.signOut();
     localStorage.removeItem('userLevel');
     localStorage.removeItem('hasSeenWelcome');
+    localStorage.removeItem('hasCompletedAuth');
     localStorage.removeItem('timePreference');
     localStorage.removeItem('learningGoal');
     localStorage.removeItem('currentDay');
@@ -147,7 +157,6 @@ export default function App() {
     setView('welcome');
   };
 
-  // ── FIX: Welcome now goes to onboarding, NOT auth ──────────────
   const handleWelcomeFinish = () => {
     localStorage.setItem('hasSeenWelcome', 'true');
     setView('onboarding');
@@ -159,7 +168,7 @@ export default function App() {
       localStorage.setItem('currentDay', '1');
     }
     updateUserProgress({ level });
-    setView('auth');   // ← show auth screen after onboarding
+    setView('auth');
   };
 
   // ── Loading ────────────────────────────────────────────────────
@@ -185,9 +194,13 @@ export default function App() {
         onContinueWithoutAccount={() => {
           const savedLevel = localStorage.getItem('userLevel') as Level | null;
           if (savedLevel) { setUserLevel(savedLevel); }
+          localStorage.setItem('hasCompletedAuth', 'true');
           setView('today');
         }}
-        onAuthSuccess={() => setView('today')}
+        onAuthSuccess={() => {
+          localStorage.setItem('hasCompletedAuth', 'true');
+          setView('today');
+        }}
       />
     );
   }

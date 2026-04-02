@@ -224,7 +224,23 @@ export default function LessonPlayer({ block, onPass, onBack, blockIndex = 0, to
   if (block.type === 'verb') {
     const verb        = block.content?.verb        || '';
     const translation = block.content?.translation || '';
-    const conjugation = block.content?.conjugation || {};
+    // Normalise conjugation to a flat {pronoun: form} map.
+    // The AI sometimes returns a nested structure keyed by tense
+    // (e.g. { "presente": { "eu": "viajo", ... } }) when asked for
+    // multiple tense tables. Flatten to the present-tense layer so that
+    // pronoun look-ups always work in both the learn and test phases.
+    const rawConjugation = block.content?.conjugation || {};
+    const conjugation: Record<string, string> = (() => {
+      const firstVal = Object.values(rawConjugation)[0];
+      if (!firstVal || typeof firstVal === 'string') return rawConjugation as Record<string, string>;
+      // Values are objects → nested by tense; pick present tense or first tense
+      const present =
+        (rawConjugation as any)['presente'] ||
+        (rawConjugation as any)['present']  ||
+        (rawConjugation as any)['Presente'] ||
+        Object.values(rawConjugation)[0];
+      return (typeof present === 'object' ? present : {}) as Record<string, string>;
+    })();
     const examples: string[] = block.content?.examples || [];
 
     if (phase === 'learn') {

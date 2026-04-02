@@ -60,7 +60,7 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
   const [isabelaThinking, setIsabelaThinking] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  const defaultVolume = isMobile ? 0.5 : 1.0;
+  const defaultVolume = isMobile ? 0.38 : 1.0;
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
 
   // Timer
@@ -89,6 +89,7 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const displayMessagesRef = useRef<DisplayMessage[]>([]);
   const isMutedRef = useRef(false);
+  const micUnmuteTimerRef = useRef<number | null>(null);
 
   // Accumulate streaming text
   const isabelaStreamRef = useRef('');
@@ -96,6 +97,25 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
 
   useEffect(() => { displayMessagesRef.current = displayMessages; }, [displayMessages]);
   useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
+
+  const clearMicUnmuteTimer = () => {
+    if (micUnmuteTimerRef.current != null) {
+      clearTimeout(micUnmuteTimerRef.current);
+      micUnmuteTimerRef.current = null;
+    }
+  };
+
+  /** After assistant audio, wait for tail + device playback buffer before sending mic audio again. */
+  const scheduleMicUnmuteAfterAssistant = () => {
+    const delayMs = isMobile ? 3000 : 650;
+    clearMicUnmuteTimer();
+    micUnmuteTimerRef.current = window.setTimeout(() => {
+      micUnmuteTimerRef.current = null;
+      if (micStreamRef.current && !isMutedRef.current) {
+        micStreamRef.current.getAudioTracks().forEach(t => { t.enabled = true; });
+      }
+    }, delayMs);
+  };
 
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   const userScrolledUpRef = useRef(false);
@@ -184,6 +204,7 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
       audioElRef.current.srcObject = null;
     }
     if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+    clearMicUnmuteTimer();
   };
 
   // ── Mic helpers ───────────────────────────────────────────────
@@ -223,8 +244,13 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
     try {
       const constraints: MediaStreamConstraints = {
         audio: deviceId
-          ? { deviceId: { exact: deviceId }, echoCancellation: true, noiseSuppression: true }
-          : { echoCancellation: true, noiseSuppression: true },
+          ? {
+              deviceId: { exact: deviceId },
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+            }
+          : { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
       };
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       micStreamRef.current = stream;
@@ -301,11 +327,11 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
             input_audio_transcription: { model: 'whisper-1', language: 'pt' },
             turn_detection: {
               type: 'server_vad',
-              // Higher threshold on mobile reduces false triggers from
-              // speaker bleed — desktop can stay more sensitive
-              threshold: isMobile ? 0.7 : 0.5,
-              prefix_padding_ms: 300,
-              silence_duration_ms: isMobile ? 900 : 700,
+              // Higher threshold + longer silence on mobile — speaker bleed is
+              // picked up as "user speech" without headphones
+              threshold: isMobile ? 0.82 : 0.5,
+              prefix_padding_ms: isMobile ? 400 : 300,
+              silence_duration_ms: isMobile ? 1200 : 700,
             },
             instructions: ISABELA_SYSTEM_PROMPT.replace('STUDENT_LEVEL', level),
           }
@@ -359,6 +385,7 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
       case 'response.audio.delta':
         setIsabelaThinking(false);
         setIsabelaSpeaking(true);
+        clearMicUnmuteTimer();
         // Mute mic whenever audio is actively streaming
         if (micStreamRef.current) {
           micStreamRef.current.getAudioTracks().forEach(t => { t.enabled = false; });
@@ -396,19 +423,16 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
         break;
       }
 
-      // Isabela fully done speaking — re-enable mic
+      // Server finished sending audio chunks — playback may still be ongoing on device
+      case 'response.audio.done':
+        scheduleMicUnmuteAfterAssistant();
+        break;
+
+      // Isabela fully done speaking — re-enable mic (see also response.audio.done)
       case 'response.done':
         setIsabelaSpeaking(false);
         setIsabelaThinking(false);
-        // Delay mic re-enable after Isabela stops speaking.
-        // iOS needs a longer tail — audio keeps playing from buffer after
-        // response.done fires, and Whisper picks it up as user speech.
-        // 1500ms gives the speaker audio time to fully die down.
-        setTimeout(() => {
-          if (micStreamRef.current && !isMutedRef.current) {
-            micStreamRef.current.getAudioTracks().forEach(t => { t.enabled = true; });
-          }
-        }, isMobile ? 1500 : 600);
+        scheduleMicUnmuteAfterAssistant();
 
         if (sessionEndingRef.current) {
           if (!closingLinePlayedRef.current) {
@@ -460,6 +484,7 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
       // Isabela is generating a response — mute mic immediately
       case 'response.created':
         setIsabelaThinking(true);
+        clearMicUnmuteTimer();
         // Always mute mic when Isabela starts a response —
         // prevents her voice feeding back into the model
         if (micStreamRef.current) {
