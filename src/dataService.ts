@@ -19,6 +19,7 @@ import {
   } from 'firebase/firestore';
   import { db, analytics } from './firebase'; // same folder as firebase.ts in /src
   import { logEvent } from 'firebase/analytics';
+  import type { User } from 'firebase/auth';
   import { v4 as uuidv4 } from 'uuid';        // npm install uuid @types/uuid
   
   // ─────────────────────────────────────────────────────────────────────────────
@@ -571,6 +572,47 @@ import {
   
   export function trackSignupStarted(trigger: SignupTrigger): void {
     logEvent(analytics, 'signup_started', { trigger });
+  }
+
+  /**
+   * Create or update the `users/{uid}` document after Firebase Auth sign-in
+   * (email/password or Google). Used by popup, redirect, and post-redirect app init.
+   */
+  export async function syncAuthUserToFirestore(
+    user: User,
+    options?: { displayNameOverride?: string }
+  ): Promise<void> {
+    const userRef = doc(db, 'users', user.uid);
+    const existing = await getDoc(userRef);
+    const displayName = options?.displayNameOverride ?? user.displayName ?? 'User';
+    const emailAddr = user.email || '';
+
+    if (!existing.exists()) {
+      const savedLevel = localStorage.getItem('userLevel') || null;
+      const savedStreak = parseInt(localStorage.getItem('streak') || '0', 10);
+      const savedTotalPts = parseInt(localStorage.getItem('totalPts') || '0', 10);
+      const savedCurrentDay = parseInt(localStorage.getItem('currentDay') || '1', 10);
+      const savedTimePreference = localStorage.getItem('timePreference') || null;
+      const savedLearningGoal = localStorage.getItem('learningGoal') || null;
+
+      await setDoc(userRef, {
+        name: displayName,
+        email: emailAddr,
+        level: savedLevel,
+        xp: 0,
+        streak: savedStreak,
+        totalPts: savedTotalPts,
+        currentDay: savedCurrentDay,
+        timePreference: savedTimePreference,
+        learningGoal: savedLearningGoal,
+        joinedAt: new Date().toISOString(),
+        lastActiveAt: new Date().toISOString(),
+      });
+    } else {
+      await updateDoc(userRef, {
+        lastActiveAt: new Date().toISOString(),
+      });
+    }
   }
   
   export function trackLevelUp(fromLevel: Level, toLevel: Level): void {

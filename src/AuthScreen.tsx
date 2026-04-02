@@ -4,11 +4,22 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signInWithPopup,
+  signInWithRedirect,
   updateProfile,
   sendPasswordResetEmail,
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore'; // added updateDoc
-import { auth, db, googleProvider } from './firebase';
+import { auth, googleProvider } from './firebase';
+import { syncAuthUserToFirestore } from './dataService';
+
+/** Popups are blocked or unsupported on many mobile browsers; use full-page redirect. */
+function preferGoogleRedirect(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent;
+  if (/iPhone|iPad|iPod|Android/i.test(ua)) return true;
+  if (/Mobile/i.test(ua) && /Safari/i.test(ua) && !/CriOS|FxiOS|EdgiOS/.test(ua)) return true;
+  if (navigator.maxTouchPoints > 1 && /Macintosh/.test(ua)) return true;
+  return false;
+}
 
 interface Props {
   onContinueWithoutAccount: () => void;
@@ -28,50 +39,30 @@ export default function AuthScreen({ onContinueWithoutAccount, onAuthSuccess }: 
 
   const clearError = () => setError('');
 
-  const saveUserToFirestore = async (uid: string, displayName: string, email: string) => {
-    const userRef  = doc(db, 'users', uid);
-    const existing = await getDoc(userRef);
-
-    if (!existing.exists()) {
-      // ── Brand new user: pull any progress saved locally before they signed up ──
-      const savedLevel       = localStorage.getItem('userLevel')       || null;
-      const savedStreak      = parseInt(localStorage.getItem('streak')      || '0', 10);
-      const savedTotalPts    = parseInt(localStorage.getItem('totalPts')    || '0', 10);
-      const savedCurrentDay  = parseInt(localStorage.getItem('currentDay')  || '1', 10);
-      const savedTimePreference = localStorage.getItem('timePreference') || null;
-      const savedLearningGoal   = localStorage.getItem('learningGoal')   || null;
-
-      await setDoc(userRef, {
-        name:             displayName,
-        email:            email,
-        level:            savedLevel,
-        xp:               0,
-        streak:           savedStreak,       // saved from localStorage
-        totalPts:         savedTotalPts,     // saved from localStorage
-        currentDay:       savedCurrentDay,   // saved from localStorage
-        timePreference:   savedTimePreference,
-        learningGoal:     savedLearningGoal,
-        joinedAt:         new Date().toISOString(),
-        lastActiveAt:     new Date().toISOString(),
-      });
-    } else {
-      // ── Returning user: just update lastActiveAt so you can track logins ──
-      await updateDoc(userRef, {
-        lastActiveAt: new Date().toISOString(),
-      });
-    }
-  };
-
   const handleGoogleSignIn = async () => {
     setLoading(true);
     clearError();
     try {
+      if (preferGoogleRedirect()) {
+        await signInWithRedirect(auth, googleProvider);
+        return;
+      }
       const result = await signInWithPopup(auth, googleProvider);
-      const user   = result.user;
-      await saveUserToFirestore(user.uid, user.displayName || 'User', user.email || '');
+      await syncAuthUserToFirestore(result.user);
       onAuthSuccess();
     } catch (err: any) {
-      setError('Error signing in with Google. Please try again.');
+      const code = err?.code as string | undefined;
+      if (code === 'auth/popup-blocked' || code === 'auth/operation-not-supported-in-this-environment') {
+        await signInWithRedirect(auth, googleProvider);
+        return;
+      }
+      if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+        setError('Sign-in was cancelled.');
+      } else if (code === 'auth/unauthorized-domain') {
+        setError('This site is not authorized for Google sign-in. Check Firebase settings.');
+      } else {
+        setError('Could not sign in with Google. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -86,7 +77,7 @@ export default function AuthScreen({ onContinueWithoutAccount, onAuthSuccess }: 
     try {
       const result = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(result.user, { displayName: name });
-      await saveUserToFirestore(result.user.uid, name, email);
+      await syncAuthUserToFirestore(result.user, { displayNameOverride: name });
       onAuthSuccess();
     } catch (err: any) {
       if (err.code === 'auth/email-already-in-use') setError('This email is already registered. Please log in.');

@@ -4,9 +4,10 @@
 
 import { useState, useEffect } from 'react';
 import './App.css';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, getRedirectResult } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from './firebase';
+import { syncAuthUserToFirestore } from './dataService';
 import VerbStudio from './VerbStudio';
 import VocabStudio from './VocabStudio';
 import GrammarStudio from './GrammarStudio';
@@ -71,69 +72,85 @@ export default function App() {
   };
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        // ── Signed-in user: always go to today ────────────────────
-        setIsLoggedIn(true);
-        try {
-          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-          if (userDoc.exists()) {
-            const data = userDoc.data() as UserData;
-            setUserData(data);
+    let unsubscribe: (() => void) | undefined;
 
-            if (data.level)          localStorage.setItem('userLevel',      data.level);
-            if (data.streak)         localStorage.setItem('streak',         String(data.streak));
-            if (data.totalPts)       localStorage.setItem('totalPts',       String(data.totalPts));
-            if (data.currentDay)     localStorage.setItem('currentDay',     String(data.currentDay));
-            if (data.timePreference) localStorage.setItem('timePreference', data.timePreference);
-            if (data.learningGoal)   localStorage.setItem('learningGoal',   data.learningGoal);
+    (async () => {
+      // Finish Google redirect sign-in and sync Firestore *before* auth listener runs,
+      // so the user document exists when we first read it.
+      try {
+        const redirectResult = await getRedirectResult(auth);
+        if (redirectResult?.user) {
+          await syncAuthUserToFirestore(redirectResult.user);
+        }
+      } catch (err) {
+        console.error('Google redirect sign-in:', err);
+      }
 
-            setStreak(data.streak || 0);
-            setTotalPts(data.totalPts || 0);
-            setLessonsCompleted(data.lessonsCompleted || 0);
+      unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        if (firebaseUser) {
+          // ── Signed-in user: always go to today ────────────────────
+          setIsLoggedIn(true);
+          try {
+            const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+            if (userDoc.exists()) {
+              const data = userDoc.data() as UserData;
+              setUserData(data);
 
-            if (data.level) {
-              setUserLevel(data.level);
-              localStorage.setItem('hasCompletedAuth', 'true');
-              setView('today');
+              if (data.level)          localStorage.setItem('userLevel',      data.level);
+              if (data.streak)         localStorage.setItem('streak',         String(data.streak));
+              if (data.totalPts)       localStorage.setItem('totalPts',       String(data.totalPts));
+              if (data.currentDay)     localStorage.setItem('currentDay',     String(data.currentDay));
+              if (data.timePreference) localStorage.setItem('timePreference', data.timePreference);
+              if (data.learningGoal)   localStorage.setItem('learningGoal',   data.learningGoal);
+
+              setStreak(data.streak || 0);
+              setTotalPts(data.totalPts || 0);
+              setLessonsCompleted(data.lessonsCompleted || 0);
+
+              if (data.level) {
+                setUserLevel(data.level);
+                localStorage.setItem('hasCompletedAuth', 'true');
+                setView('today');
+              } else {
+                setView('onboarding');
+              }
             } else {
               setView('onboarding');
             }
-          } else {
+          } catch {
             setView('onboarding');
           }
-        } catch {
-          setView('onboarding');
-        }
-      } else {
-        // ── Anonymous visitor ─────────────────────────────────────
-        setIsLoggedIn(false);
-        const hasSeenWelcome   = localStorage.getItem('hasSeenWelcome');
-        const savedLevel       = localStorage.getItem('userLevel') as Level | null;
-        const hasCompletedAuth = localStorage.getItem('hasCompletedAuth');
-
-        setStreak(parseInt(localStorage.getItem('streak') || '0'));
-        setTotalPts(parseInt(localStorage.getItem('totalPts') || '0'));
-        setLessonsCompleted(parseInt(localStorage.getItem('lessonsCompleted') || '0'));
-
-        if (hasSeenWelcome && savedLevel && hasCompletedAuth) {
-          // Returning anonymous user who already dismissed auth — go to app
-          setUserLevel(savedLevel);
-          setView('today');
-        } else if (hasSeenWelcome && savedLevel && !hasCompletedAuth) {
-          // Completed onboarding but hasn't seen auth yet — show auth
-          setUserLevel(savedLevel);
-          setView('auth');
-        } else if (hasSeenWelcome) {
-          // Seen welcome but no level yet — go to onboarding
-          setView('onboarding');
         } else {
-          // Brand new user — show welcome slides first
-          setView('welcome');
+          // ── Anonymous visitor ─────────────────────────────────────
+          setIsLoggedIn(false);
+          const hasSeenWelcome   = localStorage.getItem('hasSeenWelcome');
+          const savedLevel       = localStorage.getItem('userLevel') as Level | null;
+          const hasCompletedAuth = localStorage.getItem('hasCompletedAuth');
+
+          setStreak(parseInt(localStorage.getItem('streak') || '0'));
+          setTotalPts(parseInt(localStorage.getItem('totalPts') || '0'));
+          setLessonsCompleted(parseInt(localStorage.getItem('lessonsCompleted') || '0'));
+
+          if (hasSeenWelcome && savedLevel && hasCompletedAuth) {
+            // Returning anonymous user who already dismissed auth — go to app
+            setUserLevel(savedLevel);
+            setView('today');
+          } else if (hasSeenWelcome && savedLevel && !hasCompletedAuth) {
+            // Completed onboarding but hasn't seen auth yet — show auth
+            setUserLevel(savedLevel);
+            setView('auth');
+          } else if (hasSeenWelcome) {
+            // Seen welcome but no level yet — go to onboarding
+            setView('onboarding');
+          } else {
+            // Brand new user — show welcome slides first
+            setView('welcome');
+          }
         }
-      }
-    });
-    return () => unsubscribe();
+      });
+    })();
+
+    return () => unsubscribe?.();
   }, []);
 
   const navigateTo = (newView: AppView) => {
