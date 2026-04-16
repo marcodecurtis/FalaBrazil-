@@ -6,6 +6,34 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Level } from './App';
 
+// ── Feedback parser ───────────────────────────────────────────────
+interface ParsedFeedback {
+  rating: number | null;
+  ratingNote: string;
+  well: string;
+  mistakes: string;
+  focus: string;
+}
+
+function parseFeedback(text: string): ParsedFeedback {
+  const ratingMatch = text.match(/⭐\s*Session rating:\s*(\d+)\/10[^\n]*\n([^\n]*)/i);
+  const rating = ratingMatch ? parseInt(ratingMatch[1]) : null;
+  const ratingNote = ratingMatch ? ratingMatch[2].trim() : '';
+
+  const extract = (pattern: RegExp) => {
+    const m = text.match(pattern);
+    return m ? m[1].trim() : '';
+  };
+
+  return {
+    rating,
+    ratingNote,
+    well:     extract(/1\.\s*WHAT WENT WELL\s*([\s\S]*?)(?=2\.\s*MISTAKES|$)/i),
+    mistakes: extract(/2\.\s*MISTAKES TO CORRECT\s*([\s\S]*?)(?=3\.\s*FOCUS|$)/i),
+    focus:    extract(/3\.\s*FOCUS FOR NEXT SESSION\s*([\s\S]*?)$/i),
+  };
+}
+
 interface Props {
   onBack: () => void;
   userLevel: Level | null;
@@ -90,6 +118,8 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
   const displayMessagesRef = useRef<DisplayMessage[]>([]);
   const isMutedRef = useRef(false);
   const micUnmuteTimerRef = useRef<number | null>(null);
+  const isabelaSpeakingRef = useRef(false);
+  const isabelaThinkingRef = useRef(false);
 
   // Output audio analysis — used to detect when Isabela's voice actually goes silent
   const outputAnalyserRef = useRef<AnalyserNode | null>(null);
@@ -102,6 +132,8 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
 
   useEffect(() => { displayMessagesRef.current = displayMessages; }, [displayMessages]);
   useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
+  useEffect(() => { isabelaSpeakingRef.current = isabelaSpeaking; }, [isabelaSpeaking]);
+  useEffect(() => { isabelaThinkingRef.current = isabelaThinking; }, [isabelaThinking]);
 
   const clearMicUnmuteTimer = () => {
     if (micUnmuteTimerRef.current != null) {
@@ -228,8 +260,12 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
 
   const handleTimerEnd = () => {
     sessionEndingRef.current = true;
-    // Don't interrupt if Isabela is mid-sentence
-    // The goodbye will be triggered in response.done once she finishes
+    // If Isabela is currently speaking or thinking, response.done will call sendGoodbye().
+    // If she is in listening mode (between turns), response.done never fires —
+    // so we must trigger the goodbye immediately.
+    if (!isabelaSpeakingRef.current && !isabelaThinkingRef.current) {
+      sendGoodbye();
+    }
   };
 
   const sendGoodbye = () => {
@@ -243,7 +279,7 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
           role: 'user',
           content: [{
             type: 'input_text',
-            text: '[SYSTEM: The 3-minute session has ended. Say a warm, natural goodbye in 2 short sentences. Tell the student they did really well today. Do not ask any more questions.]'
+            text: '[SYSTEM: The practice session has now ended. Wrap up the conversation warmly and naturally — as a real Brazilian friend would. Compliment the student on something specific they did well today, encourage them to keep practising, and say a warm goodbye. Take 3–4 natural sentences. Do not ask any more questions. Do not sound abrupt.]'
           }]
         }
       });
@@ -535,7 +571,7 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
             // Goodbye text is done — wait generously for audio to finish
             // iOS Safari 'ended' event is unreliable so we use a safe timeout
             // 4 seconds is enough for a 2-sentence goodbye at normal speech rate
-            setTimeout(() => generateFeedback(), 4000);
+            setTimeout(() => generateFeedback(), 6000);
           }
         }
         break;
@@ -833,34 +869,112 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
 
   // ── FEEDBACK ──────────────────────────────────────────────────
   if (screen === 'feedback') {
+    const parsed = feedback ? parseFeedback(feedback) : null;
+
+    const FeedbackCard = ({ emoji, title, content, bg, border, textColor, titleColor }: {
+      emoji: string; title: string; content: string;
+      bg: string; border: string; textColor: string; titleColor: string;
+    }) => (
+      <div style={{ background: bg, border: `1.5px solid ${border}`, borderRadius: 16, padding: '16px 18px', marginBottom: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+          <span style={{ fontSize: '1.1rem' }}>{emoji}</span>
+          <span style={{ fontWeight: 800, fontSize: '0.88rem', color: titleColor, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{title}</span>
+        </div>
+        <div style={{ fontSize: '0.85rem', color: textColor, lineHeight: 1.75, whiteSpace: 'pre-wrap' }}>{content}</div>
+      </div>
+    );
+
     return (
-      <div style={{ maxWidth: 480, margin: '0 auto', padding: '0 16px 40px' }}>
-        <div style={{ textAlign: 'center', padding: '24px 0 20px' }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: 8 }}>📊</div>
-          <h2 style={{ fontWeight: 800, fontSize: '1.4rem', color: '#0f172a', margin: '0 0 4px' }}>
-            Session feedback
-          </h2>
-          <p style={{ color: '#64748b', fontSize: '0.85rem', margin: 0 }}>
-            Here's how your 3-minute session went
-          </p>
+      <div style={{ maxWidth: 480, margin: '0 auto', minHeight: '100dvh', background: '#f8fafc' }}>
+
+        {/* Green header banner */}
+        <div style={{ background: 'linear-gradient(135deg, #14532d 0%, #166534 100%)', padding: '28px 20px 24px', textAlign: 'center' }}>
+          <div style={{
+            width: 60, height: 60, borderRadius: '50%',
+            background: 'rgba(255,255,255,0.15)', margin: '0 auto 12px',
+            overflow: 'hidden', border: '2px solid rgba(255,255,255,0.3)',
+          }}>
+            <img src="/isabela.png" alt="Isabela"
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              onError={e => (e.currentTarget.style.display = 'none')} />
+          </div>
+          <h2 style={{ color: 'white', fontWeight: 900, fontSize: '1.35rem', margin: '0 0 4px' }}>Session Complete!</h2>
+          <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.82rem', margin: 0 }}>Here's Isabela's feedback on your practice</p>
         </div>
 
-        {feedbackLoading ? (
-          <div style={{ textAlign: 'center', padding: '40px 0', color: '#64748b' }}>
-            <div style={{ fontSize: '2rem', marginBottom: 12 }}>⏳</div>
-            <p style={{ fontSize: '0.9rem' }}>Isabela is preparing your feedback...</p>
-          </div>
-        ) : (
-          <div style={{ background: '#f8fafc', borderRadius: 16, padding: 20, marginBottom: 20 }}>
-            <div style={{ fontSize: '0.85rem', color: '#334155', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
-              {feedback}
-            </div>
-          </div>
-        )}
+        <div style={{ padding: '20px 16px 48px' }}>
 
-        <button onClick={handleReset} style={styles.primaryBtn}>
-          Speak with Isabela again 🎙️
-        </button>
+          {feedbackLoading ? (
+            <div style={{ textAlign: 'center', padding: '56px 0' }}>
+              <div style={{
+                width: 56, height: 56, borderRadius: '50%',
+                background: 'white', margin: '0 auto 16px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '1.6rem', boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+              }}>⏳</div>
+              <p style={{ color: '#475569', fontSize: '0.9rem', fontWeight: 700, margin: '0 0 4px' }}>Isabela is reviewing your session...</p>
+              <p style={{ color: '#94a3b8', fontSize: '0.8rem', margin: 0 }}>This usually takes a few seconds</p>
+            </div>
+
+          ) : parsed ? (
+            <>
+              {/* Star rating card */}
+              {parsed.rating !== null && (
+                <div style={{
+                  background: 'white', borderRadius: 16, padding: '20px 20px 18px',
+                  marginBottom: 12, boxShadow: '0 1px 6px rgba(0,0,0,0.06)', textAlign: 'center',
+                }}>
+                  <div style={{ fontSize: '2.8rem', fontWeight: 900, color: '#0f172a', lineHeight: 1 }}>
+                    {parsed.rating}
+                    <span style={{ fontSize: '1.3rem', color: '#94a3b8', fontWeight: 700 }}>/10</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: 4, margin: '10px 0 8px' }}>
+                    {Array.from({ length: 10 }, (_, i) => (
+                      <span key={i} style={{ fontSize: '1.1rem', color: i < parsed.rating! ? '#f59e0b' : '#e2e8f0' }}>★</span>
+                    ))}
+                  </div>
+                  {parsed.ratingNote && (
+                    <p style={{ color: '#64748b', fontSize: '0.85rem', margin: 0, lineHeight: 1.5 }}>{parsed.ratingNote}</p>
+                  )}
+                </div>
+              )}
+
+              {parsed.well && (
+                <FeedbackCard
+                  emoji="✅" title="What went well"
+                  content={parsed.well}
+                  bg="#f0fdf4" border="#bbf7d0" titleColor="#15803d" textColor="#166534"
+                />
+              )}
+
+              {parsed.mistakes && (
+                <FeedbackCard
+                  emoji="📝" title="Corrections"
+                  content={parsed.mistakes}
+                  bg="#fefce8" border="#fde68a" titleColor="#a16207" textColor="#92400e"
+                />
+              )}
+
+              {parsed.focus && (
+                <FeedbackCard
+                  emoji="🎯" title="Focus for next session"
+                  content={parsed.focus}
+                  bg="#eef2ff" border="#c7d2fe" titleColor="#4338ca" textColor="#3730a3"
+                />
+              )}
+            </>
+
+          ) : feedback ? (
+            // Fallback: couldn't parse, show raw text nicely
+            <div style={{ background: 'white', borderRadius: 16, padding: 20, marginBottom: 12, boxShadow: '0 1px 6px rgba(0,0,0,0.06)' }}>
+              <div style={{ fontSize: '0.85rem', color: '#334155', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>{feedback}</div>
+            </div>
+          ) : null}
+
+          <button onClick={handleReset} style={{ ...styles.primaryBtn, marginTop: 8 }}>
+            🎙️ Practice with Isabela again
+          </button>
+        </div>
       </div>
     );
   }
@@ -899,7 +1013,15 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ fontWeight: 800, fontSize: '1rem', color: timerColor, minWidth: 48, textAlign: 'center' }}>
+          <div style={{
+            background: timeLeft <= 30 ? '#fee2e2' : timeLeft <= 60 ? '#fef9c3' : '#f0fdf4',
+            border: `1.5px solid ${timeLeft <= 30 ? '#fca5a5' : timeLeft <= 60 ? '#fde68a' : '#bbf7d0'}`,
+            borderRadius: 20, padding: '3px 12px',
+            fontWeight: 800, fontSize: '0.9rem',
+            color: timerColor,
+            fontVariantNumeric: 'tabular-nums',
+            letterSpacing: '0.02em',
+          }}>
             {formatTime(timeLeft)}
           </div>
           <button
