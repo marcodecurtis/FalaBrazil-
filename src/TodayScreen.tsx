@@ -325,6 +325,7 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
 
     return (
       <LessonPlayer
+        key={activeBlockIndex}
         block={currentBlock}
         onPass={async () => {
           if (isLastBlock) {

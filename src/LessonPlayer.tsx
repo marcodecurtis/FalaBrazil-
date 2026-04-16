@@ -62,7 +62,24 @@ export default function LessonPlayer({ block, onPass, onBack, blockIndex = 0, to
 
   // ── VOCABULARY / MINI_EXERCISE / EXERCISE ─────────────────────
   if (block.type === 'vocabulary' || block.type === 'mini_exercise' || block.type === 'exercise') {
-    if (words.length === 0) { onPass(); return null; }
+    if (words.length === 0) {
+      return (
+        <div className="lp-wrapper">
+          <div className="lp-header">
+            <button className="lp-back-btn" onClick={onBack}>← Back</button>
+            <div className="lp-header-title">{block.title}</div>
+          </div>
+          <div style={{ padding: '60px 20px', textAlign: 'center' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '12px' }}>📭</div>
+            <p style={{ fontWeight: 700, color: '#0f172a', marginBottom: '8px' }}>Content not available</p>
+            <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '24px', lineHeight: 1.5 }}>
+              This block didn't load any content. You can skip it and continue.
+            </p>
+            <button className="lp-next-btn" onClick={onPass}>Skip and continue →</button>
+          </div>
+        </div>
+      );
+    }
 
     if (phase === 'learn') {
       const card   = words[cardIndex];
@@ -284,12 +301,16 @@ export default function LessonPlayer({ block, onPass, onBack, blockIndex = 0, to
       const q           = testPronouns[currentTestQ];
       const correctForm = conjugation[q] || '';
       const isAnswered  = testAnswers[currentTestQ] !== undefined && testAnswers[currentTestQ] !== null;
-      const isCorrect   = normalise(testAnswers[currentTestQ] || '') === normalise(correctForm);
+      const _rawAnswer  = normalise(testAnswers[currentTestQ] || '');
+      const _stripped   = _rawAnswer.replace(new RegExp(`^${normalise(q)}\\s+`), '');
+      const isCorrect   = _stripped === normalise(correctForm) || _rawAnswer === normalise(correctForm);
       const isLastQ     = currentTestQ === testPronouns.length - 1;
 
       const checkAnswer = (val: string) => {
         if (!val.trim() || isAnswered) return;
-        const correct = normalise(val) === normalise(correctForm);
+        // Strip leading pronoun if user types e.g. "eu moro" instead of just "moro"
+        const stripped = normalise(val).replace(new RegExp(`^${normalise(q)}\\s+`), '');
+        const correct = stripped === normalise(correctForm) || normalise(val) === normalise(correctForm);
         const newAnswers = [...testAnswers];
         newAnswers[currentTestQ] = val;
         setTestAnswers(newAnswers);
@@ -525,9 +546,15 @@ export default function LessonPlayer({ block, onPass, onBack, blockIndex = 0, to
             <div className="lp-reading-title">{title}</div>
             <div className="lp-reading-text">{text}</div>
           </div>
-          <button className="lp-next-btn" style={{ marginTop: '16px' }} onClick={() => { setPhase('test'); setCurrentTestQ(0); setScore(0); setTestAnswers([]); }}>
-            Answer questions →
-          </button>
+          {questions.length > 0 ? (
+            <button className="lp-next-btn" style={{ marginTop: '16px' }} onClick={() => { setPhase('test'); setCurrentTestQ(0); setScore(0); setTestAnswers([]); }}>
+              Answer questions →
+            </button>
+          ) : (
+            <button className="lp-next-btn" style={{ marginTop: '16px' }} onClick={onPass}>
+              I've finished reading →
+            </button>
+          )}
         </div>
       );
     }
@@ -638,7 +665,7 @@ export default function LessonPlayer({ block, onPass, onBack, blockIndex = 0, to
       );
     }
 
-    if (phase === 'result' || questions.length === 0) {
+    if (phase === 'result') {
       return (
         <div className="lp-wrapper">
           <div className="lp-result-card">
