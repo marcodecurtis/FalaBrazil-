@@ -91,6 +91,11 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
   const isMutedRef = useRef(false);
   const micUnmuteTimerRef = useRef<number | null>(null);
 
+  // Output audio analysis — used to detect when Isabela's voice actually goes silent
+  const outputAnalyserRef = useRef<AnalyserNode | null>(null);
+  const outputAudioCtxRef = useRef<AudioContext | null>(null);
+  const silenceRafRef = useRef<number | null>(null);
+
   // Accumulate streaming text
   const isabelaStreamRef = useRef('');
   const userStreamRef = useRef('');
@@ -105,16 +110,76 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
     }
   };
 
-  /** After assistant audio, wait for tail + device playback buffer before sending mic audio again. */
-  const scheduleMicUnmuteAfterAssistant = () => {
-    const delayMs = isMobile ? 3000 : 650;
+  const cancelSilenceDetection = () => {
+    if (silenceRafRef.current !== null) {
+      cancelAnimationFrame(silenceRafRef.current);
+      silenceRafRef.current = null;
+    }
+  };
+
+  const doEnableMic = () => {
+    if (micStreamRef.current && !isMutedRef.current) {
+      micStreamRef.current.getAudioTracks().forEach(t => { t.enabled = true; });
+    }
+  };
+
+  /**
+   * Re-enables the mic only after Isabela's audio output has gone silent.
+   * Uses a Web Audio AnalyserNode on the output element to detect true silence,
+   * rather than a fixed timer that can fire while audio is still playing.
+   * Falls back to a fixed delay if the analyser is not available.
+   */
+  const enableMicAfterPlayback = () => {
     clearMicUnmuteTimer();
+    cancelSilenceDetection();
+
+    const analyser = outputAnalyserRef.current;
+    const tailMs = isMobile ? 400 : 150;
+    const maxWaitMs = isMobile ? 8000 : 5000;
+
+    if (!analyser) {
+      // Fallback: generous fixed delay when analyser isn't set up
+      micUnmuteTimerRef.current = window.setTimeout(() => {
+        micUnmuteTimerRef.current = null;
+        doEnableMic();
+      }, isMobile ? 3500 : 1500);
+      return;
+    }
+
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    let silenceFrames = 0;
+    const SILENCE_THRESHOLD = 4; // out of 255 — near-zero output energy
+    const REQUIRED_FRAMES = isMobile ? 8 : 4; // ~130ms / 65ms of consecutive silence
+
+    // Safety timeout: force-enable mic if silence is never detected (background noise etc.)
     micUnmuteTimerRef.current = window.setTimeout(() => {
       micUnmuteTimerRef.current = null;
-      if (micStreamRef.current && !isMutedRef.current) {
-        micStreamRef.current.getAudioTracks().forEach(t => { t.enabled = true; });
+      cancelSilenceDetection();
+      doEnableMic();
+    }, maxWaitMs);
+
+    const checkSilence = () => {
+      analyser.getByteFrequencyData(data);
+      let peak = 0;
+      for (let i = 0; i < data.length; i++) { if (data[i] > peak) peak = data[i]; }
+
+      if (peak < SILENCE_THRESHOLD) {
+        silenceFrames++;
+        if (silenceFrames >= REQUIRED_FRAMES) {
+          // Audio has gone silent — clear safety timeout and re-enable mic after tail
+          clearMicUnmuteTimer();
+          micUnmuteTimerRef.current = window.setTimeout(() => {
+            micUnmuteTimerRef.current = null;
+            doEnableMic();
+          }, tailMs);
+          return; // stop RAF loop
+        }
+      } else {
+        silenceFrames = 0;
       }
-    }, delayMs);
+      silenceRafRef.current = requestAnimationFrame(checkSilence);
+    };
+    silenceRafRef.current = requestAnimationFrame(checkSilence);
   };
 
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
@@ -195,6 +260,13 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
   // ── Cleanup ───────────────────────────────────────────────────
   const cleanup = () => {
     stopMicStream();
+    cancelSilenceDetection();
+    clearMicUnmuteTimer();
+    if (outputAudioCtxRef.current) {
+      outputAudioCtxRef.current.close().catch(() => {});
+      outputAudioCtxRef.current = null;
+    }
+    outputAnalyserRef.current = null;
     if (pcRef.current) {
       pcRef.current.close();
       pcRef.current = null;
@@ -204,7 +276,6 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
       audioElRef.current.srcObject = null;
     }
     if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-    clearMicUnmuteTimer();
   };
 
   // ── Mic helpers ───────────────────────────────────────────────
@@ -297,6 +368,26 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
         audioEl.srcObject = e.streams[0];
         // On mobile, start at 50% volume to prevent mic echo from speaker bleed
         audioEl.volume = defaultVolume;
+
+        // Tap the raw WebRTC stream with a Web Audio analyser so we can detect
+        // when Isabela's voice truly goes silent. Using createMediaStreamSource
+        // (not createMediaElementSource) so the analyser reads the raw signal
+        // independently — this avoids any interaction with audioEl.volume/mute.
+        // Audio still plays normally through the audio element.
+        try {
+          const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+          outputAudioCtxRef.current = ctx;
+          const src = ctx.createMediaStreamSource(e.streams[0]);
+          const analyser = ctx.createAnalyser();
+          analyser.fftSize = 256;
+          analyser.smoothingTimeConstant = 0.3;
+          src.connect(analyser);
+          // Do NOT connect to ctx.destination — audio plays through audioEl, not here
+          outputAnalyserRef.current = analyser;
+        } catch (err) {
+          console.warn('Output analyser setup failed, using fixed-delay fallback:', err);
+          outputAnalyserRef.current = null;
+        }
       };
 
       // Add mic track
@@ -423,16 +514,17 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
         break;
       }
 
-      // Server finished sending audio chunks — playback may still be ongoing on device
+      // Server finished sending audio chunks — start silence detection to know
+      // when the device has actually finished playing the audio
       case 'response.audio.done':
-        scheduleMicUnmuteAfterAssistant();
+        enableMicAfterPlayback();
         break;
 
-      // Isabela fully done speaking — re-enable mic (see also response.audio.done)
+      // Isabela's full response is done — handle session ending logic only.
+      // Mic re-enable is handled by response.audio.done → enableMicAfterPlayback().
       case 'response.done':
         setIsabelaSpeaking(false);
         setIsabelaThinking(false);
-        scheduleMicUnmuteAfterAssistant();
 
         if (sessionEndingRef.current) {
           if (!closingLinePlayedRef.current) {
@@ -446,6 +538,12 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
             setTimeout(() => generateFeedback(), 4000);
           }
         }
+        break;
+
+      // Response was cancelled (e.g. user tapped interrupt)
+      case 'response.cancelled':
+        setIsabelaSpeaking(false);
+        setIsabelaThinking(false);
         break;
 
       // User started speaking — re-enable mic
@@ -481,12 +579,12 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
         break;
       }
 
-      // Isabela is generating a response — mute mic immediately
+      // Isabela is generating a response — mute mic immediately and cancel any
+      // in-flight silence detection from a previous response
       case 'response.created':
         setIsabelaThinking(true);
+        cancelSilenceDetection();
         clearMicUnmuteTimer();
-        // Always mute mic when Isabela starts a response —
-        // prevents her voice feeding back into the model
         if (micStreamRef.current) {
           micStreamRef.current.getAudioTracks().forEach(t => { t.enabled = false; });
         }
@@ -571,6 +669,14 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
     setIsabelaSpeaking(false);
     setLiveIsabelaText('');
     isabelaStreamRef.current = '';
+    // Cancel any pending silence detection and unmute timers, then re-enable mic
+    // quickly — audio stops almost immediately after cancel
+    cancelSilenceDetection();
+    clearMicUnmuteTimer();
+    micUnmuteTimerRef.current = window.setTimeout(() => {
+      micUnmuteTimerRef.current = null;
+      doEnableMic();
+    }, isMobile ? 500 : 200);
   };
 
   // ─────────────────────────────────────────────────────────────
