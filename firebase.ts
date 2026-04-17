@@ -1,11 +1,13 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getDatabase } from 'firebase/database';
 import { getAnalytics } from 'firebase/analytics';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: "fala-brazil.firebaseapp.com",
+  databaseURL: "https://fala-brazil-default-rtdb.europe-west1.firebasedatabase.app",
   projectId: "fala-brazil",
   storageBucket: "fala-brazil.firebasestorage.app",
   messagingSenderId: "761377680762",
@@ -32,4 +34,5 @@ export const analytics = (() => {
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+export const rtdb = getDatabase(app);
 export const googleProvider = new GoogleAuthProvider();

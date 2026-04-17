@@ -618,4 +618,24 @@ import {
   export function trackLevelUp(fromLevel: Level, toLevel: Level): void {
     logEvent(analytics, 'level_up', { fromLevel, toLevel });
   }
+
+  export interface IsabelaSessionData {
+    timestamp:       Timestamp | FieldValue;
+    level:           Level;
+    durationSeconds: number;
+    rating:          number | null;
+    feedback:        string;
+    transcript:      { role: 'user' | 'assistant'; content: string }[];
+  }
+
+  export async function saveIsabelaSession(
+    uid:  string,
+    data: Omit<IsabelaSessionData, 'timestamp'>,
+  ): Promise<void> {
+    await addDoc(collection(db, 'users', uid, 'isabelaSessions'), {
+      ...data,
+      timestamp: serverTimestamp(),
+    });
+    logEvent(analytics, 'isabela_session_saved', { level: data.level, rating: data.rating });
+  }
   

@@ -278,6 +278,7 @@ export default function App() {
           <IsabelaStudio
             onBack={() => navigateTo('today')}
             userLevel={userLevel}
+            uid={auth.currentUser?.uid ?? null}
           />
         </div>
         <BottomNav active={'isabela'} onNavigate={(tab) => navigateTo(tab)} />
