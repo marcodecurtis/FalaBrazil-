@@ -323,6 +323,12 @@ export default function App() {
             userLevel={userLevel}
             onNavigate={(v) => navigateTo(v as AppView)}
             onLogout={handleLogout}
+            onLevelChange={(level) => {
+              const l = level as Level;
+              setUserLevel(l);
+              localStorage.setItem('userLevel', l);
+              updateUserProgress({ level: l });
+            }}
           />
         )}
 

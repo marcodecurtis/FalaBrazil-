@@ -66,7 +66,7 @@ export default function AuthScreen({ onContinueWithoutAccount, onAuthSuccess }: 
     try {
       const result = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(result.user, { displayName: name });
-      await syncAuthUserToFirestore(result.user, { displayNameOverride: name });
+      // Firestore sync handled by onAuthStateChanged in App.tsx
       onAuthSuccess();
     } catch (err: any) {
       if (err.code === 'auth/email-already-in-use') setError('This email is already registered. Please log in.');
