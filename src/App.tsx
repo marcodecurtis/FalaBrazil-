@@ -95,6 +95,10 @@ export default function App() {
           // ── Signed-in user: always go to today ────────────────────
           setIsLoggedIn(true);
           try {
+            // Sync first — ensures the Firestore doc exists before we read it.
+            // This eliminates the race condition where signInWithPopup fires
+            // onAuthStateChanged before syncAuthUserToFirestore has written the doc.
+            await syncAuthUserToFirestore(firebaseUser);
             const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
             if (userDoc.exists()) {
               const data = userDoc.data() as UserData;
@@ -189,7 +193,14 @@ export default function App() {
       localStorage.setItem('currentDay', '1');
     }
     updateUserProgress({ level });
-    setView('auth');
+    if (isLoggedIn) {
+      // Already signed in (e.g. Google sign-in came before onboarding completed) —
+      // skip the auth screen and go straight to the app.
+      localStorage.setItem('hasCompletedAuth', 'true');
+      setView('today');
+    } else {
+      setView('auth');
+    }
   };
 
   // ── Loading ────────────────────────────────────────────────────

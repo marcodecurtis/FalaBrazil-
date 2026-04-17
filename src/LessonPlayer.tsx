@@ -241,16 +241,42 @@ export default function LessonPlayer({ block, onPass, onBack, blockIndex = 0, to
   if (block.type === 'verb') {
     const verb        = block.content?.verb        || '';
     const translation = block.content?.translation || '';
-    // Normalise conjugation to a flat {pronoun: form} map.
-    // The AI sometimes returns a nested structure keyed by tense
-    // (e.g. { "presente": { "eu": "viajo", ... } }) when asked for
-    // multiple tense tables. Flatten to the present-tense layer so that
-    // pronoun look-ups always work in both the learn and test phases.
+
     const rawConjugation = block.content?.conjugation || {};
+
+    // Detect if the AI returned multiple tenses (nested) or a flat pronoun map.
+    const firstVal = Object.values(rawConjugation)[0];
+    const isNestedByTense = firstVal !== null && typeof firstVal === 'object';
+
+    // Human-readable tense labels (Portuguese key → English label)
+    const TENSE_LABELS: Record<string, string> = {
+      presente:              'Present tense',
+      present:               'Present tense',
+      'Presente':            'Present tense',
+      preterito_perfeito:    'Simple past',
+      'pretérito perfeito':  'Simple past',
+      'preterito perfeito':  'Simple past',
+      preterito_imperfeito:  'Imperfect past',
+      'pretérito imperfeito':'Imperfect past',
+      imperfeito:            'Imperfect past',
+      futuro:                'Future',
+      future:                'Future',
+      condicional:           'Conditional',
+      subjuntivo:            'Subjunctive',
+      imperativo:            'Imperative',
+    };
+
+    // All tenses as an array of { label, forms } for the learn phase display
+    const tenseTables: { label: string; forms: Record<string, string> }[] = isNestedByTense
+      ? Object.entries(rawConjugation).map(([key, forms]) => ({
+          label: TENSE_LABELS[key] || TENSE_LABELS[key.toLowerCase()] || key,
+          forms: forms as Record<string, string>,
+        }))
+      : [{ label: 'Conjugation', forms: rawConjugation as Record<string, string> }];
+
+    // Flat present-tense map used in the test phase for pronoun look-ups
     const conjugation: Record<string, string> = (() => {
-      const firstVal = Object.values(rawConjugation)[0];
-      if (!firstVal || typeof firstVal === 'string') return rawConjugation as Record<string, string>;
-      // Values are objects → nested by tense; pick present tense or first tense
+      if (!isNestedByTense) return rawConjugation as Record<string, string>;
       const present =
         (rawConjugation as any)['presente'] ||
         (rawConjugation as any)['present']  ||
@@ -258,6 +284,7 @@ export default function LessonPlayer({ block, onPass, onBack, blockIndex = 0, to
         Object.values(rawConjugation)[0];
       return (typeof present === 'object' ? present : {}) as Record<string, string>;
     })();
+
     const examples: string[] = block.content?.examples || [];
 
     if (phase === 'learn') {
@@ -273,15 +300,17 @@ export default function LessonPlayer({ block, onPass, onBack, blockIndex = 0, to
             <div className="lp-verb-title">{verb}</div>
             <div className="lp-verb-translation">{translation}</div>
           </div>
-          <div className="lp-conjugation-table">
-            <div className="lp-conj-label">Present tense conjugation</div>
-            {pronouns.map(p => (
-              <div key={p} className="lp-conj-row">
-                <span className="lp-conj-pronoun">{p}</span>
-                <span className="lp-conj-form">{conjugation[p] || '—'}</span>
-              </div>
-            ))}
-          </div>
+          {tenseTables.map(({ label, forms }) => (
+            <div key={label} className="lp-conjugation-table">
+              <div className="lp-conj-label">{label}</div>
+              {pronouns.map(p => (
+                <div key={p} className="lp-conj-row">
+                  <span className="lp-conj-pronoun">{p}</span>
+                  <span className="lp-conj-form">{forms[p] || '—'}</span>
+                </div>
+              ))}
+            </div>
+          ))}
           {examples.length > 0 && (
             <div className="lp-grammar-examples" style={{ marginTop: '16px' }}>
               <div className="lp-examples-label">Example sentences:</div>

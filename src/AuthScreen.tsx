@@ -9,17 +9,6 @@ import {
   sendPasswordResetEmail,
 } from 'firebase/auth';
 import { auth, googleProvider } from './firebase';
-import { syncAuthUserToFirestore } from './dataService';
-
-/** Popups are blocked or unsupported on many mobile browsers; use full-page redirect. */
-function preferGoogleRedirect(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  const ua = navigator.userAgent;
-  if (/iPhone|iPad|iPod|Android/i.test(ua)) return true;
-  if (/Mobile/i.test(ua) && /Safari/i.test(ua) && !/CriOS|FxiOS|EdgiOS/.test(ua)) return true;
-  if (navigator.maxTouchPoints > 1 && /Macintosh/.test(ua)) return true;
-  return false;
-}
 
 interface Props {
   onContinueWithoutAccount: () => void;
@@ -43,16 +32,16 @@ export default function AuthScreen({ onContinueWithoutAccount, onAuthSuccess }: 
     setLoading(true);
     clearError();
     try {
-      if (preferGoogleRedirect()) {
-        await signInWithRedirect(auth, googleProvider);
-        return;
-      }
-      const result = await signInWithPopup(auth, googleProvider);
-      await syncAuthUserToFirestore(result.user);
+      // Always use popup — it works on all modern browsers including iOS Safari.
+      // signInWithRedirect on iOS breaks because ITP clears the session storage
+      // Firebase uses to track the pending redirect, so getRedirectResult returns null.
+      await signInWithPopup(auth, googleProvider);
+      // Firestore sync is handled by onAuthStateChanged in App.tsx
       onAuthSuccess();
     } catch (err: any) {
       const code = err?.code as string | undefined;
       if (code === 'auth/popup-blocked' || code === 'auth/operation-not-supported-in-this-environment') {
+        // Popup was blocked by the browser — fall back to redirect
         await signInWithRedirect(auth, googleProvider);
         return;
       }
