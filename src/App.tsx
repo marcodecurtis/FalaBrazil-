@@ -82,8 +82,12 @@ export default function App() {
         if (redirectResult?.user) {
           await syncAuthUserToFirestore(redirectResult.user);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Google redirect sign-in:', err);
+        // Surface domain authorization errors so the user knows what went wrong
+        if (err?.code === 'auth/unauthorized-domain') {
+          alert('Google sign-in failed: this domain is not authorised in Firebase. Please contact support.');
+        }
       }
 
       unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
