@@ -1,0 +1,566 @@
+/* ──────────────────────────────────────────────
+   ONBOARDING SCREEN
+   Matches the existing Fala Brazil! green theme
+   ────────────────────────────────────────────── */
+
+/* Wrapper — fills the existing .container */
+.ob-wrapper {
+    width: 100%;
+    max-width: 700px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 12px 0 60px;
+    animation: ob-enter 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  
+  @keyframes ob-enter {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  
+  /* ── Flag ─────────────────────────────────── */
+  .ob-flag-row {
+    margin-bottom: 24px;
+  }
+  
+  .ob-flag {
+    width: 56px;
+    height: 40px;
+    border-radius: 6px;
+    object-fit: cover;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+  }
+  
+  /* ── Title ────────────────────────────────── */
+  .ob-title {
+    font-size: clamp(2rem, 7vw, 3.2rem);
+    font-weight: 900;
+    color: var(--text-main);
+    text-align: center;
+    line-height: 1.1;
+    letter-spacing: -1.5px;
+    margin: 0 0 16px;
+  }
+  
+  .ob-title em {
+    color: var(--accent);
+    font-style: normal;
+  }
+  
+  .ob-subtitle {
+    font-size: clamp(0.9rem, 2.5vw, 1.05rem);
+    color: var(--text-dim);
+    text-align: center;
+    margin: 0 0 40px;
+    max-width: 440px;
+    line-height: 1.6;
+  }
+  
+  /* ── Level grid ───────────────────────────── */
+  .ob-levels-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    width: 100%;
+    margin-bottom: 32px;
+  }
+  
+  @media (min-width: 600px) {
+    .ob-levels-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+  
+  .ob-level-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 20px 18px;
+    border-radius: 20px;
+    border: 1.5px solid rgba(0,0,0,0.06);
+    cursor: pointer;
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                border-color 0.2s;
+    text-align: left;
+    font-family: inherit;
+  }
+  
+  .ob-level-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 16px 40px rgba(20, 83, 45, 0.12);
+    border-color: rgba(20, 83, 45, 0.25);
+  }
+  
+  .ob-level-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 4px;
+  }
+  
+  .ob-level-code {
+    font-size: 1.5rem;
+    font-weight: 900;
+    letter-spacing: -0.5px;
+    line-height: 1;
+  }
+  
+  .ob-level-emoji {
+    font-size: 1.4rem;
+    line-height: 1;
+  }
+  
+  .ob-level-label {
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  
+  .ob-level-desc {
+    font-size: 0.78rem;
+    line-height: 1.45;
+    margin: 4px 0 8px;
+  }
+  
+  .ob-level-cta {
+    font-size: 0.75rem;
+    font-weight: 800;
+    margin-top: auto;
+  }
+  
+  /* ── Quiz CTA at bottom ───────────────────── */
+  .ob-quiz-cta {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+  
+  .ob-quiz-cta-label {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    font-weight: 500;
+  }
+  
+  .ob-quiz-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: transparent;
+    color: var(--accent);
+    border: 2px solid var(--accent);
+    padding: 12px 24px;
+    border-radius: 50px;
+    font-weight: 800;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: 0.2s;
+    font-family: inherit;
+  }
+  
+  .ob-quiz-btn:hover {
+    background: var(--accent);
+    color: white;
+  }
+  
+  /* ── Quiz screen ──────────────────────────── */
+  .ob-quiz-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    margin-bottom: 16px;
+  }
+  
+  .ob-back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 6px 0;
+    font-family: inherit;
+    transition: color 0.2s;
+  }
+  
+  .ob-back-link:hover { color: var(--accent); }
+  
+  .ob-q-counter {
+    font-size: 0.8rem;
+    font-weight: 800;
+    color: var(--text-dim);
+    background: #f1f5f9;
+    padding: 4px 12px;
+    border-radius: 20px;
+  }
+  
+  /* Progress bar */
+  .ob-progress-track {
+    width: 100%;
+    height: 6px;
+    background: #e2e8f0;
+    border-radius: 99px;
+    margin-bottom: 24px;
+    overflow: hidden;
+  }
+  
+  .ob-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #16a34a, #4ade80);
+    border-radius: 99px;
+    transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  /* Phase badge */
+  .ob-phase-badge {
+    align-self: flex-start;
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--accent);
+    background: var(--accent-light);
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 20px;
+  }
+  
+  /* Question card */
+  .ob-question-card {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .ob-fade-in {
+    animation: ob-fade-in 0.25s ease both;
+  }
+  
+  .ob-fade-out {
+    animation: ob-fade-out 0.2s ease both;
+  }
+  
+  @keyframes ob-fade-in {
+    from { opacity: 0; transform: translateX(16px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  
+  @keyframes ob-fade-out {
+    from { opacity: 1; transform: translateX(0); }
+    to   { opacity: 0; transform: translateX(-16px); }
+  }
+  
+  .ob-question-text {
+    font-size: clamp(1rem, 3vw, 1.25rem);
+    font-weight: 800;
+    color: var(--text-main);
+    line-height: 1.4;
+    margin: 0 0 8px;
+  }
+  
+  /* Options */
+  .ob-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .ob-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 14px 18px;
+    background: white;
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-main);
+    text-align: left;
+    transition: border-color 0.2s, background 0.2s, transform 0.15s;
+  }
+  
+  .ob-option:hover:not(:disabled) {
+    border-color: var(--accent);
+    background: var(--accent-light);
+    transform: translateX(3px);
+  }
+  
+  .ob-option-correct {
+    border-color: #16a34a !important;
+    background: #f0fdf4 !important;
+    color: #14532d;
+  }
+  
+  .ob-option-wrong {
+    border-color: #ef4444 !important;
+    background: #fef2f2 !important;
+    color: #b91c1c;
+  }
+  
+  .ob-option-dim {
+    opacity: 0.45;
+  }
+  
+  .ob-opt-letter {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    background: #f1f5f9;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 900;
+    color: var(--text-dim);
+    flex-shrink: 0;
+  }
+  
+  .ob-option-correct .ob-opt-letter { background: #dcfce7; color: #15803d; }
+  .ob-option-wrong   .ob-opt-letter { background: #fee2e2; color: #dc2626; }
+  
+  .ob-opt-text { flex: 1; }
+  
+  .ob-opt-icon {
+    font-weight: 900;
+    font-size: 1rem;
+    flex-shrink: 0;
+    color: #16a34a;
+  }
+  
+  .ob-opt-x { color: #ef4444; }
+  
+  /* Feedback strip */
+  .ob-feedback {
+    padding: 10px 16px;
+    border-radius: 10px;
+    font-size: 0.88rem;
+    font-weight: 700;
+    margin-top: 4px;
+  }
+  
+  .ob-feedback-good {
+    background: #f0fdf4;
+    color: #15803d;
+    border-left: 3px solid #22c55e;
+  }
+  
+  .ob-feedback-bad {
+    background: #fef2f2;
+    color: #b91c1c;
+    border-left: 3px solid #ef4444;
+  }
+  
+  /* Next button */
+  .ob-next-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 20px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 14px 28px;
+    border-radius: 14px;
+    font-weight: 800;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.15s;
+    font-family: inherit;
+    align-self: flex-end;
+    animation: ob-enter 0.2s ease both;
+  }
+  
+  .ob-next-btn:hover {
+    background: var(--accent-hover);
+    transform: translateY(-2px);
+  }
+  
+  /* ── Result screen ────────────────────────── */
+  .ob-result-wrapper {
+    gap: 0;
+  }
+  
+  .ob-result-card {
+    width: 100%;
+    border-radius: 24px;
+    padding: 48px 32px 40px;
+    text-align: center;
+    border: 1.5px solid rgba(0,0,0,0.06);
+    margin-bottom: 28px;
+    animation: ob-pop 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  
+  @keyframes ob-pop {
+    from { opacity: 0; transform: scale(0.92); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+  
+  .ob-result-emoji {
+    font-size: 3rem;
+    margin-bottom: 16px;
+    display: block;
+  }
+  
+  .ob-result-level-code {
+    font-size: 4rem;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -2px;
+    margin-bottom: 8px;
+  }
+  
+  .ob-result-level-label {
+    font-size: 1rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 16px;
+  }
+  
+  .ob-result-score {
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+  
+  .ob-result-message {
+    font-size: clamp(0.95rem, 2.5vw, 1.05rem);
+    color: var(--text-dim);
+    text-align: center;
+    line-height: 1.7;
+    max-width: 460px;
+    margin: 0 0 32px;
+  }
+  
+  .ob-result-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+  }
+  
+  .ob-confirm-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 16px 32px;
+    border-radius: 14px;
+    font-weight: 800;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: 0.2s;
+    font-family: inherit;
+    width: 100%;
+    justify-content: center;
+    max-width: 400px;
+  }
+  
+  .ob-confirm-btn:hover {
+    background: var(--accent-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(20, 83, 45, 0.2);
+  }
+  
+  .ob-change-btn {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    padding: 8px;
+    transition: color 0.2s;
+  }
+  
+  .ob-change-btn:hover { color: var(--accent); }
+
+  /* ── TIME & GOAL PREFERENCE SCREENS ─────────────────── */
+
+.ob-pref-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.ob-pref-card {
+  background: white;
+  border: 2px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 20px 20px 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+  font-family: inherit;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ob-pref-card:hover {
+  border-color: #16a34a;
+  background: #f0fdf4;
+  transform: translateY(-2px);
+}
+
+.ob-pref-card.ob-pref-selected {
+  border-color: #14532d;
+  background: #f0fdf4;
+  box-shadow: 0 4px 20px rgba(20, 83, 45, 0.12);
+}
+
+.ob-pref-emoji {
+  font-size: 1.6rem;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.ob-pref-label {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #0f172a;
+  font-family: 'Playfair Display', Georgia, serif;
+}
+
+.ob-pref-sub {
+  font-size: 0.82rem;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.ob-pref-badge {
+  display: inline-block;
+  background: #14532d;
+  color: white;
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 3px 10px;
+  border-radius: 20px;
+  letter-spacing: 0.05em;
+  margin-top: 6px;
+  width: fit-content;
+  text-transform: uppercase;
+}
+
+  

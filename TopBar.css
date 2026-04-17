@@ -1,0 +1,12 @@
+/* Centres and constrains on wider screens — mirrors BottomNav behaviour */
+@media (min-width: 480px) {
+    .topbar-fixed {
+      left: 50% !important;
+      right: auto !important;
+      transform: translateX(-50%);
+      width: 480px;
+      border-left: 0.5px solid #e2e8f0;
+      border-right: 0.5px solid #e2e8f0;
+    }
+  }
+  
