@@ -706,7 +706,11 @@ export default function LessonPlayer({ block, onPass, onBack, blockIndex = 0, to
               const newAnswers = [...testAnswers];
               newAnswers[currentTestQ] = val;
               setTestAnswers(newAnswers);
-              setScore(s => s + 1);
+              if (correctAnswer) {
+                if (normalise(val) === normalise(correctAnswer)) setScore(s => s + 1);
+              } else {
+                setScore(s => s + 1);
+              }
             }}>Submit answer</button>
           )}
 
@@ -715,6 +719,10 @@ export default function LessonPlayer({ block, onPass, onBack, blockIndex = 0, to
               {options.length > 0 ? (
                 <div className={`lp-feedback ${isCorrect ? 'lp-feedback-good' : 'lp-feedback-bad'}`}>
                   {isCorrect ? '✓ Correct!' : `✗ Incorrect. The correct answer is: ${correctAnswer}`}
+                </div>
+              ) : correctAnswer ? (
+                <div className={`lp-feedback ${normalise(selectedAnswer || '') === normalise(correctAnswer) ? 'lp-feedback-good' : 'lp-feedback-bad'}`}>
+                  {normalise(selectedAnswer || '') === normalise(correctAnswer) ? '✓ Correct!' : `✗ Incorrect. The correct answer is: ${correctAnswer}`}
                 </div>
               ) : (
                 <div className="lp-feedback lp-feedback-good">✓ Answer recorded — keep going!</div>
@@ -731,8 +739,8 @@ export default function LessonPlayer({ block, onPass, onBack, blockIndex = 0, to
     }
 
     if (phase === 'result') {
-      // Only count multiple-choice questions toward the score (open text always gets a point)
-      const scorableQs = (questions as any[]).filter(q => typeof q !== 'string' && q.options?.length > 0).length;
+      // Count questions that have a defined correct answer (multiple-choice or open-text with correctAnswer)
+      const scorableQs = (questions as any[]).filter(q => typeof q !== 'string' && (q.options?.length > 0 || q.correctAnswer)).length;
       const total      = questions.length;
       const passed     = scorableQs === 0 || score >= Math.ceil(scorableQs * 0.5);
 
