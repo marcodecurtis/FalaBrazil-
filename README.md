@@ -1,73 +1,63 @@
-# React + TypeScript + Vite
+# Fala Brazil — Updated CSS Files
+## How to apply these to your codebase
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+These 5 files replace the existing CSS in your `FalaBrazil-` repo.
+Drop them in and you're done — all class names are preserved.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+### Files to replace
 
-## React Compiler
+| This file → | Replaces |
+|---|---|
+| `App.css` | `App.css` (root of repo) |
+| `TodayScreen.css` | `TodayScreen.css` (root of repo) |
+| `WelcomeScreen.css` | `WelcomeScreen.css` (root of repo) |
+| `BottomNav.css` | `BottomNav.css` (root of repo) |
+| `OnboardingScreen.css` | `OnboardingScreen.css` (root of repo) |
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the ESLint configuration
+### One change needed in your TSX files
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+The new `WelcomeScreen.css` uses **Fraunces** instead of Playfair Display.
+Remove the Google Fonts import from `WelcomeScreen.css` (already done here)
+and make sure `App.css` is imported in your `main.tsx` or `App.tsx` — it
+already loads both Fraunces + DM Sans via Google Fonts.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+The `OnboardingScreen.tsx` already uses inline styles for Fraunces/Figtree —
+those will still work. The CSS updates the class-based elements around them.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+---
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### Design tokens (CSS custom properties)
+
+All set in `:root` inside `App.css`. Override any per-screen if needed:
+
+```css
+--accent:       #1a3d2b;   /* Forest green */
+--accent-hover: #2d6647;   /* Mid green */
+--accent-light: #eaf4ee;   /* Light green tint */
+--gold:         #c49a0a;   /* Solar gold */
+--gold-light:   #fdf6dc;   /* Light gold tint */
+--bg:           #faf9f5;   /* Warm off-white */
+--card-bg:      #ffffff;
+--text-main:    #181816;   /* Warm near-black */
+--text-dim:     #8a8a72;   /* Warm mid-gray */
+--border:       rgba(26,61,43,0.1);
+--font-display: 'Fraunces', Georgia, serif;
+--font-body:    'DM Sans', system-ui, sans-serif;
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+---
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+### What changed visually
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+- **Typography**: Fraunces serif for all display headings, DM Sans (light weights) for body
+- **Colors**: Refined deep green + solar gold accent system
+- **Progress bars**: Green → gold gradient
+- **Cards**: Cleaner, less aggressive borders, softer shadows
+- **Bottom nav**: Gold underline active indicator (replaces multi-color icon system)
+- **Welcome screen**: Full-bleed photo with green scrim + card sliding up
+- **Quotes**: Gold left border blockquote treatment throughout
+- **Buttons**: Refined green CTA, gold for final/special actions
