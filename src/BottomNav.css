@@ -1,88 +1,88 @@
-/* src/BottomNav.css */
+/* ─────────────────────────────────────────────────────────────
+   BottomNav.css  —  Fala Brazil Design System
+   Single gold underline active indicator · DM Sans labels
+───────────────────────────────────────────────────────────── */
 
 .bn-nav {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    /* Height + safe area for iPhone home bar & browser chrome */
-    height: calc(64px + env(safe-area-inset-bottom, 16px));
-    background: white;
-    border-top: 0.5px solid #e2e8f0;
-    display: flex;
-    align-items: flex-start; /* tabs sit at top, safe area fills bottom */
-    padding-top: 4px;
-    padding-bottom: env(safe-area-inset-bottom, 16px);
-    z-index: 9999;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: calc(60px + env(safe-area-inset-bottom, 16px));
+  background: #ffffff;
+  border-top: 1px solid rgba(26, 61, 43, 0.1);
+  display: flex;
+  align-items: flex-start;
+  padding-top: 8px;
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+  z-index: 9999;
+}
+
+@media (min-width: 480px) {
+  .bn-nav {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    width: 480px;
+    border-left: 0.5px solid rgba(26, 61, 43, 0.08);
+    border-right: 0.5px solid rgba(26, 61, 43, 0.08);
   }
-  
-  @media (min-width: 480px) {
-    .bn-nav {
-      left: 50%;
-      right: auto;
-      transform: translateX(-50%);
-      width: 480px;
-      border-left: 0.5px solid #e2e8f0;
-      border-right: 0.5px solid #e2e8f0;
-    }
-  }
-  
-  /* ── Every tab identical size ── */
-  .bn-tab {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 3px;
-    padding: 6px 2px 8px;
-    border: none;
-    background: none;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-    transition: opacity 0.15s;
-    position: relative;
-    /* Ensure tap target is always visible above safe area */
-    min-height: 56px;
-  }
-  
-  .bn-tab:active { opacity: 0.7; }
-  
-  /* ── Icon wrapper — adds coloured bg pill when active ── */
-  .bn-icon-wrap {
-    width: 36px;
-    height: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 10px;
-    transition: background 0.2s;
-  }
-  
-  .bn-icon-active {
-    background: var(--tab-bg, #f0fdf4);
-  }
-  
-  /* ── Label ── */
-  .bn-label {
-    font-size: 10px;
-    font-weight: 600;
-    color: #94a3b8;
-    font-family: inherit;
-    letter-spacing: 0.01em;
-    transition: color 0.2s;
-  }
-  
-  /* ── Active dot ── */
-  .bn-dot {
-    width: 4px;
-    height: 4px;
-    border-radius: 50%;
-    margin-top: 1px;
-  }
-  
-  /* ── Page bottom padding so content clears the nav ── */
-  .bn-page-padding {
-    padding-bottom: calc(80px + env(safe-area-inset-bottom, 16px));
-  }
-  
+}
+
+/* ── Tab button ─────────────────────────────────────────────── */
+.bn-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+  padding: 2px 2px 8px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 0.15s;
+  min-height: 52px;
+}
+.bn-tab:active { opacity: 0.6; }
+
+/* ── Icon wrapper ───────────────────────────────────────────── */
+.bn-icon-wrap {
+  width: 32px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+
+/* Subtle tinted bg on active (uses CSS var set inline by component) */
+.bn-icon-active {
+  background: var(--tab-bg, #eaf4ee);
+}
+
+/* ── Label ──────────────────────────────────────────────────── */
+.bn-label {
+  font-family: 'DM Sans', system-ui, sans-serif;
+  font-size: 9.5px;
+  font-weight: 300;
+  color: #8a8a72;
+  letter-spacing: 0.01em;
+  transition: color 0.2s, font-weight 0.2s;
+}
+
+/* ── Active indicator — gold underline dot ──────────────────── */
+.bn-dot {
+  width: 18px;
+  height: 3px;
+  border-radius: 2px;
+  margin-top: 1px;
+  /* colour set inline by the component */
+}
+
+/* ── Page bottom padding so content clears nav ──────────────── */
+.bn-page-padding {
+  padding-bottom: calc(72px + env(safe-area-inset-bottom, 16px));
+}

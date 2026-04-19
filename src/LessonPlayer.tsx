@@ -29,7 +29,7 @@ function getWrongOptions(correctWord: string, allWords: { word: string; translat
 }
 
 export default function LessonPlayer({ block, onPass, onBack, blockIndex = 0, totalBlocks = 1 }: Props) {
-  const [phase, setPhase]                   = useState<'learn' | 'test' | 'result'>('learn');
+  const [phase, setPhase]                   = useState<'list' | 'learn' | 'test' | 'result'>('list');
   const [cardIndex, setCardIndex]           = useState(0);
   const [flipped, setFlipped]               = useState(false);
   const [testAnswers, setTestAnswers]       = useState<(string | null)[]>([]);
@@ -81,13 +81,49 @@ export default function LessonPlayer({ block, onPass, onBack, blockIndex = 0, to
       );
     }
 
+    if (phase === 'list') {
+      return (
+        <div className="lp-wrapper">
+          <div className="lp-header">
+            <button className="lp-back-btn" onClick={onBack}>{blockIndex > 0 ? '← Previous' : '← Back'}</button>
+            <div className="lp-header-title">{block.title}</div>
+            <div className="lp-counter">{words.length} words</div>
+          </div>
+          <div className="lp-phase-label">Today's vocabulary</div>
+
+          {/* Word list table */}
+          <div style={{ background: 'white', border: '0.5px solid #e2e8f0', borderRadius: 14, overflow: 'hidden', marginBottom: 16 }}>
+            <div style={{ display: 'flex', padding: '8px 16px', background: '#f8fafc', borderBottom: '0.5px solid #e2e8f0' }}>
+              <span style={{ flex: 1, fontSize: '0.7rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Portuguese</span>
+              <span style={{ flex: 1, fontSize: '0.7rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>English</span>
+            </div>
+            {words.map((w, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '11px 16px', borderBottom: i < words.length - 1 ? '0.5px solid #f1f5f9' : 'none', gap: 8 }}>
+                <span style={{ flex: 1, fontSize: '0.9rem', fontWeight: 700, color: '#0f172a' }}>{w.word}</span>
+                <span style={{ flex: 1, fontSize: '0.85rem', color: '#475569' }}>{w.translation}</span>
+                <button
+                  onClick={() => speak(w.word)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', fontSize: '1rem', flexShrink: 0 }}
+                  title="Listen"
+                >🔊</button>
+              </div>
+            ))}
+          </div>
+
+          <button className="lp-next-btn" onClick={() => { setPhase('learn'); setCardIndex(0); setFlipped(false); }}>
+            Practise with flashcards →
+          </button>
+        </div>
+      );
+    }
+
     if (phase === 'learn') {
       const card   = words[cardIndex];
       const isLast = cardIndex === words.length - 1;
       return (
         <div className="lp-wrapper">
           <div className="lp-header">
-            <button className="lp-back-btn" onClick={onBack}>{blockIndex > 0 ? '← Previous' : '← Back'}</button>
+            <button className="lp-back-btn" onClick={() => setPhase('list')}>{blockIndex > 0 ? '← List' : '← List'}</button>
             <div className="lp-header-title">{block.title}</div>
             <div className="lp-counter">{totalBlocks > 1 ? `${blockIndex + 1}/${totalBlocks} · ` : ''}{cardIndex + 1} / {words.length}</div>
           </div>
@@ -165,7 +201,7 @@ export default function LessonPlayer({ block, onPass, onBack, blockIndex = 0, to
       return (
         <div className="lp-wrapper">
           <div className="lp-header">
-            <button className="lp-back-btn" onClick={() => { setPhase('learn'); setSelectedOption(null); setShowFeedback(false); }}>← Study</button>
+            <button className="lp-back-btn" onClick={() => { setPhase('list'); setSelectedOption(null); setShowFeedback(false); }}>← Words</button>
             <div className="lp-header-title">Quick test</div>
             <div className="lp-counter">{currentTestQ + 1} / {testWords.length}</div>
           </div>
@@ -227,7 +263,7 @@ export default function LessonPlayer({ block, onPass, onBack, blockIndex = 0, to
               <>
                 <div className="lp-result-title">Not quite there yet</div>
                 <div className="lp-result-sub">You need {passScore}/{total} to pass. Study the words again and retry.</div>
-                <button className="lp-result-btn" onClick={() => { setPhase('learn'); setCardIndex(0); setFlipped(false); setScore(0); setSelectedOption(null); setShowFeedback(false); }}>Study again →</button>
+                <button className="lp-result-btn" onClick={() => { setPhase('list'); setCardIndex(0); setFlipped(false); setScore(0); setSelectedOption(null); setShowFeedback(false); }}>Study again →</button>
                 <button className="lp-result-btn-sec" onClick={resetTest}>Retry test</button>
               </>
             )}
@@ -670,7 +706,11 @@ export default function LessonPlayer({ block, onPass, onBack, blockIndex = 0, to
               const newAnswers = [...testAnswers];
               newAnswers[currentTestQ] = val;
               setTestAnswers(newAnswers);
-              setScore(s => s + 1);
+              if (correctAnswer) {
+                if (normalise(val) === normalise(correctAnswer)) setScore(s => s + 1);
+              } else {
+                setScore(s => s + 1);
+              }
             }}>Submit answer</button>
           )}
 
@@ -679,6 +719,10 @@ export default function LessonPlayer({ block, onPass, onBack, blockIndex = 0, to
               {options.length > 0 ? (
                 <div className={`lp-feedback ${isCorrect ? 'lp-feedback-good' : 'lp-feedback-bad'}`}>
                   {isCorrect ? '✓ Correct!' : `✗ Incorrect. The correct answer is: ${correctAnswer}`}
+                </div>
+              ) : correctAnswer ? (
+                <div className={`lp-feedback ${normalise(selectedAnswer || '') === normalise(correctAnswer) ? 'lp-feedback-good' : 'lp-feedback-bad'}`}>
+                  {normalise(selectedAnswer || '') === normalise(correctAnswer) ? '✓ Correct!' : `✗ Incorrect. The correct answer is: ${correctAnswer}`}
                 </div>
               ) : (
                 <div className="lp-feedback lp-feedback-good">✓ Answer recorded — keep going!</div>
@@ -695,16 +739,38 @@ export default function LessonPlayer({ block, onPass, onBack, blockIndex = 0, to
     }
 
     if (phase === 'result') {
+      // Count questions that have a defined correct answer (multiple-choice or open-text with correctAnswer)
+      const scorableQs = (questions as any[]).filter(q => typeof q !== 'string' && (q.options?.length > 0 || q.correctAnswer)).length;
+      const total      = questions.length;
+      const passed     = scorableQs === 0 || score >= Math.ceil(scorableQs * 0.5);
+
       return (
         <div className="lp-wrapper">
           <div className="lp-result-card">
-            <div className="lp-result-circle lp-result-pass">
-              <div className="lp-result-num">✓</div>
-              <div className="lp-result-label">Done!</div>
+            <div className={`lp-result-circle ${passed ? 'lp-result-pass' : 'lp-result-fail'}`}>
+              <div className="lp-result-num">{score}/{total}</div>
+              <div className="lp-result-label">{passed ? 'Done!' : 'Try again'}</div>
             </div>
-            <div className="lp-result-title">Reading complete! 📰</div>
-            <div className="lp-result-sub">Great work — you answered all the questions.</div>
-            <button className="lp-result-btn" onClick={onPass}>Continue →</button>
+            {passed ? (
+              <>
+                <div className="lp-result-title">Reading complete! 📰</div>
+                <div className="lp-result-sub">
+                  {score === total ? 'Perfect score — great comprehension!' : `${score} out of ${total} correct — well done!`}
+                </div>
+                <button className="lp-result-btn" onClick={onPass}>Continue →</button>
+              </>
+            ) : (
+              <>
+                <div className="lp-result-title">Not quite there</div>
+                <div className="lp-result-sub">
+                  You got {score} out of {total}. Re-read the passage and try again — the answers are all in the text.
+                </div>
+                <button className="lp-result-btn" onClick={() => { setPhase('learn'); setScore(0); setTestAnswers([]); setCurrentTestQ(0); }}>
+                  Re-read & try again →
+                </button>
+                <button className="lp-result-btn-sec" onClick={onPass}>Skip and continue</button>
+              </>
+            )}
           </div>
         </div>
       );

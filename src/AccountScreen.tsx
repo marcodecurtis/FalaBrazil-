@@ -39,12 +39,15 @@ const LEVELS = [
 ];
 
 export default function AccountScreen({ isLoggedIn, userData, userLevel, onNavigate, onLogout, onLevelChange }: Props) {
-  const [showAbout, setShowAbout]       = useState(false);
-  const [editingLevel, setEditingLevel] = useState(false);
+  const [showAbout, setShowAbout]             = useState(false);
+  const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
+  const [editingLevel, setEditingLevel]       = useState(false);
 
   const currentLevel = userLevel || userData?.level || null;
 
   if (showAbout) return <AboutScreen onBack={() => setShowAbout(false)} />;
+
+  if (showPrivacyPolicy) return <PrivacyPolicyScreen onBack={() => setShowPrivacyPolicy(false)} />;
 
   if (!isLoggedIn) {
     return (
@@ -156,7 +159,7 @@ export default function AccountScreen({ isLoggedIn, userData, userLevel, onNavig
       </div>
 
       <div style={{ background: 'white', border: '0.5px solid #e2e8f0', borderRadius: 14, overflow: 'hidden', marginBottom: 16 }}>
-        <LinkRow label="Privacy Policy" onClick={() => window.open('/privacy-policy.html', '_blank')} />
+        <LinkRow label="Privacy Policy" onClick={() => setShowPrivacyPolicy(true)} />
         <LinkRow label="About Fala Brazil!" onClick={() => setShowAbout(true)} last />
       </div>
 
@@ -182,5 +185,49 @@ function LinkRow({ label, onClick, last }: { label: string; onClick: () => void;
       <span style={{ fontSize: '0.85rem', color: '#0f172a' }}>{label}</span>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
     </button>
+  );
+}
+
+function PrivacyPolicyScreen({ onBack }: { onBack: () => void }) {
+  return (
+    <div style={{ maxWidth: 480, margin: '0 auto', padding: '0 16px' }} className="bn-page-padding">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '20px 0 16px' }}>
+        <button onClick={onBack} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0f172a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+        </button>
+        <h1 style={{ fontSize: '1.3rem', fontWeight: 900, color: '#0f172a', margin: 0 }}>Privacy Policy</h1>
+      </div>
+
+      <div style={{ background: 'white', border: '0.5px solid #e2e8f0', borderRadius: 16, padding: '20px 20px 24px', marginBottom: 24 }}>
+        <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: 16 }}>Last updated: 22 March 2026</p>
+        <p style={{ fontSize: '0.85rem', color: '#374151', lineHeight: 1.7, marginBottom: 12 }}>Welcome to <strong>Fala Brazil!</strong> This Privacy Policy explains how we collect, use, and protect your information.</p>
+
+        {[
+          { title: '1. Information We Collect', content: 'If you create an account, we collect your name and email address. We also collect your selected level, lesson progress, and basic usage data (pages visited, device type). Google Sign-In users also share a profile picture from Google.' },
+          { title: '2. How We Use Your Information', content: 'We use your data to create and manage your account, personalise your learning experience, save progress across devices, and improve the app. We do not sell your data to third parties or use it for advertising.' },
+          { title: '3. Data Storage', content: 'Account data is stored securely via Google Firebase (EU/US servers, GDPR-compliant). If you use the app without an account, your progress is stored only on your device.' },
+          { title: '4. AI Features', content: "Fala Brazil! uses Anthropic's Claude AI for lesson content and the AI Tutor. Your questions and level context are sent to Anthropic's API to generate responses. We do not store these conversations." },
+          { title: '5. Cookies & Local Storage', content: 'We use browser local storage to remember your level and preferences. We do not use advertising or third-party tracking cookies.' },
+          { title: '6. Your Rights (GDPR)', content: 'If you are in the EU or UK, you have the right to access, correct, delete, or export your data, and to object to certain uses. Contact us to exercise these rights.' },
+          { title: '7. Data Retention', content: 'We retain account data while your account is active. If you delete your account, your data is removed within 30 days.' },
+          { title: '8. Children\'s Privacy', content: 'Fala Brazil! is not directed at children under 13. We do not knowingly collect data from children under 13.' },
+          { title: '9. Changes', content: 'We may update this policy and will update the date above. We encourage periodic review.' },
+        ].map(({ title, content }) => (
+          <div key={title} style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#14532d', marginBottom: 4 }}>{title}</div>
+            <p style={{ fontSize: '0.82rem', color: '#374151', lineHeight: 1.65, margin: 0 }}>{content}</p>
+          </div>
+        ))}
+
+        <div style={{ background: '#f0fdf4', border: '0.5px solid #bbf7d0', borderRadius: 12, padding: '14px 16px', marginTop: 8 }}>
+          <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#14532d', marginBottom: 4 }}>10. Contact Us</div>
+          <p style={{ fontSize: '0.82rem', color: '#374151', lineHeight: 1.65, margin: 0 }}>
+            Questions about this policy or your data rights?<br />
+            <strong>Fala Brazil!</strong> — Created by Marco De Curtis<br />
+            Email: <a href="mailto:privacy@falabrazil.app" style={{ color: '#16a34a' }}>privacy@falabrazil.app</a>
+          </p>
+        </div>
+      </div>
+    </div>
   );
 }

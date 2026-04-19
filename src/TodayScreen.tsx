@@ -7,6 +7,7 @@ import './TodayScreen.css';
 interface Props {
   userLevel: string | null;
   onNavigate: (view: string) => void;
+  onProgressUpdate?: (pts: number, streak: number, lessons: number) => void;
 }
 
 export interface LessonBlock {
@@ -100,11 +101,11 @@ const QUOTES_BY_LEVEL: Record<string, { pt: string; en: string; source: string }
   ],
 };
 
-const getCacheKey = (level: string) => `lessons_cache_${level}`;
+const getCacheKey = (level: string, dayNumber: number) => `lessons_cache_${level}_d${dayNumber}`;
 
-const getCachedLessons = (level: string): DailyContent | null => {
+const getCachedLessons = (level: string, dayNumber: number): DailyContent | null => {
   try {
-    const cached = localStorage.getItem(getCacheKey(level));
+    const cached = localStorage.getItem(getCacheKey(level, dayNumber));
     if (!cached) return null;
     const { content, cachedAt } = JSON.parse(cached);
     const isValid = Date.now() - cachedAt < 24 * 60 * 60 * 1000;
@@ -112,24 +113,24 @@ const getCachedLessons = (level: string): DailyContent | null => {
   } catch { return null; }
 };
 
-const setCachedLessons = (level: string, content: DailyContent) => {
+const setCachedLessons = (level: string, dayNumber: number, content: DailyContent) => {
   try {
-    localStorage.setItem(getCacheKey(level), JSON.stringify({ content, cachedAt: Date.now() }));
+    localStorage.setItem(getCacheKey(level, dayNumber), JSON.stringify({ content, cachedAt: Date.now() }));
   } catch { }
 };
 
-const fetchLessonsFromAPI = async (level: string, timePreference: string, learningGoal: string): Promise<DailyContent> => {
+const fetchLessonsFromAPI = async (level: string, timePreference: string, learningGoal: string, dayNumber: number): Promise<DailyContent> => {
   const res = await fetch('/api/curriculum', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ level, timePreference, learningGoal, type: 'daily' }),
+    body: JSON.stringify({ level, timePreference, learningGoal, type: 'daily', dayNumber }),
   });
   const data = await res.json();
   if (data.error) throw new Error(data.error);
   return data;
 };
 
-export default function TodayScreen({ userLevel, onNavigate }: Props) {
+export default function TodayScreen({ userLevel, onNavigate, onProgressUpdate }: Props) {
   const [dailyContent, setDailyContent]     = useState<DailyContent | null>(null);
   const [loading, setLoading]               = useState(true);
   const [error, setError]                   = useState('');
@@ -142,11 +143,19 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
   const [activeLessonIsRequired, setActiveLessonIsRequired] = useState(false);
   const [activeBlockIndex, setActiveBlockIndex] = useState(0);
   const [showCelebration, setShowCelebration] = useState(false);
-  const [completedToday, setCompletedToday] = useState<string[]>([]);
+  const [completedToday, setCompletedToday] = useState<string[]>(() => {
+    // Restore today's completed lessons from localStorage so navigation doesn't reset them
+    const today = new Date().toISOString().split('T')[0];
+    try {
+      const saved = localStorage.getItem(`completedToday_${today}`);
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
 
   const level          = userLevel || 'A1';
   const timePreference = localStorage.getItem('timePreference') || '30';
   const learningGoal   = localStorage.getItem('learningGoal')   || 'conversation';
+  const dayNumber      = parseInt(localStorage.getItem('currentDay') || '1', 10);
   const lessonsNeeded  = LESSONS_PER_LEVEL[timePreference] || 30;
   const levelProgress  = Math.min(100, Math.round((lessonsCompleted / lessonsNeeded) * 100));
   const nextLevel      = NEXT_LEVEL[level];
@@ -229,7 +238,34 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
         localStorage.setItem('lessonsCompleted', savedLessons.toString());
         localStorage.setItem('streak', currentStreak.toString());
         localStorage.setItem('totalPts', savedPts.toString());
-        loadLessons();
+
+        // Restore which lessons were completed today from Firestore,
+        // so navigating away/refreshing/other devices all show correct state.
+        if (data.completedTodayDate === today && Array.isArray(data.completedTodayIds)) {
+          const fromStorage: string[] = (() => {
+            try { return JSON.parse(localStorage.getItem(`completedToday_${today}`) || '[]'); } catch { return []; }
+          })();
+          const merged = Array.from(new Set([...data.completedTodayIds, ...fromStorage]));
+          setCompletedToday(merged);
+          localStorage.setItem(`completedToday_${today}`, JSON.stringify(merged));
+        }
+
+        // Advance to next day only when returning on a new calendar day after
+        // completing the previous required lesson. This keeps the same lesson
+        // visible as "done" if the user navigates away and back on the same day.
+        const firestoreDay = data.currentDay || 1;
+        let activeDayNum = firestoreDay;
+        if (lastLessonDate && lastLessonDate !== today) {
+          activeDayNum = firestoreDay + 1;
+          localStorage.setItem('currentDay', String(activeDayNum));
+          try {
+            await updateDoc(doc(db, 'users', uid), { currentDay: activeDayNum });
+          } catch {}
+        } else {
+          localStorage.setItem('currentDay', String(firestoreDay));
+        }
+
+        loadLessons(false, activeDayNum);
       } else {
         loadLessons();
       }
@@ -238,9 +274,9 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
     }
   };
 
-  const loadLessons = async (forceRefresh = false) => {
+  const loadLessons = async (forceRefresh = false, dayNum = dayNumber) => {
     if (!forceRefresh) {
-      const cached = getCachedLessons(level);
+      const cached = getCachedLessons(level, dayNum);
       if (cached) {
         setDailyContent(cached);
         setLoading(false);
@@ -250,8 +286,8 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
     setLoading(true);
     setError('');
     try {
-      const content = await fetchLessonsFromAPI(level, timePreference, learningGoal);
-      setCachedLessons(level, content);
+      const content = await fetchLessonsFromAPI(level, timePreference, learningGoal, dayNum);
+      setCachedLessons(level, dayNum, content);
       setDailyContent(content);
     } catch {
       setError('Could not load lessons. Please check your connection.');
@@ -260,7 +296,7 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
     }
   };
 
-  const saveProgress = async (newLessons: number, newPts: number, newStreak: number, requiredDone: boolean) => {
+  const saveProgress = async (newLessons: number, newPts: number, newStreak: number, requiredDone: boolean, completedIds: string[]) => {
     const today = new Date().toISOString().split('T')[0];
     localStorage.setItem('lessonsCompleted', newLessons.toString());
     localStorage.setItem('totalPts', newPts.toString());
@@ -271,7 +307,12 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
     const user = auth.currentUser;
     if (user) {
       try {
-        const updateData: any = { lessonsCompleted: newLessons, totalPts: newPts };
+        const updateData: any = {
+          lessonsCompleted: newLessons,
+          totalPts: newPts,
+          completedTodayIds: completedIds,
+          completedTodayDate: today,
+        };
         if (requiredDone) {
           updateData.streak = newStreak;
           updateData.lastLessonDate = today;
@@ -296,15 +337,22 @@ export default function TodayScreen({ userLevel, onNavigate }: Props) {
         const daysDiff = Math.floor((todayDate.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
         newStreak = daysDiff === 1 ? streak + 1 : 1;
       }
+      // Day advances on the NEXT session (in loadFromFirebase), not immediately.
+      // This keeps the lesson visible as "done" when navigating away and back same day.
       setStreak(newStreak);
       setShowCelebration(true);
     }
     setLessonsCompleted(newLessons);
     setTotalPts(newPts);
-    setCompletedToday([...completedToday, lesson.id]);
+    const newCompleted = [...completedToday, lesson.id];
+    setCompletedToday(newCompleted);
+    // Persist so coming back to this tab doesn't reset the completed state
+    const today = new Date().toISOString().split('T')[0];
+    localStorage.setItem(`completedToday_${today}`, JSON.stringify(newCompleted));
     setActiveLesson(null);
     setActiveLessonIsRequired(false);
-    await saveProgress(newLessons, newPts, newStreak, isRequired);
+    onProgressUpdate?.(newPts, newStreak, newLessons);
+    await saveProgress(newLessons, newPts, newStreak, isRequired, newCompleted);
   };
 
   const handleLessonStart = (lesson: Lesson, isRequired: boolean, blockIndex = 0) => {

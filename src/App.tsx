@@ -278,6 +278,7 @@ export default function App() {
           <IsabelaStudio
             onBack={() => navigateTo('today')}
             userLevel={userLevel}
+            uid={auth.currentUser?.uid ?? null}
           />
         </div>
         <BottomNav active={'isabela'} onNavigate={(tab) => navigateTo(tab)} />
@@ -297,6 +298,11 @@ export default function App() {
           <TodayScreen
             userLevel={userLevel}
             onNavigate={(v) => navigateTo(v as AppView)}
+            onProgressUpdate={(pts, str, lessons) => {
+              setTotalPts(pts);
+              setStreak(str);
+              setLessonsCompleted(lessons);
+            }}
           />
         )}
 

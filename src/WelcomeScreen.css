@@ -1,25 +1,25 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=DM+Sans:wght@400;500;600&display=swap');
+/* ─────────────────────────────────────────────────────────────
+   WelcomeScreen.css  —  Fala Brazil Design System
+   Fraunces display + DM Sans body · Green + Gold palette
+───────────────────────────────────────────────────────────── */
 
-/* ── ROOT ─────────────────────────────────────────── */
+/* ── ROOT ───────────────────────────────────────────────────── */
 .wc-root {
   width: 100%;
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
-  background: #fafaf8;
+  background: #0a1a10;
   overflow: hidden;
 }
 
-/* ── IMAGE SECTION (top 50%) ──────────────────────── */
+/* ── IMAGE SECTION ──────────────────────────────────────────── */
 .wc-image-section {
   position: relative;
   width: 100%;
-  height: 52vh;
-  min-height: 280px;
-  max-height: 420px;
+  flex: 0 0 55%;
   overflow: hidden;
-  flex-shrink: 0;
-  animation: wc-photo-in 0.6s ease both;
+  animation: wc-photo-in 0.5s ease both;
 }
 
 .wc-photo {
@@ -29,229 +29,220 @@
   object-position: center 35%;
 }
 
+/* Green-tinted scrim — brand filter on every photo */
 .wc-photo-scrim {
   position: absolute;
   inset: 0;
   background: linear-gradient(
     to bottom,
-    rgba(0,0,0,0.25) 0%,
-    rgba(0,0,0,0.1) 50%,
-    rgba(0,0,0,0.45) 100%
+    rgba(10, 26, 16, 0.08) 0%,
+    rgba(10, 26, 16, 0.00) 28%,
+    rgba(10, 26, 16, 0.88) 100%
   );
 }
 
-/* ── LOGO over image ──────────────────────────────── */
+/* ── LOGO OVERLAY ───────────────────────────────────────────── */
 .wc-logo-overlay {
   position: absolute;
-  top: 20px;
-  left: 24px;
+  top: 52px;
+  left: 20px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 9px;
   z-index: 10;
 }
 
 .wc-flag {
-  width: 32px;
-  height: 22px;
-  border-radius: 4px;
-  object-fit: cover;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  width: 22px;
+  border-radius: 3px;
+  opacity: 0.9;
 }
 
 .wc-logo-text {
-  font-family: 'Playfair Display', serif;
-  font-size: 1.4rem;
-  font-weight: 900;
-  color: #ffffff;
-  letter-spacing: -0.2px;
-  text-shadow: 0 2px 12px rgba(0,0,0,0.4);
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 0.88rem;
+  font-weight: 300;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.9);
+  letter-spacing: 0.01em;
 }
 
-/* ── SKIP over image ──────────────────────────────── */
+/* ── SKIP ───────────────────────────────────────────────────── */
 .wc-skip {
   position: absolute;
-  top: 20px;
-  right: 20px;
+  top: 52px;
+  right: 18px;
   z-index: 10;
-  background: rgba(255,255,255,0.18);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255,255,255,0.35);
-  color: #ffffff;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.45);
   font-family: 'DM Sans', sans-serif;
-  font-size: 0.82rem;
-  font-weight: 600;
-  padding: 7px 16px;
-  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 400;
   cursor: pointer;
-  transition: background 0.2s;
-  letter-spacing: 0.3px;
+  padding: 4px 8px;
+  letter-spacing: 0.02em;
+  transition: color 0.2s;
+}
+.wc-skip:hover { color: rgba(255, 255, 255, 0.75); }
+
+/* Eyebrow at bottom of photo */
+.wc-eyebrow-photo {
+  position: absolute;
+  bottom: 18px;
+  left: 20px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #c49a0a; /* gold */
 }
 
-.wc-skip:hover {
-  background: rgba(255,255,255,0.28);
-}
-
-/* ── CONTENT CARD (bottom half) ───────────────────── */
+/* ── CONTENT CARD ───────────────────────────────────────────── */
 .wc-card {
   flex: 1;
-  background: #fafaf8;
-  padding: 32px 28px 36px;
+  background: #ffffff;
+  border-radius: 22px 22px 0 0;
+  margin-top: -16px;
+  padding: 22px 22px 0;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  text-align: center;
-  animation: wc-card-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  overflow: hidden;
+  animation: wc-card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+/* Eyebrow inside card (legacy support) */
 .wc-eyebrow {
   font-family: 'DM Sans', sans-serif;
-  font-size: 0.68rem;
+  font-size: 0.58rem;
   font-weight: 600;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #16a34a;
-  margin-bottom: 12px;
+  color: #c49a0a;
+  margin-bottom: 8px;
 }
 
+/* Title — Fraunces serif, light weight */
 .wc-title {
-  font-family: 'Playfair Display', serif;
-  font-size: clamp(1.5rem, 5vw, 2.1rem);
-  font-weight: 900;
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: clamp(1.4rem, 5vw, 1.9rem);
+  font-weight: 300;
   line-height: 1.15;
-  color: #0f1a0f;
-  margin: 0 0 8px;
-  letter-spacing: -0.3px;
-  max-width: 480px;
+  color: #1a3d2b;
+  margin: 0 0 5px;
+  letter-spacing: -0.02em;
 }
 
+/* Portuguese subtitle — italic Fraunces in gold */
 .wc-title-pt {
-  font-family: 'Playfair Display', serif;
-  font-size: clamp(0.95rem, 3vw, 1.15rem);
-  font-weight: 700;
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: clamp(0.82rem, 2.8vw, 1rem);
+  font-weight: 300;
   font-style: italic;
-  color: #94a3b8;
-  margin: 0 0 14px;
+  color: #c49a0a;
+  margin: 0 0 10px;
   line-height: 1.35;
-  max-width: 400px;
 }
 
+/* Description */
 .wc-desc {
   font-family: 'DM Sans', sans-serif;
-  font-size: 0.95rem;
-  color: #64748b;
+  font-size: 0.82rem;
+  color: #8a8a72;
   line-height: 1.65;
-  margin: 0 0 28px;
-  font-weight: 400;
-  max-width: 360px;
+  margin: 0 0 16px;
+  font-weight: 300;
+  flex: 1;
 }
 
-/* ── DOTS ─────────────────────────────────────────── */
-.wc-dots {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 20px;
-}
-
-.wc-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #d1d5db;
-  border: none;
-  cursor: pointer;
-  padding: 0;
-  transition: all 0.35s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-/* ── FIX: active dot stays a circle ──────────────── */
-.wc-dot-active {
-  background: #16a34a !important;
-}
-
-/* ── BUTTON ───────────────────────────────────────── */
-.wc-btn {
-  width: 100%;
-  max-width: 320px;
-  padding: 15px 28px;
-  border: none;
-  border-radius: 14px;
-  background: #14532d;
-  color: white;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 1rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
-  box-shadow: 0 4px 20px rgba(20,83,45,0.25);
-  letter-spacing: 0.2px;
-}
-
-.wc-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 28px rgba(20,83,45,0.35);
-}
-
-.wc-btn-final {
-  background: #16a34a;
-  animation: wc-glow 2.5s ease-in-out infinite;
-}
-
-/* ── ANIMATIONS ───────────────────────────────────── */
-@keyframes wc-photo-in {
-  from { opacity: 0; transform: scale(1.04); }
-  to   { opacity: 1; transform: scale(1); }
-}
-
-@keyframes wc-card-in {
-  from { opacity: 0; transform: translateY(18px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes wc-glow {
-  0%, 100% { box-shadow: 0 4px 20px rgba(22,163,74,0.3); }
-  50%       { box-shadow: 0 4px 40px rgba(22,163,74,0.55); }
-}
-
-/* ── FEATURES GRID ────────────────────────────────── */
+/* ── FEATURES GRID (slide 4) ────────────────────────────────── */
 .wc-features {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 10px;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
   width: 100%;
-  max-width: 380px;
-  margin-bottom: 24px;
+  margin-bottom: 14px;
+  flex: 1;
 }
 
 .wc-feature-item {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
-  border-radius: 12px;
-  padding: 12px 8px;
-  gap: 4px;
+  background: #faf9f5;
+  border-radius: 9px;
+  padding: 9px 10px;
+  gap: 2px;
 }
 
-.wc-feature-icon {
-  font-size: 1.3rem;
-  margin-bottom: 2px;
-}
-
+.wc-feature-icon  { font-size: 1.2rem; margin-bottom: 2px; }
 .wc-feature-label {
   font-family: 'DM Sans', sans-serif;
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: #14532d;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #1a3d2b;
 }
-
 .wc-feature-desc {
   font-family: 'DM Sans', sans-serif;
   font-size: 0.62rem;
-  color: #64748b;
-  text-align: center;
+  color: #8a8a72;
   line-height: 1.3;
+  font-weight: 300;
+}
+
+/* ── DOTS ───────────────────────────────────────────────────── */
+.wc-dots {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  margin-bottom: 13px;
+}
+
+.wc-dot {
+  height: 3px;
+  border-radius: 2px;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  background: rgba(26, 61, 43, 0.15);
+  transition: width 0.25s ease, background 0.25s ease;
+  width: 5px;
+}
+
+.wc-dot-active {
+  background: #c49a0a !important;
+  width: 18px !important;
+}
+
+/* ── BUTTONS ────────────────────────────────────────────────── */
+.wc-btn {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 12px;
+  background: #1a3d2b;
+  color: white;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.88rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+  margin-bottom: 20px;
+}
+.wc-btn:hover { background: #2d6647; transform: translateY(-1px); }
+
+.wc-btn-final {
+  background: #c49a0a;
+}
+.wc-btn-final:hover { background: #a87f00; }
+
+/* ── ANIMATIONS ─────────────────────────────────────────────── */
+@keyframes wc-photo-in {
+  from { opacity: 0; transform: scale(1.03); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes wc-card-in {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
 }

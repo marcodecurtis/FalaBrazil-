@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Level } from './App';
+import { saveIsabelaSession } from './dataService';
 
 // ── Feedback parser ───────────────────────────────────────────────
 interface ParsedFeedback {
@@ -37,6 +38,7 @@ function parseFeedback(text: string): ParsedFeedback {
 interface Props {
   onBack: () => void;
   userLevel: Level | null;
+  uid: string | null;
 }
 
 type Screen = 'intro' | 'mic-setup' | 'conversation' | 'feedback';
@@ -68,7 +70,7 @@ CRITICAL RULES:
 
 The student is at level STUDENT_LEVEL. Start by greeting them warmly and asking about their day or something they did recently.`;
 
-export default function IsabelaStudio({ onBack, userLevel }: Props) {
+export default function IsabelaStudio({ onBack, userLevel, uid }: Props) {
   const level = userLevel || 'B1';
 
   const [screen, setScreen] = useState<Screen>('intro');
@@ -654,17 +656,29 @@ export default function IsabelaStudio({ onBack, userLevel }: Props) {
     setFeedbackLoading(true);
     setScreen('feedback');
 
+    const sessionDuration = SESSION_DURATION_SECONDS - timeLeft;
+    const transcript = [...transcriptLogRef.current];
+
     try {
       const res = await fetch('/api/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: transcriptLogRef.current,
-          level,
-        }),
+        body: JSON.stringify({ messages: transcript, level }),
       });
       const data = await res.json();
-      setFeedback(data.feedback || 'Great session!');
+      const feedbackText = data.feedback || 'Great session!';
+      setFeedback(feedbackText);
+
+      if (uid) {
+        const parsed = parseFeedback(feedbackText);
+        saveIsabelaSession(uid, {
+          level,
+          durationSeconds: sessionDuration,
+          rating: parsed.rating,
+          feedback: feedbackText,
+          transcript,
+        }).catch(err => console.error('Failed to save Isabela session:', err));
+      }
     } catch {
       setFeedback('Unable to generate feedback. But great session!');
     } finally {
